@@ -49,6 +49,8 @@ test("a tool found only as an editor extension gets editor instructions, not a C
   assert.equal(result.best.id, "codex");
   assert.doesNotMatch(result.best.command, /^codex "/);
   assert.match(result.best.command, /VS Code/);
+  assert.match(result.best.reason, /agent inside your editor/);
+  assert.doesNotMatch(result.best.reason, /terminal agent/);
 });
 
 test("no tools installed suggests what to install", () => {

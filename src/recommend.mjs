@@ -31,11 +31,12 @@ function score(tool, categories, prefer, privacy) {
   return total;
 }
 
-function reasonFor(tool, categories, privacy) {
+function reasonFor(tool, found, categories, privacy) {
   const caps = tool.capabilities;
   const parts = [];
+  const inTerminal = isCliTool(tool) && hasCommand(found);
   if (caps.local) parts.push("runs locally: your code never leaves this machine");
-  else if (caps.agent) parts.push(isCliTool(tool) ? "terminal agent: edits many files and runs your commands" : "agent inside your editor");
+  else if (caps.agent) parts.push(inTerminal ? "terminal agent: edits many files and runs your commands" : "agent inside your editor");
   if (caps.inline && categories.includes("quick-edit")) parts.push("fast inline edits");
   if (caps.largeContext && (categories.includes("explain-codebase") || categories.includes("refactor"))) parts.push("very large context window for whole-codebase work");
   if (caps.freeTier) parts.push("free tier");
@@ -53,7 +54,7 @@ function commandFor(tool, found, template, task) {
 
 function describe(found, categories, privacy, task) {
   const tool = toolById(found.id);
-  return { id: tool.id, name: tool.name, reason: reasonFor(tool, categories, privacy), command: commandFor(tool, found, tool.run, task) };
+  return { id: tool.id, name: tool.name, reason: reasonFor(tool, found, categories, privacy), command: commandFor(tool, found, tool.run, task) };
 }
 
 export function recommend({ task, categories, installed, sensitive = [], prefer = "balanced", private: forcePrivate = false }) {
