@@ -1,0 +1,96 @@
+{
+  "asOf": "2026-10-19",
+  "note": "Capabilities describe features, not model quality. Update this file when tools change.",
+  "tools": [
+    {
+      "id": "claude-code",
+      "name": "Claude Code",
+      "homepage": "https://claude.com/claude-code",
+      "detect": { "bins": ["claude"], "homeDirs": [".claude"], "extensions": ["anthropic.claude-code"] },
+      "capabilities": { "agent": true, "inline": false, "largeContext": true, "local": false, "freeTier": false },
+      "rulesFile": "CLAUDE.md",
+      "run": "claude \"{task}\"",
+      "review": "claude \"Review the uncommitted changes and the last commit for bugs, security issues and missing tests\""
+    },
+    {
+      "id": "codex",
+      "name": "Codex CLI",
+      "homepage": "https://github.com/openai/codex",
+      "detect": { "bins": ["codex"], "homeDirs": [".codex"], "extensions": ["openai.chatgpt"] },
+      "capabilities": { "agent": true, "inline": false, "largeContext": false, "local": false, "freeTier": false },
+      "rulesFile": "AGENTS.md",
+      "run": "codex \"{task}\"",
+      "review": "codex \"Review the uncommitted changes and the last commit for bugs, security issues and missing tests\""
+    },
+    {
+      "id": "gemini-cli",
+      "name": "Gemini CLI",
+      "homepage": "https://github.com/google-gemini/gemini-cli",
+      "detect": { "bins": ["gemini"], "homeDirs": [".gemini"], "extensions": [] },
+      "capabilities": { "agent": true, "inline": false, "largeContext": true, "local": false, "freeTier": true },
+      "rulesFile": "GEMINI.md",
+      "run": "gemini -i \"{task}\"",
+      "review": "gemini -i \"Review the uncommitted changes and the last commit for bugs, security issues and missing tests\""
+    },
+    {
+      "id": "cursor",
+      "name": "Cursor",
+      "homepage": "https://cursor.com",
+      "detect": { "bins": ["cursor-agent", "cursor"], "homeDirs": [".cursor"], "extensions": [] },
+      "capabilities": { "agent": true, "inline": true, "largeContext": false, "local": false, "freeTier": true },
+      "rulesFile": ".cursor/rules/project.mdc",
+      "run": "Open Cursor, press Ctrl+I (Agent) and ask: {task}",
+      "review": "Open Cursor Agent and ask: Review my uncommitted changes for bugs"
+    },
+    {
+      "id": "github-copilot",
+      "name": "GitHub Copilot",
+      "homepage": "https://github.com/features/copilot",
+      "detect": { "bins": [], "homeDirs": [], "extensions": ["github.copilot", "github.copilot-chat"] },
+      "capabilities": { "agent": true, "inline": true, "largeContext": false, "local": false, "freeTier": true },
+      "rulesFile": ".github/copilot-instructions.md",
+      "run": "Open Copilot Chat in VS Code (Agent mode) and ask: {task}",
+      "review": "Open Copilot Chat in VS Code and ask: Review my uncommitted changes for bugs"
+    },
+    {
+      "id": "windsurf",
+      "name": "Windsurf",
+      "homepage": "https://windsurf.com",
+      "detect": { "bins": ["windsurf"], "homeDirs": [".codeium/windsurf"], "extensions": [] },
+      "capabilities": { "agent": true, "inline": true, "largeContext": false, "local": false, "freeTier": true },
+      "rulesFile": ".windsurfrules",
+      "run": "Open Windsurf Cascade and ask: {task}",
+      "review": "Open Windsurf Cascade and ask: Review my uncommitted changes for bugs"
+    },
+    {
+      "id": "cline",
+      "name": "Cline",
+      "homepage": "https://cline.bot",
+      "detect": { "bins": [], "homeDirs": [], "extensions": ["saoudrizwan.claude-dev"] },
+      "capabilities": { "agent": true, "inline": false, "largeContext": false, "local": false, "freeTier": false },
+      "rulesFile": ".clinerules",
+      "run": "Open Cline in VS Code and ask: {task}",
+      "review": "Open Cline in VS Code and ask: Review my uncommitted changes for bugs"
+    },
+    {
+      "id": "aider",
+      "name": "Aider",
+      "homepage": "https://aider.chat",
+      "detect": { "bins": ["aider"], "homeDirs": [], "extensions": [] },
+      "capabilities": { "agent": true, "inline": false, "largeContext": false, "local": false, "freeTier": false },
+      "rulesFile": "CONVENTIONS.md",
+      "run": "aider --message \"{task}\"",
+      "review": "aider --message \"Review the last commit for bugs and missing tests\""
+    },
+    {
+      "id": "ollama",
+      "name": "Ollama (local models)",
+      "homepage": "https://ollama.com",
+      "detect": { "bins": ["ollama"], "homeDirs": [".ollama"], "extensions": [] },
+      "capabilities": { "agent": false, "inline": false, "largeContext": false, "local": true, "freeTier": true },
+      "rulesFile": null,
+      "run": "ollama run <model> \"{task}\"",
+      "review": null
+    }
+  ]
+}
