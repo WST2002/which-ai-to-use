@@ -20,8 +20,8 @@ Your AI tools: Claude Code, Codex CLI
 2 things are wasting your tokens:
   1. package-lock.json is ~57,820 tokens. Your AI can read it while searching.
      → Fix it:  npx which-ai-to-use fix
-  2. 2 add-ons are switched on (figma, sanity). Each one is sent with every message.
-     → Turn off the ones you don't use, e.g. claude mcp remove figma
+  2. 3 add-ons are switched on (github, notion, slack). Each one is sent with every message.
+     → Turn off the ones you don't use, e.g. claude mcp remove github
 
 Starting a task?      npx which-ai-to-use "your task"
 Claude limit over?    npx which-ai-to-use handoff
@@ -35,6 +35,16 @@ That's it. The only other commands you need:
 | Claude's limit ran out mid-task | `npx which-ai-to-use handoff "the task" --without claude-code` → another AI carries on |
 | Fix what the checkup found | `npx which-ai-to-use fix` → your AI tools skip heavy files (asks first) |
 
+Prefer buttons? Open everything in your browser:
+
+```bash
+npx which-ai-to-use dashboard
+```
+
+![The which-ai-to-use dashboard: buttons for checkup, task, handoff and fix, with the answer on the right](media/dashboard.png)
+
+The dashboard runs only on your laptop (127.0.0.1) and needs the private link printed in the terminal. Fix shows a preview and changes nothing until you click **Apply fix**.
+
 Nothing is sent anywhere: it only looks at your laptop and your project.
 
 ## Everything it does
@@ -44,6 +54,7 @@ Nothing is sent anywhere: it only looks at your laptop and your project.
 | **Recommend** | Best tool for the task, with the reason and the exact command to run |
 | **Better prompt** | Names the files that match the task and asks the agent to run your tests and report the result |
 | **Model choice** | For Claude Code: `--model haiku` for small edits (uses far less of your limit), `--model opus` for risky or large work |
+| **Dashboard** | `dashboard`: every command as a button in your browser, on localhost only |
 | **Checkup** | `npx which-ai-to-use`: your AI tools and, in plain words, what wastes tokens with one fix each |
 | **Fix** | `fix`: makes each installed AI skip heavy files (Claude Code deny rules, `.cursorignore`, `.geminiignore`, `.aiderignore`), after asking |
 | **Token details** | `tokens`: instructions files sent with every message (and their biggest sections), heavy files, add-ons (MCP servers) |
@@ -61,6 +72,7 @@ Nothing is sent anywhere: it only looks at your laptop and your project.
 npx which-ai-to-use                     # checkup
 npx which-ai-to-use "<task>"            # recommend
 npx which-ai-to-use fix                 # make your AI tools skip heavy files (asks first)
+npx which-ai-to-use dashboard           # the same as buttons in your browser
 npx which-ai-to-use tokens              # find what wastes tokens in this project
 npx which-ai-to-use handoff "<task>"    # switching AI mid-task: write HANDOFF.md for the next one
 npx which-ai-to-use doctor              # what is installed
@@ -88,7 +100,7 @@ Heavy files an agent may read (~57,820 tokens in total)
       { "permissions": { "deny": ["Read(./package-lock.json)"] } }
 
 Add-ons (MCP servers) switched on: each one is sent with every message
-  Claude Code: figma, sanity
+  Claude Code: github, notion, slack
   Turn off the ones you don't use in this project.
 ```
 
