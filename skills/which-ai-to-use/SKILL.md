@@ -12,13 +12,13 @@ Answer "which of my AI tools should do this?" from what is actually installed on
 ## Method
 
 1. **Recommend for a task.** Run:
-   `npx github:WST2002/which-ai-to-use "<the task in the user's words>"`
+   `npx which-ai-to-use "<the task in the user's words>"`
    Add `--prefer free` if the user wants free or local options, `--prefer quality` for the most capable agents, `--private` if the code must not leave the machine.
 2. **Show the result** as printed: best tool and why, alternatives, the free option, the command to run, and the second-opinion review command when the task is risky (security, payments, auth, migrations, large refactors).
-3. **If the user asks what they have installed**, run `npx github:WST2002/which-ai-to-use doctor`.
-4. **If the user wants every AI to follow the same project rules**, run `npx github:WST2002/which-ai-to-use sync`. It copies `AGENTS.md` (or the first rules file found) into each installed AI's rules file and asks before overwriting hand-written files. Only pass `--yes` when the user has confirmed overwriting.
-5. **If the user wants to save tokens or usage**, run `npx github:WST2002/which-ai-to-use tokens` and explain the findings: rules files sent with every message, heavy files with the ignore rules for each tool, and loaded MCP servers. Only add ignore rules or turn off servers when the user agrees.
-6. **If a tool's usage limit is reached**, add `--without <tool-id>` (for example `--without claude-code`) to get the next best tool.
+3. **If the user asks what they have installed**, run `npx which-ai-to-use doctor`.
+4. **If the user wants every AI to follow the same project rules**, run `npx which-ai-to-use sync`. It copies `AGENTS.md` (or the first rules file found) into each installed AI's rules file and asks before overwriting hand-written files. Only pass `--yes` when the user has confirmed overwriting.
+5. **If the user wants to save tokens or usage**, run `npx which-ai-to-use tokens` and explain the findings: rules files sent with every message, heavy files with the ignore rules for each tool, and loaded MCP servers. Only add ignore rules or turn off servers when the user agrees.
+6. **If a tool's usage limit is reached mid-task**, run `npx which-ai-to-use handoff "<task>" --without <tool-id>`. It writes HANDOFF.md for the next AI and prints the command to continue. For a new task, `--without <tool-id>` alone gives the next best tool.
 7. **Do not run the recommended AI yourself.** Give the user the command; they choose.
 
 ## Notes

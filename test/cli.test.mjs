@@ -7,7 +7,11 @@ import path from "node:path";
 
 const cli = path.resolve(import.meta.dirname, "../bin/cli.mjs");
 
-function machine(t, { bins = [], files = {} } = {}) {
+// The folder holding git, for commands that need it while every other tool stays hidden.
+const gitDir = () =>
+  (process.env.PATH ?? "").split(path.delimiter).find((dir) => ["git", "git.exe"].some((name) => fs.existsSync(path.join(dir, name))));
+
+function machine(t, { bins = [], files = {}, withGit = false } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "waitu-cli-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const bin = path.join(root, "bin");
@@ -26,7 +30,7 @@ function machine(t, { bins = [], files = {} } = {}) {
   const run = (...args) =>
     spawnSync(process.execPath, [cli, ...args], {
       cwd: project,
-      env: { ...process.env, PATH: bin, HOME: home, USERPROFILE: home },
+      env: { ...process.env, PATH: withGit ? [bin, gitDir()].join(path.delimiter) : bin, HOME: home, USERPROFILE: home },
       encoding: "utf8",
       input: "",
     });
@@ -140,4 +144,26 @@ test("--without rejects unknown tools with the valid ids", (t) => {
   const result = machine(t, { bins: ["claude"] }).run("add a dashboard", "--without", "chatgpt");
   assert.equal(result.status, 1);
   assert.match(result.stderr, /unknown tool "chatgpt".*claude-code/);
+});
+
+test("handoff writes HANDOFF.md and gives the next tool a command to continue", (t) => {
+  const { project, run } = machine(t, { bins: ["claude", "gemini"], files: { "src/cart.js": "a\n" }, withGit: true });
+  for (const args of [["init", "-q", "-b", "main"], ["config", "user.name", "T"], ["config", "user.email", "t@example.com"], ["add", "-A"], ["commit", "-q", "-m", "Start"]]) {
+    spawnSync("git", args, { cwd: project });
+  }
+  fs.writeFileSync(path.join(project, "src", "cart.js"), "a\nb\n");
+  const result = run("handoff", "add coupons", "--without", "claude-code");
+  assert.equal(result.status, 0, result.stderr);
+  const note = fs.readFileSync(path.join(project, "HANDOFF.md"), "utf8");
+  assert.match(note, /Task: add coupons/);
+  assert.match(note, /modified `src\/cart\.js` \(\+1 −0\)/);
+  assert.match(result.stdout, /Wrote HANDOFF\.md/);
+  assert.match(result.stdout, /Next:\s+Gemini CLI/);
+  assert.match(result.stdout, /gemini -i "Read HANDOFF\.md and continue the task\."/);
+});
+
+test("handoff outside a git repository fails with a fix", (t) => {
+  const result = machine(t, { bins: ["claude"] }).run("handoff");
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /handoff needs a git repository/);
 });

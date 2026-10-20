@@ -58,7 +58,8 @@ const LIGHT = new Set(["quick-edit", "docs"]);
 /** Claude Code model aliases: a small model saves usage on small edits, the strongest pays off on hard work. */
 function claudeModel(categories) {
   if (categories.some((c) => HARD.has(c))) return { alias: "opus", why: "strongest model for risky or large changes" };
-  if (categories.every((c) => LIGHT.has(c))) return { alias: "haiku", why: "small, fast model: uses far less of your limit" };
+  const small = categories.every((c) => LIGHT.has(c)) || (categories.includes("quick-edit") && !categories.includes("multi-file-feature"));
+  if (small) return { alias: "haiku", why: "small, fast model: uses far less of your limit" };
   return null;
 }
 
