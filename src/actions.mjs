@@ -3,7 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { classifyTask } from "./classify.mjs";
 import { applyIgnoreAdvice } from "./fix.mjs";
-import { LABELS, checkupIssues, formatAiAnswer, formatCheckup, formatDoctor, formatRecommendation, formatTokens, formatUsage, usageTip } from "./format.mjs";
+import { LABELS, checkupIssues, formatAiAnswer, formatCheckup, formatDoctor, formatRecommendation, formatScore, formatTokens, formatUsage, usageTip } from "./format.mjs";
+import { setupScore } from "./score.mjs";
 import { claudeUsage } from "./usage.mjs";
 import { collectHandoff, renderHandoff } from "./handoff.mjs";
 import { RULES_FILES, scanProject } from "./project.mjs";
@@ -20,7 +21,14 @@ const ids = (installed) => installed.map((found) => found.id);
 export function checkupAction({ cwd, home, installed }) {
   const report = tokenReport({ dir: cwd, home, installedIds: ids(installed) });
   const project = path.basename(cwd);
-  return { text: formatCheckup({ project, installed, report }), data: { project, installed, ...report, issues: checkupIssues(report) } };
+  const score = setupScore({ report, installed, verify: verifyCommand(cwd) });
+  return { text: formatCheckup({ project, installed, report, score }), data: { project, installed, ...report, issues: checkupIssues(report), score } };
+}
+
+export function scoreAction({ cwd, home, installed }) {
+  const report = tokenReport({ dir: cwd, home, installedIds: ids(installed) });
+  const result = setupScore({ report, installed, verify: verifyCommand(cwd) });
+  return { text: formatScore(result), data: { project: path.basename(cwd), ...result } };
 }
 
 export function tokensAction({ cwd, home, installed }) {

@@ -50,7 +50,8 @@ export function dashboardPage({ token, project, version }) {
   .nav-btn strong { display: block; font-size: 14.5px; }
   .nav-btn small { display: block; color: var(--muted); font-size: 12.5px; }
 
-  .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+  canvas.scorecard { width: 100%; max-width: 900px; height: auto; border-radius: 14px; border: 1px solid var(--line); display: block; }
   .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; box-shadow: var(--shadow); min-width: 0; }
   .stat .label { color: var(--muted); font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; }
   .stat .value { font-size: 26px; font-weight: 750; margin-top: 2px; }
@@ -115,7 +116,7 @@ export function dashboardPage({ token, project, version }) {
     .nav-btn .icon { font-size: 15px; }
   }
   @media (max-width: 640px) {
-    .stats { gap: 8px; margin-bottom: 12px; }
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
     .stat { padding: 10px; }
     .stat .label { font-size: 10.5px; letter-spacing: .03em; }
     .stat .value { font-size: 20px; }
@@ -143,6 +144,7 @@ export function dashboardPage({ token, project, version }) {
     <button class="nav-btn" data-view="handoff"><span class="icon">🔁</span><span><strong>Claude limit over?</strong><small>Hand the task to another AI</small></span></button>
     <button class="nav-btn" data-view="fix"><span class="icon">🧹</span><span><strong>Fix wasted tokens</strong><small>Make your AI skip heavy files</small></span></button>
     <button class="nav-btn" data-view="tokens"><span class="icon">📊</span><span><strong>Token details</strong><small>Everything that is counted</small></span></button>
+    <button class="nav-btn" data-view="score"><span class="icon">🏆</span><span><strong>Score card</strong><small>Your AI setup score, ready to share</small></span></button>
     <button class="nav-btn" data-view="usage"><span class="icon">📈</span><span><strong>Usage</strong><small>Claude tokens today and this week</small></span></button>
     <button class="nav-btn" data-view="slim"><span class="icon">✂️</span><span><strong>Shorten CLAUDE.md</strong><small>Ask your AI for a shorter version</small></span></button>
     <button class="nav-btn" data-view="doctor"><span class="icon">🧰</span><span><strong>Installed tools</strong><small>AI tools on this laptop</small></span></button>
@@ -153,6 +155,7 @@ export function dashboardPage({ token, project, version }) {
       <div class="stat"><div class="label">Your AI tools</div><div class="value" id="stat-tools">–</div><div class="chips" id="stat-tool-chips"></div></div>
       <div class="stat"><div class="label">Tokens at risk</div><div class="value" id="stat-tokens">–</div><div class="muted" id="stat-tokens-note"></div></div>
       <div class="stat"><div class="label">Add-ons switched on</div><div class="value" id="stat-addons">–</div><div class="muted" id="stat-addons-note"></div></div>
+      <div class="stat"><div class="label">Setup score</div><div class="value" id="stat-score">–</div><div class="muted" id="stat-score-note"></div></div>
     </section>
 
     <section class="panel" aria-live="polite">
@@ -192,6 +195,7 @@ export function dashboardPage({ token, project, version }) {
     handoff: { title: "Claude limit over?", sub: "Writes HANDOFF.md in your project, so another AI carries on instead of starting over." },
     fix: { title: "Fix wasted tokens", sub: "These files cost many tokens when your AI reads them. Nothing changes until you click Apply." },
     tokens: { title: "Token details", sub: "Instructions files, heavy files and add-ons, with numbers." },
+    score: { title: "Score card", sub: "How lean and well-described your project is for AI tools. Download the card or copy the line to share." },
     usage: { title: "Usage", sub: "Claude Code tokens from its own logs on this laptop: numbers only, never your messages." },
     slim: { title: "Shorten CLAUDE.md", sub: "Your instructions file is sent with every message. Your AI writes a shorter copy next to it; you decide whether to use it." },
     doctor: { title: "Installed tools", sub: "Which AI tools this laptop has and which instructions files this project has." },
@@ -249,6 +253,74 @@ export function dashboardPage({ token, project, version }) {
     const addons = [...new Set(data.mcp.map((m) => m.name))];
     $("stat-addons").textContent = addons.length;
     $("stat-addons-note").textContent = addons.length ? addons.slice(0, 4).join(", ") + (addons.length > 4 ? "…" : "") : "none";
+    $("stat-score").textContent = data.score.score + "/100";
+    $("stat-score").className = "value " + (data.score.score >= 75 ? "good" : "warn");
+    $("stat-score-note").textContent = "Grade " + data.score.grade;
+  }
+
+  // Draws a 1200×630 share card (the usual link-preview size) so it can be downloaded as a PNG.
+  function drawScoreCard(data) {
+    const canvas = el("canvas", { class: "scorecard", width: "1200", height: "630", role: "img", "aria-label": "AI setup score " + data.score + " out of 100" });
+    const c = canvas.getContext("2d");
+    const font = (size, weight = 600) => weight + " " + size + 'px system-ui, -apple-system, "Segoe UI", sans-serif';
+    const bg = c.createLinearGradient(0, 0, 1200, 630);
+    bg.addColorStop(0, "#0b1020");
+    bg.addColorStop(1, "#1b1446");
+    c.fillStyle = bg;
+    c.fillRect(0, 0, 1200, 630);
+    const glow = c.createRadialGradient(950, 120, 10, 950, 120, 420);
+    glow.addColorStop(0, "rgba(99,102,241,.45)");
+    glow.addColorStop(1, "rgba(99,102,241,0)");
+    c.fillStyle = glow;
+    c.fillRect(0, 0, 1200, 630);
+
+    c.fillStyle = "#a5b4fc";
+    c.font = font(26, 700);
+    c.fillText("✦ which-ai-to-use", 70, 90);
+    c.fillStyle = "#e9ebf5";
+    c.font = font(54, 800);
+    c.fillText("My AI setup score", 70, 175);
+    c.fillStyle = "#9aa1b9";
+    c.font = font(28, 500);
+    c.fillText("Project: " + data.project, 70, 222);
+
+    const good = data.score >= 75;
+    const color = good ? "#4ade80" : data.score >= 60 ? "#fbbf24" : "#f87171";
+    c.lineWidth = 22;
+    c.strokeStyle = "rgba(255,255,255,.12)";
+    c.beginPath(); c.arc(930, 330, 150, 0, Math.PI * 2); c.stroke();
+    c.strokeStyle = color;
+    c.lineCap = "round";
+    c.beginPath(); c.arc(930, 330, 150, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * data.score) / 100); c.stroke();
+    c.fillStyle = "#ffffff";
+    c.textAlign = "center";
+    c.font = font(96, 800);
+    c.fillText(String(data.score), 930, 350);
+    c.fillStyle = "#9aa1b9";
+    c.font = font(26, 600);
+    c.fillText("out of 100", 930, 395);
+    c.fillStyle = color;
+    c.font = font(36, 800);
+    c.fillText("Grade " + data.grade, 930, 545);
+    c.textAlign = "left";
+
+    c.font = font(29, 600);
+    let y = 300;
+    const lines = data.items.length ? data.items.slice(0, 5).map((i) => "✗  " + i.short) : ["✓  Lean, well-described project"];
+    for (const line of lines) {
+      c.fillStyle = data.items.length ? "#fca5a5" : "#86efac";
+      c.fillText(line, 70, y);
+      y += 46;
+    }
+    if (data.saving) {
+      c.fillStyle = "#e9ebf5";
+      c.font = font(29, 700);
+      c.fillText("Fixing it saves ~" + data.saving.toLocaleString("en-US") + " tokens", 70, 545);
+    }
+    c.fillStyle = "#a5b4fc";
+    c.font = font(24, 600);
+    c.fillText("Check yours: npx which-ai-to-use score", 70, 590);
+    return canvas;
   }
 
   const RENDER = {
@@ -317,6 +389,18 @@ export function dashboardPage({ token, project, version }) {
     },
     tokens: (data, _, text) => [el("pre", { class: "raw", text })],
     doctor: (data, _, text) => [el("pre", { class: "raw", text })],
+    score(data) {
+      const canvas = drawScoreCard(data);
+      const download = el("a", { class: "btn", text: "Download image", download: "ai-setup-score.png", href: "#" });
+      download.addEventListener("click", () => download.setAttribute("href", canvas.toDataURL("image/png")));
+      const copy = el("button", { class: "btn ghost", text: "Copy text to share", onclick: () => { navigator.clipboard.writeText(data.share); copy.textContent = "Copied"; setTimeout(() => (copy.textContent = "Copy text to share"), 1500); } });
+      const parts = [canvas, el("div", { class: "form", style: "margin-top:14px" }, download, copy), el("p", { class: "muted", text: data.share })];
+      if (data.items.length) {
+        parts.push(el("div", { class: "section-title", text: "What costs points" }),
+          el("table", {}, data.items.map((i) => el("tr", {}, el("td", { text: String(i.points).replace("-", "−") }), el("td", {}, el("div", { text: i.label }), el("div", { class: "muted", text: "→ " + i.tip }))))));
+      }
+      return parts;
+    },
     usage(data) {
       if (!data.found) return [el("div", { class: "ok", text: "No Claude Code logs on this laptop, so there is no usage to show." })];
       const n = (v) => "~" + v.toLocaleString("en-US");

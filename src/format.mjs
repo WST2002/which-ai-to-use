@@ -59,6 +59,18 @@ export function formatAiAnswer({ runner, seconds, answer, anywhere, installedIds
   return `${lines.join("\n")}\n`;
 }
 
+export function formatScore(result) {
+  const lines = [`AI setup score: ${result.score}/100 (${result.grade})`, ""];
+  if (!result.items.length) lines.push("Nothing to improve: your AI tools get a lean, well-described project.");
+  else {
+    lines.push("What costs points:");
+    for (const item of result.items) lines.push(`  ${String(item.points).replace("-", "−").padStart(4)}  ${item.label}`, `        → ${item.tip}`);
+    if (result.saving) lines.push("", `Fixing these saves ~${result.saving.toLocaleString("en-US")} tokens.`);
+  }
+  lines.push("", "Share it:", `  ${result.share}`, "", "Want an image to post? Run npx which-ai-to-use dashboard and open Score card.");
+  return `${lines.join("\n")}\n`;
+}
+
 /** "~1,510 tokens to start (CLAUDE.md ~1,000 · files ~500 · prompt ~10) + 3 add-ons". */
 export function costLine(cost) {
   const parts = [cost.instructions && `${cost.instructions.file} ~${cost.instructions.tokens.toLocaleString("en-US")}`, cost.files && `files ~${cost.files.toLocaleString("en-US")}`, `prompt ~${cost.prompt.toLocaleString("en-US")}`].filter(Boolean);
@@ -202,8 +214,9 @@ export function checkupIssues(report) {
 }
 
 /** The default screen: what is installed and, in plain words, what wastes tokens and how to fix it. */
-export function formatCheckup({ project, installed, report }) {
+export function formatCheckup({ project, installed, report, score }) {
   const lines = [`✓ Checked: ${project}`, ""];
+  if (score) lines.push(`AI setup score: ${score.score}/100 (${score.grade})`, "");
   lines.push(installed.length ? `Your AI tools: ${installed.map((found) => found.name).join(", ")}` : "No AI coding tools found. Free options: Gemini CLI (free tier) or Ollama (runs on your laptop).");
   lines.push("");
 
