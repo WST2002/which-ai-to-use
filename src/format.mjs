@@ -38,6 +38,27 @@ export function formatUsage(usage, installed) {
   return `${lines.join("\n")}\n`;
 }
 
+export function formatAiAnswer({ runner, seconds, answer, anywhere, installedIds, command, rules }) {
+  const indent = "   ";
+  const installed = installedIds.includes(anywhere.id);
+  const installedName = TOOLS.find((tool) => tool.id === answer.bestInstalled).name;
+  const lines = [
+    `🤖 Answer from ${runner.name} (asked with no tools${runner.local ? ", on this laptop" : ""}) · ${seconds} s`,
+    "",
+    `① Best AI for this task: ${anywhere.name} ${installed ? "✓ on your laptop" : `✗ not on your laptop (${anywhere.homepage.replace(/^https:\/\//, "")})`}`,
+    `② On your laptop, use: ${installedName}${answer.model ? ` · model: ${answer.model}` : ""}`,
+    `${indent}Why: ${answer.why}`,
+    "",
+    "Better prompt:",
+    ...answer.prompt.split("\n").map((line) => `${indent}${line}`),
+  ];
+  if (answer.steps.length) lines.push("", "Steps:", ...answer.steps.map((step, i) => `${indent}${i + 1}. ${step}`));
+  lines.push("", `${pad("Run")}${command}`);
+  const agrees = rules.overall.id === anywhere.id && rules.best.id === answer.bestInstalled;
+  lines.push("", `Rules answer: ${rules.overall.name} / ${rules.best.name}${agrees ? " (the AI agrees)" : " (the AI chose differently)"}`);
+  return `${lines.join("\n")}\n`;
+}
+
 /** "~1,510 tokens to start (CLAUDE.md ~1,000 · files ~500 · prompt ~10) + 3 add-ons". */
 export function costLine(cost) {
   const parts = [cost.instructions && `${cost.instructions.file} ~${cost.instructions.tokens.toLocaleString("en-US")}`, cost.files && `files ~${cost.files.toLocaleString("en-US")}`, `prompt ~${cost.prompt.toLocaleString("en-US")}`].filter(Boolean);
