@@ -11,7 +11,9 @@ export function formatRecommendation(result) {
   lines.push(`${pad("Best")}${result.best.name} — ${result.best.reason}`);
   for (const alt of result.also) lines.push(`${pad("Also")}${alt.name} — ${alt.reason}`);
   if (result.free && result.free.id !== result.best.id) lines.push(`${pad("Free")}${result.free.name} — ${result.free.reason}`);
-  lines.push("", `${pad("Run")}${result.best.command}`);
+  lines.push("");
+  if (result.files?.length) lines.push(`${pad("Files")}${result.files.join(", ")}`);
+  lines.push(`${pad("Run")}${result.best.command}`);
   if (result.best.model) lines.push(`${pad("Model")}${result.best.model}`);
   if (result.reviewer) lines.push(`${pad("Review")}${result.reviewer.command}  (second opinion from ${result.reviewer.name})`);
   if (result.notes.length) lines.push("", ...result.notes.map((note) => `Note: ${note}`));

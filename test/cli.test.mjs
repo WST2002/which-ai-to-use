@@ -118,3 +118,14 @@ test("tokens --json is machine-readable", (t) => {
   assert.deepEqual(data.heavy, []);
   assert.deepEqual(data.mcp, []);
 });
+
+test("the run command carries relevant files and the project's test command", (t) => {
+  const { run } = machine(t, {
+    bins: ["claude"],
+    files: { "src/auth/login.ts": "x", "src/cart.ts": "x", "package.json": JSON.stringify({ scripts: { test: "vitest run" } }) },
+  });
+  const result = run("fix the login redirect bug");
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Files:\s+src\/auth\/login\.ts/);
+  assert.match(result.stdout, /claude "fix the login redirect bug\. Start with src\/auth\/login\.ts\. When done, run npm test and report the result\."/);
+});

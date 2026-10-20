@@ -73,7 +73,7 @@ function describe(found, categories, privacy, task) {
   return entry;
 }
 
-export function recommend({ task, categories, installed, sensitive = [], prefer = "balanced", private: forcePrivate = false }) {
+export function recommend({ task, prompt = task, files = [], categories, installed, sensitive = [], prefer = "balanced", private: forcePrivate = false }) {
   const privacy = forcePrivate || sensitive.length > 0;
   const notes = [];
   if (privacy && sensitive.length) {
@@ -97,10 +97,10 @@ export function recommend({ task, categories, installed, sensitive = [], prefer 
     .sort((a, b) => b.score - a.score || a.order - b.order);
 
   const [top, ...rest] = ranked;
-  const best = describe(top.found, categories, privacy, task);
-  const also = rest.slice(0, 3).map((entry) => describe(entry.found, categories, privacy, task));
+  const best = describe(top.found, categories, privacy, prompt);
+  const also = rest.slice(0, 3).map((entry) => describe(entry.found, categories, privacy, prompt));
   const freeEntry = ranked.find((entry) => entry.tool.capabilities.freeTier || entry.tool.capabilities.local);
-  const free = freeEntry ? describe(freeEntry.found, categories, privacy, task) : null;
+  const free = freeEntry ? describe(freeEntry.found, categories, privacy, prompt) : null;
 
   let reviewer = null;
   if (categories.some((c) => SECOND_OPINION.has(c))) {
@@ -116,5 +116,5 @@ export function recommend({ task, categories, installed, sensitive = [], prefer 
   }
   if (top.tool.id === "ollama" && !top.found.models?.length) notes.push("No Ollama models installed yet. Try: ollama pull qwen2.5-coder");
 
-  return { task, categories, best, also, free, reviewer, notes };
+  return { task, files, categories, best, also, free, reviewer, notes };
 }

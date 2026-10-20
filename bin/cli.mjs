@@ -6,7 +6,8 @@ import { parseArgs } from "node:util";
 import { classifyTask } from "../src/classify.mjs";
 import { detectTools } from "../src/detect.mjs";
 import { formatDoctor, formatRecommendation, formatSyncPlan, formatTokens } from "../src/format.mjs";
-import { tokenReport } from "../src/tokens.mjs";
+import { betterPrompt, relevantFiles, verifyCommand } from "../src/prompt.mjs";
+import { listProjectFiles, tokenReport } from "../src/tokens.mjs";
 import { RULES_FILES, scanProject } from "../src/project.mjs";
 import { recommend } from "../src/recommend.mjs";
 import { applySync, planSync } from "../src/sync.mjs";
@@ -91,8 +92,11 @@ async function main() {
 
   const task = positionals.join(" ").trim();
   if (!task) throw new Error('task is empty: describe it in quotes, e.g. which-ai-to-use "fix the login bug"');
-  const { sensitive } = scanProject(process.cwd());
-  const result = recommend({ task, categories: classifyTask(task), installed, sensitive, prefer: values.prefer, private: values.private });
+  const cwd = process.cwd();
+  const { sensitive } = scanProject(cwd);
+  const files = relevantFiles(task, listProjectFiles(cwd));
+  const prompt = betterPrompt(task, files, verifyCommand(cwd));
+  const result = recommend({ task, prompt, files, categories: classifyTask(task), installed, sensitive, prefer: values.prefer, private: values.private });
   process.stdout.write(values.json ? `${JSON.stringify(result, null, 2)}\n` : formatRecommendation(result));
 }
 
