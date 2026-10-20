@@ -59,7 +59,10 @@ export function rulesCost(dir) {
 }
 
 const HEAVY_BYTES = 100 * 1024;
-const LOCKFILES = new Set(["package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lockb", "poetry.lock", "Pipfile.lock", "Cargo.lock", "composer.lock", "Gemfile.lock", "go.sum"]);
+const NOTABLE_BYTES = 10 * 1024;
+// Images, documents, fonts, media and archives are not read as text, so bytes / 4 says nothing about their cost.
+const BINARY = /\.(png|jpe?g|gif|webp|avif|ico|bmp|tiff?|pdf|docx?|xlsx?|pptx?|woff2?|ttf|otf|eot|mp[34]|webm|mov|wav|ogg|zip|gz|tgz|rar|7z|jar|exe|dll|so|dylib|bin|lockb|wasm|sqlite|db)$/i;
+const LOCKFILES = new Set(["package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock", "Pipfile.lock", "Cargo.lock", "composer.lock", "Gemfile.lock", "go.sum"]);
 const GENERATED = /\.(min\.(js|css)|map|log|snap)$/i;
 
 /** Files an agent may read while searching that cost many tokens and rarely help. */
@@ -72,7 +75,9 @@ export function heavyFiles(dir, files) {
       } catch {
         return null;
       }
-      const heavy = bytes > HEAVY_BYTES || LOCKFILES.has(path.posix.basename(file)) || GENERATED.test(file);
+      if (BINARY.test(file)) return null;
+      const noisy = LOCKFILES.has(path.posix.basename(file)) || GENERATED.test(file);
+      const heavy = bytes > HEAVY_BYTES || (noisy && bytes > NOTABLE_BYTES);
       return heavy ? { file, bytes, tokens: Math.ceil(bytes / 4) } : null;
     })
     .filter(Boolean)
@@ -115,6 +120,19 @@ function codexServers(home) {
     return [];
   }
   return [...toml.matchAll(/^\[mcp_servers\.(?:"([^"]+)"|([\w-]+))\]/gm)].map((match) => match[1] ?? match[2]);
+}
+
+const MAX_HEAVY_LISTED = 10;
+
+/** Everything `which-ai-to-use tokens` reports for a project. */
+export function tokenReport({ dir, home, installedIds }) {
+  const heavy = heavyFiles(dir, listProjectFiles(dir)).slice(0, MAX_HEAVY_LISTED);
+  return {
+    rules: rulesCost(dir),
+    heavy,
+    ignore: heavy.length ? ignoreAdvice(heavy.map((h) => h.file), installedIds) : [],
+    mcp: mcpServers({ home, dir }),
+  };
 }
 
 /** MCP servers each tool loads here; every server adds its tool descriptions to each request. */

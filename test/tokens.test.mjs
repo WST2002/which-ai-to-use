@@ -51,13 +51,23 @@ test("rules files report their size and their largest sections", (t) => {
 test("heavy files are lockfiles, generated files and anything over 100 KB, largest first", (t) => {
   const dir = project(t, {
     "src/app.js": "small",
-    "package-lock.json": "x".repeat(5000),
-    "public/app.min.js": "x".repeat(3000),
+    "package-lock.json": "x".repeat(50 * 1024),
+    "public/app.min.js": "x".repeat(30 * 1024),
     "data/export.csv": "x".repeat(200 * 1024),
   });
   const heavy = heavyFiles(dir, listProjectFiles(dir));
   assert.deepEqual(heavy.map((f) => f.file), ["data/export.csv", "package-lock.json", "public/app.min.js"]);
   assert.equal(heavy[0].tokens, 51200);
+});
+
+test("binary files and tiny lockfiles are not reported as heavy", (t) => {
+  const dir = project(t, {
+    "media/demo.gif": "x".repeat(300 * 1024),
+    "public/resume.pdf": "x".repeat(200 * 1024),
+    "fixture/package-lock.json": "x".repeat(100),
+    "package-lock.json": "x".repeat(20 * 1024),
+  });
+  assert.deepEqual(heavyFiles(dir, listProjectFiles(dir)).map((f) => f.file), ["package-lock.json"]);
 });
 
 test("ignore advice uses each installed tool's own mechanism", () => {

@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 import { createInterface } from "node:readline/promises";
 import fs from "node:fs";
+import os from "node:os";
 import { parseArgs } from "node:util";
 import { classifyTask } from "../src/classify.mjs";
 import { detectTools } from "../src/detect.mjs";
-import { formatDoctor, formatRecommendation, formatSyncPlan } from "../src/format.mjs";
+import { formatDoctor, formatRecommendation, formatSyncPlan, formatTokens } from "../src/format.mjs";
+import { tokenReport } from "../src/tokens.mjs";
 import { RULES_FILES, scanProject } from "../src/project.mjs";
 import { recommend } from "../src/recommend.mjs";
 import { applySync, planSync } from "../src/sync.mjs";
@@ -19,6 +21,7 @@ Usage:
   which-ai-to-use "<task>"            Recommend which of your AI tools to use
   which-ai-to-use doctor              Show installed AI tools and this project's rules files
   which-ai-to-use sync                Copy your project rules to every installed AI's rules file
+  which-ai-to-use tokens              Find what wastes tokens: big rules files, heavy files, MCP servers
 
 Options:
   --prefer balanced|free|quality      Rank free/local tools or the most capable agents first
@@ -81,6 +84,10 @@ async function main() {
     return void process.stdout.write(values.json ? `${JSON.stringify({ installed, project }, null, 2)}\n` : formatDoctor(installed, project));
   }
   if (command === "sync") return runSync(values, installed);
+  if (command === "tokens") {
+    const report = tokenReport({ dir: process.cwd(), home: os.homedir(), installedIds: installed.map((found) => found.id) });
+    return void process.stdout.write(values.json ? `${JSON.stringify(report, null, 2)}\n` : formatTokens(report));
+  }
 
   const task = positionals.join(" ").trim();
   if (!task) throw new Error('task is empty: describe it in quotes, e.g. which-ai-to-use "fix the login bug"');
