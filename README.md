@@ -47,6 +47,26 @@ The dashboard runs only on your laptop (127.0.0.1) and needs the private link pr
 
 Nothing is sent anywhere: it only looks at your laptop and your project.
 
+## Install
+
+You don't have to install anything. Pick the way that suits you:
+
+| | Command | When to use it |
+|---|---|---|
+| **1. Run with npx** (recommended) | `npx which-ai-to-use` | Now and then. Nothing is installed and you always get the latest version. |
+| **2. Install globally** | `npm i -g which-ai-to-use` | Every day. Afterwards `which-ai-to-use` and `which-ai-to-use dashboard` work in any folder without npx. |
+| **3. Install in a project** | `npm i which-ai-to-use` | Not recommended: it adds a dependency to your app's `package.json` for a tool your app never uses. |
+
+**Update**
+
+- npx: nothing to do, it fetches the latest version. If an old one is cached, run `npx which-ai-to-use@latest`.
+- Global install: `npm i -g which-ai-to-use@latest`. Check your version with `which-ai-to-use --version`.
+
+**Uninstall**
+
+- Global install: `npm uninstall -g which-ai-to-use`.
+- npx leaves nothing in your project. To clear its download cache: `npm cache clean --force`.
+
 ## Everything it does
 
 | | |
