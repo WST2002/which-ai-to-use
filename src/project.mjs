@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { TOOLS } from "./tools.mjs";
 
-const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", "out", ".next", "coverage", "vendor", "venv", ".venv", "target", "__pycache__"]);
+export const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", "out", ".next", "coverage", "vendor", "venv", ".venv", "target", "__pycache__"]);
 const SENSITIVE_NAMES = new Set(["id_rsa", "id_ed25519", "id_ecdsa", "credentials.json", ".npmrc", ".pypirc"]);
 const SENSITIVE_EXTENSIONS = new Set([".pem", ".key", ".p12", ".pfx", ".keystore", ".jks"]);
 const MAX_DEPTH = 4;
