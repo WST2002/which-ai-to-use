@@ -1,6 +1,6 @@
 ---
 name: which-ai-to-use
-description: Use when the user asks which AI tool or coding agent to use for a task, wants to save tokens or usage, has hit a usage limit, has several AI tools (Claude Code, Codex, Gemini CLI, Copilot, Cursor, Aider, Ollama) and wants to pick one, wants a second opinion from a different AI, needs a free or private/local option, or wants CLAUDE.md, AGENTS.md, GEMINI.md and other AI rules files kept in sync.
+description: Use when the user wants a quick check of how their AI coding tools are set up, asks which AI tool or coding agent to use for a task, wants to save tokens or usage, has hit a usage limit, has several AI tools (Claude Code, Codex, Gemini CLI, Copilot, Cursor, Aider, Ollama) and wants to pick one, wants a second opinion from a different AI, needs a free or private/local option, or wants CLAUDE.md, AGENTS.md, GEMINI.md and other AI rules files kept in sync.
 ---
 
 # Which AI to Use
@@ -11,6 +11,7 @@ Answer "which of my AI tools should do this?" from what is actually installed on
 
 ## Method
 
+0. **Quick check** (the user asks how their setup looks, or you are unsure where to start): run `npx which-ai-to-use` in the project and pass on its plain-language findings. Only run `npx which-ai-to-use fix --yes` after the user agrees.
 1. **Recommend for a task.** Run:
    `npx which-ai-to-use "<the task in the user's words>"`
    Add `--prefer free` if the user wants free or local options, `--prefer quality` for the most capable agents, `--private` if the code must not leave the machine.

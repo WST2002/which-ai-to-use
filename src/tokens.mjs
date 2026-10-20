@@ -124,9 +124,37 @@ function codexServers(home) {
 
 const MAX_HEAVY_LISTED = 10;
 
+function readText(file) {
+  try {
+    return fs.readFileSync(file, "utf8");
+  } catch {
+    return "";
+  }
+}
+
+/** True when every installed tool that can skip files already skips this one. */
+function alreadySkipped(dir, file, installedIds) {
+  const checks = installedIds.flatMap((id) => {
+    if (id === "claude-code") {
+      let deny = [];
+      try {
+        deny = JSON.parse(readText(path.join(dir, ".claude", "settings.json"))).permissions?.deny ?? [];
+      } catch {
+        deny = [];
+      }
+      return [deny.includes(`Read(./${file})`)];
+    }
+    if (!IGNORE_FILES[id]) return [];
+    return [readText(path.join(dir, IGNORE_FILES[id])).split(/\r?\n/).map((line) => line.trim()).includes(file)];
+  });
+  return checks.length > 0 && checks.every(Boolean);
+}
+
 /** Everything `which-ai-to-use tokens` reports for a project. */
 export function tokenReport({ dir, home, installedIds }) {
-  const heavy = heavyFiles(dir, listProjectFiles(dir)).slice(0, MAX_HEAVY_LISTED);
+  const heavy = heavyFiles(dir, listProjectFiles(dir))
+    .filter((entry) => !alreadySkipped(dir, entry.file, installedIds))
+    .slice(0, MAX_HEAVY_LISTED);
   return {
     rules: rulesCost(dir),
     heavy,

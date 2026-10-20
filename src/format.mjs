@@ -33,9 +33,15 @@ export function formatDoctor(installed, project) {
     const warning = found.onPath ? "" : " (settings found, command not on PATH)";
     lines.push(`  ✓ ${tool.name}${warning} — ${found.via.join(", ")}${models}`);
   }
-  lines.push("", "Rules files in this project", "");
+  lines.push("", "Instructions files in this project", "");
   for (const [file, exists] of Object.entries(project.rulesFiles)) lines.push(`  ${exists ? "✓" : "✗"} ${file}`);
-  if (project.sensitive.length) lines.push("", `Sensitive files: ${project.sensitive.join(", ")} — local tools will be preferred.`);
+  if (project.sensitive.length) {
+    const hasLocal = installed.some((found) => TOOLS.find((tool) => tool.id === found.id)?.capabilities.local);
+    const advice = hasLocal
+      ? "local tools will be ranked first."
+      : "none of your AI tools run on this laptop, so code you share goes to a cloud service. For private work, install Ollama.";
+    lines.push("", `Sensitive files: ${project.sensitive.join(", ")} — ${advice}`);
+  }
   lines.push("", `Tool capabilities as of ${TOOLS_AS_OF}.`);
   return `${lines.join("\n")}\n`;
 }
@@ -44,7 +50,7 @@ const count = (n) => `~${n.toLocaleString("en-US")} tokens`;
 const indent = (text, spaces) => text.split("\n").map((line) => `${" ".repeat(spaces)}${line}`).join("\n");
 
 export function formatTokens(report) {
-  const lines = ["Token check for this project", "", "Rules files (sent with every message)"];
+  const lines = ["Token check for this project", "", "Instructions files (sent with every message)"];
   if (!report.rules.length) lines.push("  none found");
   for (const rule of report.rules) {
     lines.push(`  ${rule.large ? "!" : "✓"} ${rule.file.padEnd(32)}  ${count(rule.tokens)}${rule.large ? "  (over 2,000: trim it)" : ""}`);
@@ -66,14 +72,61 @@ export function formatTokens(report) {
 
   lines.push("");
   if (!report.mcp.length) {
-    lines.push("MCP servers: none found");
+    lines.push("Add-ons (MCP servers): none found");
   } else {
-    lines.push("MCP servers loaded (each adds its tool descriptions to every request)");
+    lines.push("Add-ons (MCP servers) switched on: each one is sent with every message");
     for (const tool of new Set(report.mcp.map((server) => server.tool))) {
       lines.push(`  ${tool}: ${report.mcp.filter((s) => s.tool === tool).map((s) => s.name).join(", ")}`);
     }
     lines.push("  Turn off the ones you don't use in this project.");
   }
+  return `${lines.join("\n")}\n`;
+}
+
+const short = (names, max = 3) => (names.length > max ? `${names.slice(0, max).join(", ")}…` : names.join(", "));
+
+/** The default screen: what is installed and, in plain words, what wastes tokens and how to fix it. */
+export function formatCheckup({ project, installed, report }) {
+  const lines = [`✓ Checked: ${project}`, ""];
+  lines.push(installed.length ? `Your AI tools: ${installed.map((found) => found.name).join(", ")}` : "No AI coding tools found. Free options: Gemini CLI (free tier) or Ollama (runs on your laptop).");
+  lines.push("");
+
+  const issues = [];
+  for (const rule of report.rules.filter((r) => r.large)) {
+    const biggest = rule.sections[0];
+    issues.push([
+      `${rule.file} (your instructions file) is ${count(rule.tokens)}. It is sent with every message.`,
+      `→ Make it shorter. The biggest part is "${biggest.title}" (${count(biggest.tokens)}).`,
+    ]);
+  }
+  if (report.heavy.length) {
+    const [first] = report.heavy;
+    const total = report.heavy.reduce((sum, file) => sum + file.tokens, 0);
+    const what = report.heavy.length === 1 ? `${first.file} is ${count(first.tokens)}` : `${report.heavy.length} big files (${count(total)}, e.g. ${first.file})`;
+    issues.push([
+      `${what}. Your AI can read ${report.heavy.length === 1 ? "it" : "them"} while searching.`,
+      report.ignore.length ? "→ Fix it:  npx which-ai-to-use fix" : "→ Tell your AI tool to skip it.",
+    ]);
+  }
+  if (report.mcp.length) {
+    const names = [...new Set(report.mcp.map((server) => server.name))];
+    const claude = report.mcp.find((server) => server.tool === "Claude Code");
+    const how = claude ? `, e.g. claude mcp remove ${claude.name}` : "";
+    issues.push([`${names.length} add-on${names.length === 1 ? " is" : "s are"} switched on (${short(names)}). Each one is sent with every message.`, `→ Turn off the ones you don't use${how}`]);
+  }
+
+  if (issues.length) {
+    lines.push(`${issues.length} thing${issues.length === 1 ? " is" : "s are"} wasting your tokens:`);
+    issues.forEach(([problem, fix], i) => lines.push(`  ${i + 1}. ${problem}`, `     ${fix}`));
+  } else {
+    lines.push("Nothing is wasting your tokens here.");
+  }
+  lines.push(
+    "",
+    `${"Starting a task?".padEnd(22)}npx which-ai-to-use "your task"`,
+    `${"Claude limit over?".padEnd(22)}npx which-ai-to-use handoff`,
+    `${"All commands:".padEnd(22)}npx which-ai-to-use --help`,
+  );
   return `${lines.join("\n")}\n`;
 }
 

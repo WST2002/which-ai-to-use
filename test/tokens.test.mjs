@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { estimateTokens, heavyFiles, ignoreAdvice, listProjectFiles, mcpServers, rulesCost } from "../src/tokens.mjs";
+import { estimateTokens, heavyFiles, ignoreAdvice, listProjectFiles, mcpServers, rulesCost, tokenReport } from "../src/tokens.mjs";
 
 function project(t, files) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "waitu-tokens-"));
@@ -100,4 +100,14 @@ test("missing or broken MCP config files are skipped", (t) => {
   const home = project(t, { ".claude.json": "{ not json" });
   const dir = project(t, {});
   assert.deepEqual(mcpServers({ home, dir, projectKey: dir }), []);
+});
+
+test("files the installed tools already skip are not reported again", (t) => {
+  const dir = project(t, {
+    "package-lock.json": "x".repeat(50 * 1024),
+    "data/export.csv": "x".repeat(200 * 1024),
+    ".claude/settings.json": JSON.stringify({ permissions: { deny: ["Read(./package-lock.json)"] } }),
+  });
+  const report = tokenReport({ dir, home: dir, installedIds: ["claude-code"] });
+  assert.deepEqual(report.heavy.map((h) => h.file), ["data/export.csv"]);
 });
