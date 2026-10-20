@@ -274,3 +274,14 @@ test("usage shows Claude Code tokens from local logs, numbers only", (t) => {
   assert.match(result.stdout, /Tip: Today is 7\.0× your daily average\. Send small tasks to Gemini CLI \(free\)/);
   assert.doesNotMatch(result.stdout, /SECRET-TEXT/);
 });
+
+test("score explains the points and gives a line to share; checkup shows the score", (t) => {
+  const { run } = machine(t, { bins: ["claude"], files: { "package-lock.json": "x".repeat(40 * 1024), "src/app.js": "x" } });
+  const score = run("score");
+  assert.equal(score.status, 0, score.stderr);
+  assert.match(score.stdout, /AI setup score: 77\/100 \(B\)/);
+  assert.match(score.stdout, /−10  No instructions file/);
+  assert.match(score.stdout, /−3  1 heavy file \(~10,240 tokens\) your AI can read\n\s+→ Make your AI skip it: npx which-ai-to-use fix/);
+  assert.match(score.stdout, /My AI coding setup scored 77\/100 \(B\) with which-ai-to-use\. Fixing it saves ~10,240 tokens\./);
+  assert.match(run().stdout, /AI setup score: 77\/100 \(B\)/);
+});

@@ -6,7 +6,7 @@ import os from "node:os";
 import { parseArgs } from "node:util";
 import { startDashboard } from "../src/dashboard.mjs";
 import { detectTools } from "../src/detect.mjs";
-import { aiAction, checkupAction, doctorAction, fixAction, handoffAction, recommendAction, slimAction, tokensAction, usageAction } from "../src/actions.mjs";
+import { aiAction, checkupAction, doctorAction, fixAction, handoffAction, recommendAction, scoreAction, slimAction, tokensAction, usageAction } from "../src/actions.mjs";
 import { formatSyncPlan } from "../src/format.mjs";
 import { RULES_FILES } from "../src/project.mjs";
 import { applySync, planSync } from "../src/sync.mjs";
@@ -22,6 +22,7 @@ Start here:
   which-ai-to-use "<task>"            Which AI (and model) to use for a task, with the command to run
   which-ai-to-use handoff "<task>"    Claude limit over? Write HANDOFF.md so another AI carries on
   which-ai-to-use fix                 Make your AI tools skip heavy files (asks first)
+  which-ai-to-use score               Your AI setup score out of 100, what costs points, a line to share
   which-ai-to-use dashboard           Open all of this as buttons in your browser (localhost only)
 
 More:
@@ -159,6 +160,7 @@ async function main() {
   if (command === "doctor") return print(doctorAction(context));
   if (command === "tokens") return print(tokensAction(context));
   if (command === "usage") return print(usageAction(context));
+  if (command === "score") return print(scoreAction(context));
   if (command === "slim") return runSlim(values, context, print);
   if (command === "handoff") return print(handoffAction({ ...context, task: positionals.slice(1).join(" ").trim() }));
   if (command === "sync") return runSync(values, installed);
