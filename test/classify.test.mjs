@@ -42,3 +42,9 @@ test("file paths in the task do not change its category", () => {
   assert.ok(!classifyTask("fix the crash in src/api/routes.js").includes("multi-file-feature"));
   has("update README.md with setup steps", "docs");
 });
+
+test("design work is recognised in everyday words", () => {
+  for (const text of ["make the hero section look better", "colors change karo", "page ko sundar banao", "improve the styling of the footer", "add an animation to the banner"]) {
+    has(text, "ui");
+  }
+});
