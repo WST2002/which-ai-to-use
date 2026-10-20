@@ -1,6 +1,6 @@
 {
   "name": "which-ai-to-use",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Which of your AI coding tools (Claude Code, Codex, Gemini CLI, Copilot, Cursor, Aider, Ollama) should do this task? Plus token checks, handoff between AIs when a usage limit hits, and synced rules files.",
   "type": "module",
   "bin": {

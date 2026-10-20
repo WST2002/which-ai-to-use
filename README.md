@@ -43,6 +43,10 @@ npx which-ai-to-use dashboard
 
 ![The which-ai-to-use dashboard: buttons for checkup, task, handoff and fix, with the answer on the right](media/dashboard.png)
 
+With **Ask my AI too** switched on, the dashboard asks an AI you already have for a smarter answer, after showing what will be sent:
+
+![AI mode in the dashboard: best AI for the task, the one to use on your laptop, steps and a better prompt](media/dashboard-ai.png)
+
 The dashboard runs only on your laptop (127.0.0.1) and needs the private link printed in the terminal. Fix shows a preview and changes nothing until you click **Apply fix**.
 
 Nothing is sent anywhere: it only looks at your laptop and your project.
@@ -71,7 +75,11 @@ You don't have to install anything. Pick the way that suits you:
 
 | | |
 |---|---|
-| **Recommend** | Best tool for the task with a reason written for that kind of task (design, bug fix, tests, review…), the exact command to run, and tools you don't have yet that would suit it better |
+| **Recommend** | First the best AI for the task among every supported tool (and whether it is on your laptop), then the best of the ones you have, with a reason for that kind of task and the command to run |
+| **AI mode** | `--ai`: with your permission, asks an AI you already have (Ollama first, then Claude Code, Gemini CLI, Codex) for a smarter answer and a better prompt. It runs with no tools, gets the task and file **names** only, and the rules answer is shown alongside |
+| **Cost to start** | Rough tokens the first message will take: the tool's instructions file, the files the prompt points at, the prompt |
+| **Usage** | `usage`: Claude Code tokens today and in the last 7 days, busiest projects, and a tip when today is far above average. Read from Claude Code's own logs: numbers only, never your messages |
+| **Slim** | `slim`: your AI writes a shorter copy of a long `CLAUDE.md` next to it (it sends the file, so it asks first); `slim --apply` swaps it in and keeps a backup |
 | **Better prompt** | Names the files that match the task and asks the agent to run your tests and report the result |
 | **Model choice** | For Claude Code: `--model haiku` for small edits (uses far less of your limit), `--model opus` for risky or large work |
 | **Dashboard** | `dashboard`: every command as a button in your browser, on localhost only |
@@ -91,7 +99,10 @@ You don't have to install anything. Pick the way that suits you:
 ```bash
 npx which-ai-to-use                     # checkup
 npx which-ai-to-use "<task>"            # recommend
+npx which-ai-to-use "<task>" --ai       # also ask an AI you have (asks permission first)
 npx which-ai-to-use fix                 # make your AI tools skip heavy files (asks first)
+npx which-ai-to-use usage               # Claude Code tokens today and this week
+npx which-ai-to-use slim                # shorter CLAUDE.md written by your AI (asks first)
 npx which-ai-to-use dashboard           # the same as buttons in your browser
 npx which-ai-to-use tokens              # find what wastes tokens in this project
 npx which-ai-to-use handoff "<task>"    # switching AI mid-task: write HANDOFF.md for the next one
@@ -99,7 +110,7 @@ npx which-ai-to-use doctor              # what is installed
 npx which-ai-to-use sync                # share AGENTS.md with every installed AI
 ```
 
-Options: `--prefer balanced|free|quality`, `--private`, `--without <tool>`, `--json`, `--yes` (for `fix` and `sync`), and for `sync`: `--from <file>`, `--all`.
+Options: `--prefer balanced|free|quality`, `--private`, `--without <tool>`, `--ai`, `--json`, `--yes` (for `fix`, `sync`, `slim` and `--ai`), `--apply` (for `slim`), and for `sync`: `--from <file>`, `--all`.
 
 ## Save tokens
 
