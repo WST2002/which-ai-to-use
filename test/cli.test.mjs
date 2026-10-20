@@ -40,7 +40,8 @@ function machine(t, { bins = [], files = {}, withGit = false } = {}) {
 test("--help prints help", (t) => {
   const result = machine(t).run("--help");
   assert.equal(result.status, 0);
-  assert.match(result.stdout, /Usage:/);
+  assert.match(result.stdout, /Start here:/);
+  assert.match(result.stdout, /which-ai-to-use fix/);
   assert.match(result.stdout, /doctor/);
 });
 
@@ -134,7 +135,8 @@ test("tokens reports rules size, heavy files with ignore advice, and MCP servers
   assert.match(result.stdout, /package-lock\.json\s+~10,240 tokens/);
   assert.match(result.stdout, /\.claude\/settings\.json/);
   assert.match(result.stdout, /Read\(\.\/package-lock\.json\)/);
-  assert.match(result.stdout, /MCP servers: none found/);
+  assert.match(result.stdout, /Add-ons \(MCP servers\): none found/);
+  assert.match(result.stdout, /Instructions files \(sent with every message\)/);
 });
 
 test("tokens --json is machine-readable", (t) => {
@@ -202,4 +204,11 @@ test("fix shows what it would change and needs a yes before writing", (t) => {
   assert.match(applied.stdout, /Updated \.claude\/settings\.json\./);
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(project, ".claude", "settings.json"), "utf8")).permissions.deny, ["Read(./package-lock.json)"]);
   assert.match(run("fix", "--yes").stdout, /Nothing to fix/);
+});
+
+test("doctor is honest when sensitive files exist but no AI tool runs locally", (t) => {
+  const result = machine(t, { bins: ["claude"], files: { ".env": "KEY=1" } }).run("doctor");
+  assert.match(result.stdout, /Sensitive files: \.env/);
+  assert.match(result.stdout, /none of your AI tools run on this laptop/);
+  assert.doesNotMatch(result.stdout, /local tools will be preferred/);
 });

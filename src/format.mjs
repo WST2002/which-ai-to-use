@@ -33,9 +33,15 @@ export function formatDoctor(installed, project) {
     const warning = found.onPath ? "" : " (settings found, command not on PATH)";
     lines.push(`  ✓ ${tool.name}${warning} — ${found.via.join(", ")}${models}`);
   }
-  lines.push("", "Rules files in this project", "");
+  lines.push("", "Instructions files in this project", "");
   for (const [file, exists] of Object.entries(project.rulesFiles)) lines.push(`  ${exists ? "✓" : "✗"} ${file}`);
-  if (project.sensitive.length) lines.push("", `Sensitive files: ${project.sensitive.join(", ")} — local tools will be preferred.`);
+  if (project.sensitive.length) {
+    const hasLocal = installed.some((found) => TOOLS.find((tool) => tool.id === found.id)?.capabilities.local);
+    const advice = hasLocal
+      ? "local tools will be ranked first."
+      : "none of your AI tools run on this laptop, so code you share goes to a cloud service. For private work, install Ollama.";
+    lines.push("", `Sensitive files: ${project.sensitive.join(", ")} — ${advice}`);
+  }
   lines.push("", `Tool capabilities as of ${TOOLS_AS_OF}.`);
   return `${lines.join("\n")}\n`;
 }
@@ -44,7 +50,7 @@ const count = (n) => `~${n.toLocaleString("en-US")} tokens`;
 const indent = (text, spaces) => text.split("\n").map((line) => `${" ".repeat(spaces)}${line}`).join("\n");
 
 export function formatTokens(report) {
-  const lines = ["Token check for this project", "", "Rules files (sent with every message)"];
+  const lines = ["Token check for this project", "", "Instructions files (sent with every message)"];
   if (!report.rules.length) lines.push("  none found");
   for (const rule of report.rules) {
     lines.push(`  ${rule.large ? "!" : "✓"} ${rule.file.padEnd(32)}  ${count(rule.tokens)}${rule.large ? "  (over 2,000: trim it)" : ""}`);
@@ -66,9 +72,9 @@ export function formatTokens(report) {
 
   lines.push("");
   if (!report.mcp.length) {
-    lines.push("MCP servers: none found");
+    lines.push("Add-ons (MCP servers): none found");
   } else {
-    lines.push("MCP servers loaded (each adds its tool descriptions to every request)");
+    lines.push("Add-ons (MCP servers) switched on: each one is sent with every message");
     for (const tool of new Set(report.mcp.map((server) => server.tool))) {
       lines.push(`  ${tool}: ${report.mcp.filter((s) => s.tool === tool).map((s) => s.name).join(", ")}`);
     }

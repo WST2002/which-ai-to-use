@@ -19,14 +19,18 @@ import { TOOLS, toolById } from "../src/tools.mjs";
 const PREFERENCES = ["balanced", "free", "quality"];
 const version = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
-const HELP = `which-ai-to-use ${version} — pick the right AI coding tool for a task
+const HELP = `which-ai-to-use ${version} — use your AI coding tools better
 
-Usage:
-  which-ai-to-use "<task>"            Recommend which of your AI tools to use
-  which-ai-to-use doctor              Show installed AI tools and this project's rules files
-  which-ai-to-use sync                Copy your project rules to every installed AI's rules file
-  which-ai-to-use tokens              Find what wastes tokens: big rules files, heavy files, MCP servers
-  which-ai-to-use handoff "<task>"    Switching AI mid-task? Write HANDOFF.md so the next AI continues where you stopped
+Start here:
+  which-ai-to-use                     Check this project: your AI tools and what wastes tokens
+  which-ai-to-use "<task>"            Which AI (and model) to use for a task, with the command to run
+  which-ai-to-use handoff "<task>"    Claude limit over? Write HANDOFF.md so another AI carries on
+  which-ai-to-use fix                 Make your AI tools skip heavy files (asks first)
+
+More:
+  which-ai-to-use tokens              Token details: instructions files, heavy files, add-ons (MCP servers)
+  which-ai-to-use doctor              Installed AI tools and instructions files in this project
+  which-ai-to-use sync                Copy AGENTS.md to every installed AI's instructions file
 
 Options:
   --prefer balanced|free|quality      Rank free/local tools or the most capable agents first
@@ -35,7 +39,7 @@ Options:
   --json                              Machine-readable output
   --from <file>                       sync: source rules file (default: AGENTS.md or the first one found)
   --all                               sync: write rules files for every supported AI, not only installed ones
-  --yes                               sync: overwrite hand-written rules files without asking
+  --yes                               fix, sync: apply without asking
   --version, --help
 
 Made by Wageesha Tripathi — https://github.com/WST2002/which-ai-to-use
