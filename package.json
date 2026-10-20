@@ -1,20 +1,43 @@
 {
   "name": "which-ai-to-use",
-  "version": "0.2.0",
-  "description": "Find out which of your AI coding tools (Claude Code, Codex, Gemini CLI, Copilot, Cursor, Aider, Ollama) to use for a task, and keep their project rules in sync.",
+  "version": "0.3.0",
+  "description": "Which of your AI coding tools (Claude Code, Codex, Gemini CLI, Copilot, Cursor, Aider, Ollama) should do this task? Plus token checks, handoff between AIs when a usage limit hits, and synced rules files.",
   "type": "module",
   "bin": {
     "which-ai-to-use": "bin/cli.mjs"
   },
-  "files": ["bin", "src", "data", "skills"],
+  "files": [
+    "bin",
+    "src",
+    "data",
+    "skills"
+  ],
   "scripts": {
     "test": "node --test \"test/*.test.mjs\""
   },
   "engines": {
     "node": ">=18"
   },
-  "keywords": ["ai", "claude-code", "codex", "gemini-cli", "copilot", "cursor", "aider", "ollama", "agents-md", "developer-tools"],
+  "keywords": [
+    "ai",
+    "claude-code",
+    "codex",
+    "gemini-cli",
+    "copilot",
+    "cursor",
+    "aider",
+    "ollama",
+    "agents-md",
+    "developer-tools",
+    "tokens",
+    "usage-limit",
+    "handoff",
+    "mcp",
+    "claude"
+  ],
   "author": "Wageesha Tripathi <tripathiwageesha2002@gmail.com> (https://www.linkedin.com/in/wst2002/)",
   "license": "MIT",
-  "repository": "github:WST2002/which-ai-to-use"
+  "repository": "github:WST2002/which-ai-to-use",
+  "homepage": "https://github.com/WST2002/which-ai-to-use#readme",
+  "bugs": "https://github.com/WST2002/which-ai-to-use/issues"
 }

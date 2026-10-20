@@ -3,7 +3,7 @@
 You have Claude Code, Codex, Gemini CLI, Copilot, Cursor or Ollama installed. **Which one should do this task?**
 
 ```bash
-npx github:WST2002/which-ai-to-use "add two-factor login with stripe payments"
+npx which-ai-to-use "add two-factor login with stripe payments"
 ```
 
 ```
@@ -27,6 +27,7 @@ Works with any AI tool, because it is a plain command-line tool that looks at wh
 | **Better prompt** | Names the files that match the task and asks the agent to run your tests and report the result |
 | **Model choice** | For Claude Code: `--model haiku` for small edits (uses far less of your limit), `--model opus` for risky or large work |
 | **Token check** | `tokens`: rules files sent with every message, heavy files an agent may read (with ignore rules for each tool), loaded MCP servers |
+| **Handoff** | Hit a usage limit mid-task? `handoff` writes `HANDOFF.md` (task, commits, changed files, how to verify) so the next AI continues instead of starting over |
 | **Limit reached** | `--without claude-code` recommends the next best tool |
 | **Second opinion** | For risky tasks (security, payments, auth, migrations, refactors), a review command for a *different* AI |
 | **Privacy mode** | `.env` or private keys in the project → local tools (Ollama) ranked first, cloud tools flagged |
@@ -37,10 +38,11 @@ Works with any AI tool, because it is a plain command-line tool that looks at wh
 ## Commands
 
 ```bash
-npx github:WST2002/which-ai-to-use "<task>"          # recommend
-npx github:WST2002/which-ai-to-use doctor             # what is installed
-npx github:WST2002/which-ai-to-use sync               # share project rules with every installed AI
-npx github:WST2002/which-ai-to-use tokens             # find what wastes tokens in this project
+npx which-ai-to-use "<task>"            # recommend
+npx which-ai-to-use tokens              # find what wastes tokens in this project
+npx which-ai-to-use handoff "<task>"    # switching AI mid-task: write HANDOFF.md for the next one
+npx which-ai-to-use doctor              # what is installed
+npx which-ai-to-use sync                # share project rules with every installed AI
 ```
 
 Options: `--prefer balanced|free|quality`, `--private`, `--without <tool>`, `--json`, and for `sync`: `--from <file>`, `--all`, `--yes`.
@@ -48,7 +50,7 @@ Options: `--prefer balanced|free|quality`, `--private`, `--without <tool>`, `--j
 ## Save tokens
 
 ```
-npx github:WST2002/which-ai-to-use tokens
+npx which-ai-to-use tokens
 ```
 
 ```
@@ -69,6 +71,23 @@ MCP servers loaded (each adds its tool descriptions to every request)
 ```
 
 Token counts are estimates (about four characters per token). Nothing is changed for you: copy the rules you want.
+
+## Switch AI mid-task
+
+Claude hit its limit halfway through a feature? Hand the work to another tool without starting over:
+
+```
+npx which-ai-to-use handoff "add coupon codes to the cart" --without claude-code
+```
+
+```
+Wrote HANDOFF.md: 3 changed file(s), 1 commit(s) on feat/coupons.
+
+Next:    Gemini CLI — terminal agent: edits many files and runs your commands; free tier
+Run:     gemini -i "Read HANDOFF.md and continue the task."
+```
+
+`HANDOFF.md` lists the task, the commits on the branch, every uncommitted file with its line counts, and the test command to run first. The next AI reads a short note instead of re-exploring the whole project. Don't commit it.
 
 ## Supported tools
 
