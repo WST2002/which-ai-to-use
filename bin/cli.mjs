@@ -6,7 +6,7 @@ import os from "node:os";
 import { parseArgs } from "node:util";
 import { startDashboard } from "../src/dashboard.mjs";
 import { detectTools } from "../src/detect.mjs";
-import { checkupAction, doctorAction, fixAction, handoffAction, recommendAction, tokensAction } from "../src/actions.mjs";
+import { checkupAction, doctorAction, fixAction, handoffAction, recommendAction, tokensAction, usageAction } from "../src/actions.mjs";
 import { formatSyncPlan } from "../src/format.mjs";
 import { RULES_FILES } from "../src/project.mjs";
 import { applySync, planSync } from "../src/sync.mjs";
@@ -27,6 +27,7 @@ Start here:
 More:
   which-ai-to-use tokens              Token details: instructions files, heavy files, add-ons (MCP servers)
   which-ai-to-use doctor              Installed AI tools and instructions files in this project
+  which-ai-to-use usage               Claude Code tokens used today and this week (numbers only, from local logs)
   which-ai-to-use sync                Copy AGENTS.md to every installed AI's instructions file
 
 Options:
@@ -127,6 +128,7 @@ async function main() {
   if (command === "dashboard") return runDashboard(values);
   if (command === "doctor") return print(doctorAction(context));
   if (command === "tokens") return print(tokensAction(context));
+  if (command === "usage") return print(usageAction(context));
   if (command === "handoff") return print(handoffAction({ ...context, task: positionals.slice(1).join(" ").trim() }));
   if (command === "sync") return runSync(values, installed);
   if (command === "fix") return runFix(values, installed);

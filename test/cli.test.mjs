@@ -257,3 +257,20 @@ test("the answer estimates the tokens it takes to start", (t) => {
   const result = machine(t, { bins: ["claude"], files: { "CLAUDE.md": "x".repeat(4000), "src/hero.tsx": "x".repeat(2000) } }).run("make the hero look better");
   assert.match(result.stdout, /Cost:\s+~1,5\d\d tokens to start \(CLAUDE\.md ~1,000 · files ~500 · prompt ~\d+\)/);
 });
+
+test("usage shows Claude Code tokens from local logs, numbers only", (t) => {
+  const { project, run } = machine(t, { bins: ["claude", "gemini"] });
+  const home = path.join(project, "..", "home");
+  const now = new Date();
+  const lines = [0, 1, 2].map((i) =>
+    JSON.stringify({ type: "assistant", timestamp: now.toISOString(), cwd: "/home/dev/work/shop", message: { id: `m${i}`, content: [{ type: "text", text: "SECRET-TEXT" }], usage: { input_tokens: 1000, output_tokens: 500, cache_read_input_tokens: 9000 } } }),
+  );
+  fs.mkdirSync(path.join(home, ".claude", "projects", "shop"), { recursive: true });
+  fs.writeFileSync(path.join(home, ".claude", "projects", "shop", "s.jsonl"), lines.join("\n"));
+  const result = run("usage");
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Today:\s+~4,500 tokens in 3 replies \(\+ ~27,000 re-read from cache\)/);
+  assert.match(result.stdout, /Busiest projects \(7 days\): shop ~4,500/);
+  assert.match(result.stdout, /Tip: Today is 7\.0× your daily average\. Send small tasks to Gemini CLI \(free\)/);
+  assert.doesNotMatch(result.stdout, /SECRET-TEXT/);
+});

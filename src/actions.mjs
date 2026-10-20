@@ -3,7 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { classifyTask } from "./classify.mjs";
 import { applyIgnoreAdvice } from "./fix.mjs";
-import { LABELS, checkupIssues, formatCheckup, formatDoctor, formatRecommendation, formatTokens } from "./format.mjs";
+import { LABELS, checkupIssues, formatCheckup, formatDoctor, formatRecommendation, formatTokens, formatUsage, usageTip } from "./format.mjs";
+import { claudeUsage } from "./usage.mjs";
 import { collectHandoff, renderHandoff } from "./handoff.mjs";
 import { scanProject } from "./project.mjs";
 import { betterPrompt, relevantFiles, verifyCommand } from "./prompt.mjs";
@@ -23,6 +24,11 @@ export function checkupAction({ cwd, home, installed }) {
 export function tokensAction({ cwd, home, installed }) {
   const report = tokenReport({ dir: cwd, home, installedIds: ids(installed) });
   return { text: formatTokens(report), data: report };
+}
+
+export function usageAction({ home, installed, now = new Date() }) {
+  const usage = claudeUsage({ home, now });
+  return { text: formatUsage(usage, installed), data: { ...usage, tip: usageTip(usage, installed) } };
 }
 
 export function doctorAction({ cwd, installed }) {
