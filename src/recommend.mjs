@@ -52,9 +52,25 @@ function commandFor(tool, found, template, task) {
   return template.replaceAll("{task}", task).replaceAll("<model>", model);
 }
 
+const HARD = new Set(["refactor", "security-sensitive", "explain-codebase"]);
+const LIGHT = new Set(["quick-edit", "docs"]);
+
+/** Claude Code model aliases: a small model saves usage on small edits, the strongest pays off on hard work. */
+function claudeModel(categories) {
+  if (categories.some((c) => HARD.has(c))) return { alias: "opus", why: "strongest model for risky or large changes" };
+  if (categories.every((c) => LIGHT.has(c))) return { alias: "haiku", why: "small, fast model: uses far less of your limit" };
+  return null;
+}
+
 function describe(found, categories, privacy, task) {
   const tool = toolById(found.id);
-  return { id: tool.id, name: tool.name, reason: reasonFor(tool, found, categories, privacy), command: commandFor(tool, found, tool.run, task) };
+  const entry = { id: tool.id, name: tool.name, reason: reasonFor(tool, found, categories, privacy), command: commandFor(tool, found, tool.run, task) };
+  const model = tool.id === "claude-code" && hasCommand(found) ? claudeModel(categories) : null;
+  if (model) {
+    entry.command = entry.command.replace(/^claude /, `claude --model ${model.alias} `);
+    entry.model = `${model.alias} — ${model.why}`;
+  }
+  return entry;
 }
 
 export function recommend({ task, categories, installed, sensitive = [], prefer = "balanced", private: forcePrivate = false }) {
