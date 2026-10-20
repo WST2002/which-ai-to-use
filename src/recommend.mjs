@@ -50,8 +50,9 @@ const CLAUDE_MODELS = new Set(["haiku", "sonnet", "opus"]);
 export function runCommandFor(found, task, model = "") {
   const tool = toolById(found.id);
   const command = commandFor(tool, found, tool.run, task);
-  const alias = model.toLowerCase();
-  return tool.id === "claude-code" && hasCommand(found) && CLAUDE_MODELS.has(alias) ? command.replace(/^claude /, `claude --model ${alias} `) : command;
+  // AIs often answer with a full model id ("claude-sonnet-5-5"); the CLI takes the short alias.
+  const alias = [...CLAUDE_MODELS].find((name) => model.toLowerCase().includes(name));
+  return tool.id === "claude-code" && hasCommand(found) && alias ? command.replace(/^claude /, `claude --model ${alias} `) : command;
 }
 
 function commandFor(tool, found, template, task) {
