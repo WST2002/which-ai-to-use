@@ -124,6 +124,8 @@ export function dashboardPage({ token, project, version }) {
       }
       const result = await run(action, body);
       if (action === "fix" && result && result.data.planned.length) applyButton.style.display = "inline-block";
+      // On narrow screens the answer sits below the buttons, so bring it into view.
+      if (window.matchMedia("(max-width: 860px)").matches) document.querySelector(".result").scrollIntoView({ behavior: "smooth" });
     });
   });
 
