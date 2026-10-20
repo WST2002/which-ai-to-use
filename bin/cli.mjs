@@ -2,17 +2,11 @@
 import { createInterface } from "node:readline/promises";
 import fs from "node:fs";
 import os from "node:os";
-import path from "node:path";
 import { parseArgs } from "node:util";
-import { classifyTask } from "../src/classify.mjs";
 import { detectTools } from "../src/detect.mjs";
-import { formatCheckup, formatDoctor, formatRecommendation, formatSyncPlan, formatTokens } from "../src/format.mjs";
-import { collectHandoff, renderHandoff } from "../src/handoff.mjs";
-import { applyIgnoreAdvice } from "../src/fix.mjs";
-import { betterPrompt, relevantFiles, verifyCommand } from "../src/prompt.mjs";
-import { listProjectFiles, tokenReport } from "../src/tokens.mjs";
-import { RULES_FILES, scanProject } from "../src/project.mjs";
-import { recommend } from "../src/recommend.mjs";
+import { checkupAction, doctorAction, fixAction, handoffAction, recommendAction, tokensAction } from "../src/actions.mjs";
+import { formatSyncPlan } from "../src/format.mjs";
+import { RULES_FILES } from "../src/project.mjs";
 import { applySync, planSync } from "../src/sync.mjs";
 import { TOOLS, toolById } from "../src/tools.mjs";
 
@@ -46,21 +40,14 @@ Made by Wageesha Tripathi — https://github.com/WST2002/which-ai-to-use
 `;
 
 async function runFix(values, installed) {
-  const cwd = process.cwd();
-  const report = tokenReport({ dir: cwd, home: os.homedir(), installedIds: installed.map((found) => found.id) });
-  if (!report.ignore.length) return void process.stdout.write("Nothing to fix: no heavy files, or none of your AI tools can be told to skip files.\n");
-  const lines = ["Your AI tools will skip these files:"];
-  for (const advice of report.ignore) {
-    const files = advice.id === "claude-code" ? report.heavy.map((h) => h.file) : advice.snippet.split("\n");
-    for (const file of files) lines.push(`  ${file} → ${advice.file} (${toolById(advice.id).name})`);
-  }
-  process.stdout.write(`${lines.join("\n")}\n`);
+  const context = { cwd: process.cwd(), home: os.homedir(), installed };
+  const preview = fixAction(context);
+  process.stdout.write(preview.text);
+  if (!preview.data.planned.length) return;
   const approved = values.yes || (await confirm("Apply these changes? (y/N) "));
   if (!approved) return void process.stdout.write("Nothing changed. Run again with --yes to apply.\n");
-  const changes = applyIgnoreAdvice(cwd, report.ignore);
-  if (!changes.length) return void process.stdout.write("Nothing to fix: your AI tools already skip these files.\n");
-  const skipped = report.ignore.length - changes.length;
-  process.stdout.write(`Updated ${changes.map((c) => c.file).join(", ")}${skipped ? ` (${skipped} file skipped)` : ""}.\n`);
+  const result = fixAction({ ...context, apply: true });
+  process.stdout.write(`${result.text.trimEnd().split("\n").at(-1)}\n`);
 }
 
 async function confirm(question) {
@@ -85,23 +72,6 @@ async function runSync(values, installed) {
   }
   const written = applySync(cwd, plan, { overwrite });
   process.stdout.write(written.length ? `Wrote: ${written.join(", ")}\n` : "Nothing to write.\n");
-}
-
-const CONTINUE = "Read HANDOFF.md and continue the task.";
-
-function runHandoff(task, installed, values) {
-  const cwd = process.cwd();
-  const info = collectHandoff(cwd);
-  const date = new Date().toISOString().slice(0, 10);
-  fs.writeFileSync(path.join(info.root, "HANDOFF.md"), renderHandoff({ task, info, verify: verifyCommand(info.root), date }));
-  const { sensitive } = scanProject(info.root);
-  const next = recommend({ task: CONTINUE, categories: classifyTask(task), installed, sensitive, prefer: values.prefer, private: values.private });
-  if (values.json) return void process.stdout.write(`${JSON.stringify({ file: "HANDOFF.md", ...info, next }, null, 2)}\n`);
-  const lines = [`Wrote HANDOFF.md: ${info.changes.length} changed file(s), ${info.commits.length} commit(s) on ${info.branch}.`, ""];
-  if (next.best) lines.push(`Next:    ${next.best.name} — ${next.best.reason}`, `Run:     ${next.best.command}`);
-  else lines.push(...next.notes);
-  lines.push("", "HANDOFF.md is for the next AI only: don't commit it.");
-  process.stdout.write(`${lines.join("\n")}\n`);
 }
 
 async function main() {
@@ -129,32 +99,15 @@ async function main() {
   }
   const installed = detectTools().filter((found) => !skipped.includes(found.id));
   const [command] = positionals;
-  if (!command) {
-    const cwd = process.cwd();
-    const report = tokenReport({ dir: cwd, home: os.homedir(), installedIds: installed.map((found) => found.id) });
-    if (values.json) return void process.stdout.write(`${JSON.stringify({ installed, ...report }, null, 2)}\n`);
-    return void process.stdout.write(formatCheckup({ project: path.basename(cwd), installed, report }));
-  }
-  if (command === "doctor") {
-    const project = scanProject(process.cwd());
-    return void process.stdout.write(values.json ? `${JSON.stringify({ installed, project }, null, 2)}\n` : formatDoctor(installed, project));
-  }
+  const context = { cwd: process.cwd(), home: os.homedir(), installed, prefer: values.prefer, private: values.private };
+  const print = ({ text, data }) => process.stdout.write(values.json ? `${JSON.stringify(data, null, 2)}\n` : text);
+  if (!command) return print(checkupAction(context));
+  if (command === "doctor") return print(doctorAction(context));
+  if (command === "tokens") return print(tokensAction(context));
+  if (command === "handoff") return print(handoffAction({ ...context, task: positionals.slice(1).join(" ").trim() }));
   if (command === "sync") return runSync(values, installed);
   if (command === "fix") return runFix(values, installed);
-  if (command === "handoff") return runHandoff(positionals.slice(1).join(" ").trim(), installed, values);
-  if (command === "tokens") {
-    const report = tokenReport({ dir: process.cwd(), home: os.homedir(), installedIds: installed.map((found) => found.id) });
-    return void process.stdout.write(values.json ? `${JSON.stringify(report, null, 2)}\n` : formatTokens(report));
-  }
-
-  const task = positionals.join(" ").trim();
-  if (!task) throw new Error('task is empty: describe it in quotes, e.g. which-ai-to-use "fix the login bug"');
-  const cwd = process.cwd();
-  const { sensitive } = scanProject(cwd);
-  const files = relevantFiles(task, listProjectFiles(cwd));
-  const prompt = betterPrompt(task, files, verifyCommand(cwd));
-  const result = recommend({ task, prompt, files, categories: classifyTask(task), installed, sensitive, prefer: values.prefer, private: values.private });
-  process.stdout.write(values.json ? `${JSON.stringify(result, null, 2)}\n` : formatRecommendation(result));
+  return print(recommendAction({ ...context, task: positionals.join(" ") }));
 }
 
 main().catch((error) => {
