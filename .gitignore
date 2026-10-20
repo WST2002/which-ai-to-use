@@ -1,3 +1,7 @@
 node_modules/
 .DS_Store
 _site/
+extension/lib/
+extension/node_modules/
+extension/.vscode-test/
+extension/*.vsix
