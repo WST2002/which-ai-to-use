@@ -1,7 +1,7 @@
 const escapeHtml = (text) =>
   String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
-/** The single dashboard page. Output is always set with textContent, never as HTML. */
+/** The single dashboard page. Every value from the server is inserted with textContent, never as HTML. */
 export function dashboardPage({ token, project, version }) {
   return `<!doctype html>
 <html lang="en">
@@ -10,137 +10,313 @@ export function dashboardPage({ token, project, version }) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>which-ai-to-use — ${escapeHtml(project)}</title>
 <style>
-  :root { --bg:#f6f7fb; --panel:#fff; --fg:#14161f; --muted:#5b6175; --line:#e3e6ef; --accent:#4f46e5; --accent-fg:#fff; --code:#0f1220; --code-fg:#e6e8f2; --ok:#16803c; --warn:#b45309; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#0b0d14; --panel:#141824; --fg:#e8eaf3; --muted:#9aa1b8; --line:#262c3d; --accent:#8b83ff; --accent-fg:#0b0d14; --code:#070910; --code-fg:#dfe3f1; --ok:#4ade80; --warn:#fbbf24; } }
+  :root {
+    --bg: #f4f5fb; --panel: #ffffff; --panel-2: #f8f9fd; --fg: #11131c; --muted: #5b6178; --line: #e2e5ef;
+    --accent: #4f46e5; --accent-soft: #eef0ff; --accent-fg: #ffffff; --good: #15803d; --good-soft: #e8f7ee;
+    --warn: #b45309; --warn-soft: #fff4e5; --code: #0e1120; --code-fg: #e4e7f5; --shadow: 0 1px 2px rgba(17,19,28,.04), 0 8px 24px -12px rgba(17,19,28,.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0a0c13; --panel: #121623; --panel-2: #171c2c; --fg: #e9ebf5; --muted: #99a0b9; --line: #252b3e;
+      --accent: #8f88ff; --accent-soft: #1d1f3b; --accent-fg: #0a0c13; --good: #4ade80; --good-soft: #10261a;
+      --warn: #fbbf24; --warn-soft: #2a2010; --code: #070910; --code-fg: #dfe3f1; --shadow: 0 8px 28px -14px rgba(0,0,0,.6);
+    }
+  }
   * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  header { padding:18px 24px; border-bottom:1px solid var(--line); background:var(--panel); display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
-  header h1 { font-size:18px; margin:0; }
-  header span { color:var(--muted); font-size:14px; }
-  main { display:grid; grid-template-columns: minmax(280px, 380px) 1fr; gap:20px; padding:20px 24px; max-width:1300px; margin:0 auto; }
-  @media (max-width: 860px) { main { grid-template-columns: 1fr; padding:16px; } }
-  .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:12px; }
-  .card h2 { font-size:15px; margin:0 0 4px; }
-  .card p { margin:0 0 10px; color:var(--muted); font-size:13.5px; }
-  input[type=text] { width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:9px; background:var(--bg); color:var(--fg); font:inherit; margin-bottom:8px; }
-  label.check { display:flex; gap:8px; align-items:center; font-size:13.5px; color:var(--muted); margin-bottom:8px; }
-  button { font:inherit; font-weight:600; border:0; border-radius:9px; padding:9px 14px; cursor:pointer; background:var(--accent); color:var(--accent-fg); }
-  button.secondary { background:transparent; color:var(--accent); border:1px solid var(--accent); }
-  button:disabled { opacity:.55; cursor:progress; }
-  .result { background:var(--panel); border:1px solid var(--line); border-radius:14px; display:flex; flex-direction:column; min-height:60vh; }
-  .result-head { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--line); }
-  .result-head strong { font-size:15px; }
-  pre { margin:0; padding:16px; background:var(--code); color:var(--code-fg); border-radius:0 0 14px 14px; flex:1; overflow:auto; white-space:pre-wrap; font:13.5px/1.6 "Cascadia Code", Consolas, monospace; }
-  #status { font-size:13px; color:var(--muted); }
-  #status.error { color:var(--warn); }
-  #apply { display:none; margin-top:8px; }
-  footer { text-align:center; color:var(--muted); font-size:12.5px; padding:10px 0 24px; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--fg); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  button, input { font: inherit; }
+
+  .top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 12px clamp(16px, 3vw, 40px); background: color-mix(in srgb, var(--panel) 88%, transparent);
+    backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; }
+  .mark { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; color: #fff; font-size: 15px;
+    background: linear-gradient(135deg, #6366f1, #06b6d4); }
+  .pills { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+  .pill { font-size: 12.5px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); background: var(--panel); }
+  .pill.good { color: var(--good); border-color: color-mix(in srgb, var(--good) 40%, transparent); background: var(--good-soft); }
+
+  .layout { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: clamp(16px, 2vw, 28px);
+    padding: clamp(16px, 2.5vw, 32px) clamp(16px, 3vw, 40px); max-width: 1680px; margin: 0 auto; }
+  nav { position: sticky; top: 76px; align-self: start; display: flex; flex-direction: column; gap: 6px; }
+  .nav-btn { display: flex; gap: 12px; align-items: flex-start; text-align: left; width: 100%; padding: 12px 14px; border-radius: 12px;
+    border: 1px solid transparent; background: transparent; color: var(--fg); cursor: pointer; }
+  .nav-btn:hover { background: var(--panel); border-color: var(--line); }
+  .nav-btn[aria-current="true"] { background: var(--panel); border-color: var(--accent); box-shadow: var(--shadow); }
+  .nav-btn .icon { font-size: 18px; line-height: 1.3; }
+  .nav-btn strong { display: block; font-size: 14.5px; }
+  .nav-btn small { display: block; color: var(--muted); font-size: 12.5px; }
+
+  .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; box-shadow: var(--shadow); min-width: 0; }
+  .stat .label { color: var(--muted); font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; }
+  .stat .value { font-size: 26px; font-weight: 750; margin-top: 2px; }
+  .stat .value.warn { color: var(--warn); }
+  .stat .value.good { color: var(--good); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .chip { font-size: 12.5px; padding: 2px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; }
+  .panel-head { padding: 18px 20px 6px; }
+  .panel-head h1 { font-size: 20px; margin: 0; }
+  .panel-head p { margin: 4px 0 0; color: var(--muted); }
+  .panel-body { padding: 14px 20px 20px; }
+  .form { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .form input[type=text] { flex: 1 1 320px; min-width: 0; padding: 11px 13px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); color: var(--fg); }
+  .form input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .check { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 14px; }
+  .btn { border: 0; border-radius: 10px; padding: 11px 16px; font-weight: 650; cursor: pointer; background: var(--accent); color: var(--accent-fg); }
+  .btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  .btn.small { padding: 6px 11px; font-size: 13px; }
+  .btn:disabled { opacity: .55; cursor: progress; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+  .card { border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; background: var(--panel-2); min-width: 0; }
+  .card.best { border-color: var(--accent); background: var(--accent-soft); grid-column: 1 / -1; }
+  .card h3 { margin: 0; font-size: 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .card .tag { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--panel); color: var(--muted); border: 1px solid var(--line); }
+  .card .tag.star { background: var(--accent); color: var(--accent-fg); border: 0; }
+  .card p { margin: 6px 0 0; color: var(--muted); }
+  .card a { color: var(--accent); }
+  .section-title { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 20px 0 10px; }
+  .issue { display: flex; gap: 14px; align-items: flex-start; }
+  .issue .num { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 13px; background: var(--warn-soft); color: var(--warn); }
+  .issue .fix { color: var(--fg); margin-top: 4px; }
+  .ok { padding: 14px 16px; border-radius: 12px; background: var(--good-soft); color: var(--good); font-weight: 600; }
+
+  .cmd { display: flex; gap: 8px; align-items: stretch; margin-top: 10px; }
+  .cmd code { flex: 1; min-width: 0; overflow-x: auto; white-space: pre; padding: 10px 12px; border-radius: 10px; background: var(--code); color: var(--code-fg); font: 13px/1.5 "Cascadia Code", Consolas, monospace; }
+  pre.raw { margin: 0; padding: 16px; border-radius: 12px; background: var(--code); color: var(--code-fg); overflow: auto; white-space: pre-wrap; font: 13.5px/1.6 "Cascadia Code", Consolas, monospace; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+  th { color: var(--muted); font-weight: 600; font-size: 12.5px; text-transform: uppercase; letter-spacing: .05em; }
+  .status { min-height: 22px; font-size: 13.5px; color: var(--muted); margin-top: 12px; }
+  .status.error { color: var(--warn); }
+  .muted { color: var(--muted); }
+  .hidden { display: none !important; }
+  footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 6px 0 28px; }
+
+  @media (min-width: 1500px) { .layout { grid-template-columns: 320px minmax(0, 1fr); } .stat .value { font-size: 30px; } }
+  @media (max-width: 980px) {
+    .layout { grid-template-columns: 1fr; }
+    nav { position: sticky; top: 58px; z-index: 4; flex-direction: row; overflow-x: auto; gap: 8px; padding: 4px 2px 8px; margin: 0 -4px;
+      background: var(--bg); scrollbar-width: none; }
+    .nav-btn { flex: none; width: auto; padding: 8px 12px; border-color: var(--line); background: var(--panel); }
+    .nav-btn small { display: none; }
+    .nav-btn .icon { font-size: 15px; }
+  }
+  @media (max-width: 640px) {
+    .stats { gap: 8px; margin-bottom: 12px; }
+    .stat { padding: 10px; }
+    .stat .label { font-size: 10.5px; letter-spacing: .03em; }
+    .stat .value { font-size: 20px; }
+    .stat .chips, .stat .muted { display: none; }
+    .pills .pill:not(.good) { display: none; }
+    .panel-head, .panel-body { padding-left: 14px; padding-right: 14px; }
+    .grid { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
-<header><h1>which-ai-to-use</h1><span>Project: ${escapeHtml(project)}${version ? ` · v${escapeHtml(version)}` : ""} · runs only on this laptop</span></header>
-<main>
-  <section aria-label="Actions">
-    <div class="card">
-      <h2>Check this project</h2>
-      <p>Your AI tools and what is wasting tokens, in plain words.</p>
-      <button data-action="checkup">Run checkup</button>
-    </div>
-    <div class="card">
-      <h2>Which AI for a task?</h2>
-      <p>Get the best tool and model, with the command to run.</p>
-      <input type="text" id="task" placeholder="e.g. fix the login bug" aria-label="Task">
-      <button data-action="task">Ask</button>
-    </div>
-    <div class="card">
-      <h2>Claude limit over?</h2>
-      <p>Writes HANDOFF.md in your project so another AI carries on.</p>
-      <input type="text" id="handoff-task" placeholder="What were you working on?" aria-label="Task to hand off">
-      <label class="check"><input type="checkbox" id="without-claude" checked> Leave out Claude Code</label>
-      <button data-action="handoff">Write handoff</button>
-    </div>
-    <div class="card">
-      <h2>Fix wasted tokens</h2>
-      <p>Shows which heavy files your AI tools will skip. Nothing changes until you apply.</p>
-      <button data-action="fix" class="secondary">Preview fix</button>
-      <button id="apply">Apply fix</button>
-    </div>
-    <div class="card">
-      <h2>More</h2>
-      <p>Token details and installed tools.</p>
-      <button data-action="tokens" class="secondary">Token details</button>
-      <button data-action="doctor" class="secondary">Installed tools</button>
-    </div>
-  </section>
-  <section class="result" aria-live="polite">
-    <div class="result-head"><strong id="title">Checkup</strong><span id="status"></span><button id="copy" class="secondary">Copy</button></div>
-    <pre id="output">Loading…</pre>
-  </section>
-</main>
+<header class="top">
+  <div class="brand"><span class="mark" aria-hidden="true">✦</span>which-ai-to-use</div>
+  <div class="pills">
+    <span class="pill">Project: ${escapeHtml(project)}</span>
+    ${version ? `<span class="pill">v${escapeHtml(version)}</span>` : ""}
+    <span class="pill good">🔒 Runs only on this laptop</span>
+  </div>
+</header>
+
+<div class="layout">
+  <nav aria-label="Actions">
+    <button class="nav-btn" data-view="checkup"><span class="icon">🩺</span><span><strong>Checkup</strong><small>What is wasting your tokens</small></span></button>
+    <button class="nav-btn" data-view="task"><span class="icon">🧭</span><span><strong>Which AI for a task?</strong><small>Best tool and model, with the command</small></span></button>
+    <button class="nav-btn" data-view="handoff"><span class="icon">🔁</span><span><strong>Claude limit over?</strong><small>Hand the task to another AI</small></span></button>
+    <button class="nav-btn" data-view="fix"><span class="icon">🧹</span><span><strong>Fix wasted tokens</strong><small>Make your AI skip heavy files</small></span></button>
+    <button class="nav-btn" data-view="tokens"><span class="icon">📊</span><span><strong>Token details</strong><small>Everything that is counted</small></span></button>
+    <button class="nav-btn" data-view="doctor"><span class="icon">🧰</span><span><strong>Installed tools</strong><small>AI tools on this laptop</small></span></button>
+  </nav>
+
+  <main>
+    <section class="stats" aria-label="Summary">
+      <div class="stat"><div class="label">Your AI tools</div><div class="value" id="stat-tools">–</div><div class="chips" id="stat-tool-chips"></div></div>
+      <div class="stat"><div class="label">Tokens at risk</div><div class="value" id="stat-tokens">–</div><div class="muted" id="stat-tokens-note"></div></div>
+      <div class="stat"><div class="label">Add-ons switched on</div><div class="value" id="stat-addons">–</div><div class="muted" id="stat-addons-note"></div></div>
+    </section>
+
+    <section class="panel" aria-live="polite">
+      <div class="panel-head"><h1 id="view-title">Checkup</h1><p id="view-sub"></p></div>
+      <div class="panel-body">
+        <div class="form hidden" id="form-task">
+          <input type="text" id="task" placeholder="Describe the task, e.g. make the hero section look better" aria-label="Task">
+          <button class="btn" id="ask">Ask</button>
+        </div>
+        <div class="form hidden" id="form-handoff">
+          <input type="text" id="handoff-task" placeholder="What were you working on?" aria-label="Task to hand off">
+          <label class="check"><input type="checkbox" id="without-claude" checked> Leave out Claude Code</label>
+          <button class="btn" id="write-handoff">Write HANDOFF.md</button>
+        </div>
+        <div id="result"></div>
+        <div class="status" id="status"></div>
+      </div>
+    </section>
+  </main>
+</div>
 <footer>Made by Wageesha Tripathi · github.com/WST2002/which-ai-to-use</footer>
+
 <script>
   const TOKEN = ${JSON.stringify(token)};
-  const output = document.getElementById("output");
-  const status = document.getElementById("status");
-  const title = document.getElementById("title");
-  const applyButton = document.getElementById("apply");
-  const titles = { checkup: "Checkup", task: "Which AI for this task", handoff: "Handoff", fix: "Fix wasted tokens", tokens: "Token details", doctor: "Installed tools" };
+  const VIEWS = {
+    checkup: { title: "Checkup", sub: "Your AI tools and what is wasting tokens, in plain words." },
+    task: { title: "Which AI for a task?", sub: "Describe the task. You get the best tool and model, the files to start with and the command to run." },
+    handoff: { title: "Claude limit over?", sub: "Writes HANDOFF.md in your project, so another AI carries on instead of starting over." },
+    fix: { title: "Fix wasted tokens", sub: "These files cost many tokens when your AI reads them. Nothing changes until you click Apply." },
+    tokens: { title: "Token details", sub: "Instructions files, heavy files and add-ons, with numbers." },
+    doctor: { title: "Installed tools", sub: "Which AI tools this laptop has and which instructions files this project has." },
+  };
+  const $ = (id) => document.getElementById(id);
+  const result = $("result");
+  const status = $("status");
 
-  async function run(action, body = {}) {
-    const buttons = document.querySelectorAll("button");
-    buttons.forEach((b) => (b.disabled = true));
-    title.textContent = titles[action];
-    status.className = "";
+  // Builds elements with textContent only, so nothing from the server is ever parsed as HTML.
+  function el(tag, props = {}, ...children) {
+    const node = document.createElement(tag);
+    for (const [key, value] of Object.entries(props)) {
+      if (key === "class") node.className = value;
+      else if (key === "text") node.textContent = value;
+      else if (key.startsWith("on")) node.addEventListener(key.slice(2), value);
+      else node.setAttribute(key, value);
+    }
+    for (const child of children.flat()) if (child) node.append(child);
+    return node;
+  }
+  const tokens = (n) => "~" + Number(n).toLocaleString("en-US");
+  const sentence = (s) => s.charAt(0).toUpperCase() + s.slice(1) + ".";
+
+  function command(text) {
+    const button = el("button", { class: "btn ghost small", text: "Copy", onclick: () => { navigator.clipboard.writeText(text); button.textContent = "Copied"; setTimeout(() => (button.textContent = "Copy"), 1500); } });
+    return el("div", { class: "cmd" }, el("code", { text }), button);
+  }
+
+  async function call(action, body = {}) {
+    document.querySelectorAll("button").forEach((b) => (b.disabled = true));
+    status.className = "status";
     status.textContent = "Running…";
     try {
-      const response = await fetch("/api/" + action, {
-        method: "POST",
-        headers: { "content-type": "application/json", "x-dashboard-token": TOKEN },
-        body: JSON.stringify(body),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Something went wrong");
-      output.textContent = result.text;
-      status.textContent = "Done · " + new Date().toLocaleTimeString();
-      return result;
+      const response = await fetch("/api/" + action, { method: "POST", headers: { "content-type": "application/json", "x-dashboard-token": TOKEN }, body: JSON.stringify(body) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Something went wrong");
+      status.textContent = "Updated " + new Date().toLocaleTimeString();
+      return data;
     } catch (error) {
-      output.textContent = error.message;
-      status.className = "error";
-      status.textContent = "Error";
+      status.className = "status error";
+      status.textContent = error.message;
+      return null;
     } finally {
-      buttons.forEach((b) => (b.disabled = false));
+      document.querySelectorAll("button").forEach((b) => (b.disabled = false));
     }
   }
 
-  document.querySelectorAll("[data-action]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const action = button.dataset.action;
-      applyButton.style.display = "none";
-      const body = {};
-      if (action === "task") body.task = document.getElementById("task").value;
-      if (action === "handoff") {
-        body.task = document.getElementById("handoff-task").value;
-        if (document.getElementById("without-claude").checked) body.without = ["claude-code"];
-      }
-      const result = await run(action, body);
-      if (action === "fix" && result && result.data.planned.length) applyButton.style.display = "inline-block";
-      // On narrow screens the answer sits below the buttons, so bring it into view.
-      if (window.matchMedia("(max-width: 860px)").matches) document.querySelector(".result").scrollIntoView({ behavior: "smooth" });
-    });
-  });
-
-  applyButton.addEventListener("click", async () => {
-    applyButton.style.display = "none";
-    await run("fix", { apply: true });
-  });
-
-  document.getElementById("copy").addEventListener("click", () => navigator.clipboard.writeText(output.textContent));
-  for (const id of ["task", "handoff-task"]) {
-    document.getElementById(id).addEventListener("keydown", (e) => {
-      if (e.key === "Enter") document.querySelector('[data-action="' + (id === "task" ? "task" : "handoff") + '"]').click();
-    });
+  function updateStats(data) {
+    $("stat-tools").textContent = data.installed.length;
+    $("stat-tool-chips").replaceChildren(...data.installed.map((t) => el("span", { class: "chip", text: t.name })));
+    const atRisk = data.issues.reduce((sum, i) => sum + i.tokens, 0);
+    $("stat-tokens").textContent = atRisk ? tokens(atRisk) : "0";
+    $("stat-tokens").className = "value " + (atRisk ? "warn" : "good");
+    $("stat-tokens-note").textContent = atRisk ? "in files your AI may read or gets every message" : "nothing heavy found";
+    const addons = [...new Set(data.mcp.map((m) => m.name))];
+    $("stat-addons").textContent = addons.length;
+    $("stat-addons-note").textContent = addons.length ? addons.slice(0, 4).join(", ") + (addons.length > 4 ? "…" : "") : "none";
   }
-  run("checkup");
+
+  const RENDER = {
+    checkup(data) {
+      updateStats(data);
+      if (!data.issues.length) return [el("div", { class: "ok", text: "Nothing is wasting your tokens here." })];
+      return [
+        el("div", { class: "section-title", text: data.issues.length + (data.issues.length === 1 ? " thing is" : " things are") + " wasting your tokens" }),
+        el("div", { class: "grid" }, data.issues.map((issue, i) =>
+          el("div", { class: "card" },
+            el("div", { class: "issue" },
+              el("span", { class: "num", text: String(i + 1) }),
+              el("div", {},
+                el("div", { text: issue.problem }),
+                el("div", { class: "fix", text: "→ " + issue.fix.replace("npx which-ai-to-use fix", "click Fix wasted tokens") }),
+                issue.kind === "heavy-files" ? el("button", { class: "btn small", style: "margin-top:10px", text: "Fix it", onclick: () => show("fix") }) : null)))),
+        ),
+      ];
+    },
+    task(data) {
+      const tool = (entry, best) =>
+        el("div", { class: "card" + (best ? " best" : "") },
+          el("h3", {}, entry.name, el("span", { class: "tag" + (best ? " star" : ""), text: best ? "★ Best for this task" : entry.where }), best ? el("span", { class: "tag", text: entry.where }) : null),
+          el("p", { text: sentence(entry.why) }),
+          best ? command(entry.command) : null,
+          best && entry.model ? el("p", { text: "Model: " + entry.model }) : null);
+      const parts = [el("p", { class: "muted", text: "Task type: " + data.labels.join(", ") })];
+      if (!data.best) return parts.concat(data.notes.map((n) => el("p", { text: n })));
+      parts.push(el("div", { class: "grid" }, tool(data.best, true), data.also.map((a) => tool(a, false))));
+      if (data.files.length) parts.push(el("div", { class: "section-title", text: "Start with these files" }), el("p", { text: data.files.join(", ") }));
+      if (data.reviewer) parts.push(el("div", { class: "section-title", text: "Second opinion from " + data.reviewer.name }), command(data.reviewer.command));
+      if (data.suggested.length) {
+        parts.push(el("div", { class: "section-title", text: "Not installed, but good for this" }),
+          el("div", { class: "grid" }, data.suggested.map((s) => el("div", { class: "card" }, el("h3", { text: s.name }), el("p", { text: sentence(s.why) }), el("p", {}, el("a", { href: s.homepage, target: "_blank", rel: "noopener", text: s.homepage.replace("https://", "") }))))));
+      }
+      if (data.notes.length) parts.push(el("div", { class: "section-title", text: "Notes" }), ...data.notes.map((n) => el("p", { class: "muted", text: n })));
+      return parts;
+    },
+    handoff(data) {
+      const parts = [el("div", { class: "ok", text: "Wrote HANDOFF.md: " + data.changes.length + " changed file(s), " + data.commits.length + " commit(s) on " + data.branch + "." })];
+      if (data.next.best) parts.push(el("div", { class: "section-title", text: "Continue with " + data.next.best.name }), command(data.next.best.command));
+      if (data.changes.length) parts.push(el("div", { class: "section-title", text: "Changed files in the note" }), el("table", {}, el("tr", {}, el("th", { text: "File" }), el("th", { text: "Change" })), data.changes.map((c) => el("tr", {}, el("td", { text: c.file }), el("td", { text: c.status + " (+" + c.added + " −" + c.removed + ")" })))));
+      parts.push(el("p", { class: "muted", text: "HANDOFF.md is for the next AI only: don't commit it." }));
+      return parts;
+    },
+    fix(data, applied) {
+      if (!data.planned.length) return [el("div", { class: "ok", text: "Nothing to fix: your AI tools already skip the heavy files, or there are none." })];
+      const parts = [el("table", {}, el("tr", {}, el("th", { text: "File" }), el("th", { text: "Added to" }), el("th", { text: "For" })), data.planned.map((p) => el("tr", {}, el("td", { text: p.file }), el("td", { text: p.target }), el("td", { text: p.tool }))))];
+      if (applied) parts.unshift(el("div", { class: "ok", style: "margin-bottom:12px", text: data.changes.length ? "Done. Updated " + data.changes.map((c) => c.file).join(", ") + "." : "Already done: your AI tools skip these files." }));
+      else parts.push(el("button", { class: "btn", style: "margin-top:14px", text: "Apply fix", onclick: () => load("fix", { apply: true }, true) }));
+      return parts;
+    },
+    tokens: (data, _, text) => [el("pre", { class: "raw", text })],
+    doctor: (data, _, text) => [el("pre", { class: "raw", text })],
+  };
+
+  async function load(action, body = {}, applied = false) {
+    const response = await call(action, body);
+    if (!response) return;
+    result.replaceChildren(...RENDER[action](response.data, applied, response.text));
+    if (applied) refreshStats();
+    if (window.matchMedia("(max-width: 980px)").matches) result.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  // After a fix the summary numbers change, so fetch the checkup again without touching the open view.
+  async function refreshStats() {
+    const response = await fetch("/api/checkup", { method: "POST", headers: { "content-type": "application/json", "x-dashboard-token": TOKEN }, body: "{}" });
+    if (response.ok) updateStats((await response.json()).data);
+  }
+
+  function show(view) {
+    document.querySelectorAll(".nav-btn").forEach((b) => b.setAttribute("aria-current", String(b.dataset.view === view)));
+    $("view-title").textContent = VIEWS[view].title;
+    $("view-sub").textContent = VIEWS[view].sub;
+    $("form-task").classList.toggle("hidden", view !== "task");
+    $("form-handoff").classList.toggle("hidden", view !== "handoff");
+    result.replaceChildren();
+    status.textContent = "";
+    if (view === "task") $("task").focus();
+    else if (view === "handoff") $("handoff-task").focus();
+    else load(view);
+  }
+
+  document.querySelectorAll(".nav-btn").forEach((b) => b.addEventListener("click", () => show(b.dataset.view)));
+  $("ask").addEventListener("click", () => load("task", { task: $("task").value }));
+  $("write-handoff").addEventListener("click", () => load("handoff", { task: $("handoff-task").value, without: $("without-claude").checked ? ["claude-code"] : [] }));
+  $("task").addEventListener("keydown", (e) => e.key === "Enter" && $("ask").click());
+  $("handoff-task").addEventListener("keydown", (e) => e.key === "Enter" && $("write-handoff").click());
+  show("checkup");
 </script>
 </body>
 </html>

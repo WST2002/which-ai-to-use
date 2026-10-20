@@ -229,7 +229,7 @@ test("dashboard prints a local link and serves the page", async (t) => {
     });
     const page = await fetch(link);
     assert.equal(page.status, 200);
-    assert.match(await page.text(), /Run checkup/);
+    assert.match(await page.text(), /Which AI for a task\?/);
   } finally {
     // Stop the server before the temp folder is removed: Windows cannot delete a folder a process is using.
     child.kill();
