@@ -2,10 +2,12 @@
 import { createInterface } from "node:readline/promises";
 import fs from "node:fs";
 import os from "node:os";
+import path from "node:path";
 import { parseArgs } from "node:util";
 import { classifyTask } from "../src/classify.mjs";
 import { detectTools } from "../src/detect.mjs";
 import { formatDoctor, formatRecommendation, formatSyncPlan, formatTokens } from "../src/format.mjs";
+import { collectHandoff, renderHandoff } from "../src/handoff.mjs";
 import { betterPrompt, relevantFiles, verifyCommand } from "../src/prompt.mjs";
 import { listProjectFiles, tokenReport } from "../src/tokens.mjs";
 import { RULES_FILES, scanProject } from "../src/project.mjs";
@@ -23,6 +25,7 @@ Usage:
   which-ai-to-use doctor              Show installed AI tools and this project's rules files
   which-ai-to-use sync                Copy your project rules to every installed AI's rules file
   which-ai-to-use tokens              Find what wastes tokens: big rules files, heavy files, MCP servers
+  which-ai-to-use handoff "<task>"    Switching AI mid-task? Write HANDOFF.md so the next AI continues where you stopped
 
 Options:
   --prefer balanced|free|quality      Rank free/local tools or the most capable agents first
@@ -61,6 +64,23 @@ async function runSync(values, installed) {
   process.stdout.write(written.length ? `Wrote: ${written.join(", ")}\n` : "Nothing to write.\n");
 }
 
+const CONTINUE = "Read HANDOFF.md and continue the task.";
+
+function runHandoff(task, installed, values) {
+  const cwd = process.cwd();
+  const info = collectHandoff(cwd);
+  const date = new Date().toISOString().slice(0, 10);
+  fs.writeFileSync(path.join(info.root, "HANDOFF.md"), renderHandoff({ task, info, verify: verifyCommand(info.root), date }));
+  const { sensitive } = scanProject(info.root);
+  const next = recommend({ task: CONTINUE, categories: classifyTask(task), installed, sensitive, prefer: values.prefer, private: values.private });
+  if (values.json) return void process.stdout.write(`${JSON.stringify({ file: "HANDOFF.md", ...info, next }, null, 2)}\n`);
+  const lines = [`Wrote HANDOFF.md: ${info.changes.length} changed file(s), ${info.commits.length} commit(s) on ${info.branch}.`, ""];
+  if (next.best) lines.push(`Next:    ${next.best.name} — ${next.best.reason}`, `Run:     ${next.best.command}`);
+  else lines.push(...next.notes);
+  lines.push("", "HANDOFF.md is for the next AI only: don't commit it.");
+  process.stdout.write(`${lines.join("\n")}\n`);
+}
+
 async function main() {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
@@ -91,6 +111,7 @@ async function main() {
     return void process.stdout.write(values.json ? `${JSON.stringify({ installed, project }, null, 2)}\n` : formatDoctor(installed, project));
   }
   if (command === "sync") return runSync(values, installed);
+  if (command === "handoff") return runHandoff(positionals.slice(1).join(" ").trim(), installed, values);
   if (command === "tokens") {
     const report = tokenReport({ dir: process.cwd(), home: os.homedir(), installedIds: installed.map((found) => found.id) });
     return void process.stdout.write(values.json ? `${JSON.stringify(report, null, 2)}\n` : formatTokens(report));

@@ -28,6 +28,7 @@ export function collectHandoff(dir) {
   if (git(dir, "rev-parse", "--is-inside-work-tree") !== "true") {
     throw new Error("handoff needs a git repository: run it inside the project you were working on");
   }
+  const root = path.resolve(git(dir, "rev-parse", "--show-toplevel"));
   const branch = git(dir, "branch", "--show-current") || "detached HEAD";
   const base = DEFAULT_BRANCHES.find((name) => name !== branch && git(dir, "rev-parse", "--verify", "--quiet", name) !== null);
   const log = base ? git(dir, "log", "--format=%s", `${base}..HEAD`) : git(dir, "log", "--format=%s", `-${RECENT_COMMITS}`);
@@ -49,11 +50,11 @@ export function collectHandoff(dir) {
     .map((line) => {
       const code = line.slice(0, 2).trim()[0];
       const file = line.slice(3).split(" -> ").pop().replace(/^"|"$/g, "");
-      const counts = code === "?" ? { added: lineCount(path.join(dir, file)), removed: 0 } : (numstat.get(file) ?? { added: 0, removed: 0 });
+      const counts = code === "?" ? { added: lineCount(path.join(root, file)), removed: 0 } : (numstat.get(file) ?? { added: 0, removed: 0 });
       return { status: STATUS[code] ?? "changed", file, ...counts };
     })
     .sort((a, b) => a.file.localeCompare(b.file));
-  return { branch, base: base ?? null, commits, changes };
+  return { root, branch, base: base ?? null, commits, changes };
 }
 
 export function renderHandoff({ task, info, verify, date }) {
