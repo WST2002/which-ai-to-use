@@ -49,11 +49,9 @@ exports.run = async () => {
 
   await check("fix applies only when asked, then the status bar updates", async () => {
     const preview = await run("whichAi.fix", false);
-    assert.match(preview, /package-lock\.json →/);
-    const installed = !/Nothing to fix/.test(preview);
-    if (installed) {
-      assert.match(await run("whichAi.fix", true), /Updated/);
-      assert.doesNotMatch(api.statusText(), /tokens at risk/);
-    }
+    assert.match(preview, /package-lock\.json → \.claude\/settings\.json \(Claude Code\)/);
+    assert.ok(!fs.existsSync(path.join(project, ".claude", "settings.json")), "preview must not write");
+    assert.match(await run("whichAi.fix", true), /Updated \.claude\/settings\.json/);
+    assert.doesNotMatch(api.statusText(), /tokens at risk/);
   });
 };
