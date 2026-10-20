@@ -15,6 +15,57 @@ export const LABELS = {
   "security-sensitive": "risky (security, payments, data)",
 };
 
+const freeToolNames = (installed) => installed.filter((found) => TOOLS.find((tool) => tool.id === found.id)?.capabilities.freeTier || found.id === "ollama").map((found) => found.name);
+
+/** A tip only when today is well above the daily average of the last 7 days. */
+export function usageTip(usage, installed) {
+  const average = usage.week.fresh / 7;
+  if (!usage.today.fresh || usage.today.fresh < 2 * average) return null;
+  const free = freeToolNames(installed);
+  const where = free.length ? `${free[0]} (free)` : "Claude with --model haiku";
+  return `Today is ${(usage.today.fresh / average).toFixed(1)}× your daily average. Send small tasks to ${where} to save your Claude limit.`;
+}
+
+export function formatUsage(usage, installed) {
+  if (!usage.found) return "No Claude Code logs found on this laptop, so there is no usage to show.\n";
+  const line = (label, bucket) =>
+    `  ${label.padEnd(13)}~${bucket.fresh.toLocaleString("en-US")} tokens in ${bucket.replies} repl${bucket.replies === 1 ? "y" : "ies"} (+ ~${bucket.cached.toLocaleString("en-US")} re-read from cache)`;
+  const lines = ["Claude Code usage on this laptop", line("Today:", usage.today), line("Last 7 days:", usage.week)];
+  if (usage.projects.length) lines.push(`  Busiest projects (7 days): ${usage.projects.map((p) => `${p.project} ~${p.fresh.toLocaleString("en-US")}`).join(", ")}`);
+  const tip = usageTip(usage, installed);
+  if (tip) lines.push("", `Tip: ${tip}`);
+  lines.push("", "Read from Claude Code's own logs on this laptop: only the numbers, never your messages.");
+  return `${lines.join("\n")}\n`;
+}
+
+export function formatAiAnswer({ runner, seconds, answer, anywhere, installedIds, command, rules }) {
+  const indent = "   ";
+  const installed = installedIds.includes(anywhere.id);
+  const installedName = TOOLS.find((tool) => tool.id === answer.bestInstalled).name;
+  const lines = [
+    `🤖 Answer from ${runner.name} (asked with no tools${runner.local ? ", on this laptop" : ""}) · ${seconds} s`,
+    "",
+    `① Best AI for this task: ${anywhere.name} ${installed ? "✓ on your laptop" : `✗ not on your laptop (${anywhere.homepage.replace(/^https:\/\//, "")})`}`,
+    `② On your laptop, use: ${installedName}${answer.model ? ` · model: ${answer.model}` : ""}`,
+    `${indent}Why: ${answer.why}`,
+    "",
+    "Better prompt:",
+    ...answer.prompt.split("\n").map((line) => `${indent}${line}`),
+  ];
+  if (answer.steps.length) lines.push("", "Steps:", ...answer.steps.map((step, i) => `${indent}${i + 1}. ${step}`));
+  lines.push("", `${pad("Run")}${command}`);
+  const agrees = rules.overall.id === anywhere.id && rules.best.id === answer.bestInstalled;
+  lines.push("", `Rules answer: ${rules.overall.name} / ${rules.best.name}${agrees ? " (the AI agrees)" : " (the AI chose differently)"}`);
+  return `${lines.join("\n")}\n`;
+}
+
+/** "~1,510 tokens to start (CLAUDE.md ~1,000 · files ~500 · prompt ~10) + 3 add-ons". */
+export function costLine(cost) {
+  const parts = [cost.instructions && `${cost.instructions.file} ~${cost.instructions.tokens.toLocaleString("en-US")}`, cost.files && `files ~${cost.files.toLocaleString("en-US")}`, `prompt ~${cost.prompt.toLocaleString("en-US")}`].filter(Boolean);
+  const addOns = cost.addOns ? ` + ${cost.addOns} add-on${cost.addOns === 1 ? "" : "s"}` : "";
+  return `~${cost.total.toLocaleString("en-US")} tokens to start (${parts.join(" · ")})${addOns}`;
+}
+
 const sentence = (text) => `${text[0].toUpperCase()}${text.slice(1)}.`;
 
 export function formatRecommendation(result) {
@@ -42,6 +93,7 @@ export function formatRecommendation(result) {
   if (result.files?.length) lines.push(`${pad("Files")}${result.files.join(", ")}`);
   lines.push(`${pad("Run")}${best.command}`);
   if (best.model) lines.push(`${pad("Model")}${best.model}`);
+  if (result.cost) lines.push(`${pad("Cost")}${costLine(result.cost)}`);
   if (result.reviewer) lines.push(`${pad("Review")}${result.reviewer.command}  (second opinion from ${result.reviewer.name})`);
   if (result.notes.length) lines.push("", ...result.notes.map((note) => `Note: ${note}`));
   return `${lines.join("\n")}\n`;

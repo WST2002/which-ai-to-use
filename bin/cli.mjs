@@ -6,7 +6,7 @@ import os from "node:os";
 import { parseArgs } from "node:util";
 import { startDashboard } from "../src/dashboard.mjs";
 import { detectTools } from "../src/detect.mjs";
-import { checkupAction, doctorAction, fixAction, handoffAction, recommendAction, tokensAction } from "../src/actions.mjs";
+import { aiAction, checkupAction, doctorAction, fixAction, handoffAction, recommendAction, slimAction, tokensAction, usageAction } from "../src/actions.mjs";
 import { formatSyncPlan } from "../src/format.mjs";
 import { RULES_FILES } from "../src/project.mjs";
 import { applySync, planSync } from "../src/sync.mjs";
@@ -27,16 +27,19 @@ Start here:
 More:
   which-ai-to-use tokens              Token details: instructions files, heavy files, add-ons (MCP servers)
   which-ai-to-use doctor              Installed AI tools and instructions files in this project
+  which-ai-to-use usage               Claude Code tokens used today and this week (numbers only, from local logs)
+  which-ai-to-use slim                Ask your AI for a shorter CLAUDE.md (asks first; writes CLAUDE.slim.md, --apply to swap)
   which-ai-to-use sync                Copy AGENTS.md to every installed AI's instructions file
 
 Options:
   --prefer balanced|free|quality      Rank free/local tools or the most capable agents first
   --private                           Rank local tools first (automatic when .env or keys are found)
+  --ai                                Ask an AI you have installed for a smarter answer (asks first; sends the task and file names only)
   --without <tool>                    Leave a tool out, e.g. when its usage limit is reached (claude-code, codex, gemini-cli, ...)
   --json                              Machine-readable output
   --from <file>                       sync: source rules file (default: AGENTS.md or the first one found)
   --all                               sync: write rules files for every supported AI, not only installed ones
-  --yes                               fix, sync: apply without asking
+  --yes                               fix, sync, --ai: go ahead without asking
   --port <n>, --no-open               dashboard: fixed port, don't open the browser
   --version, --help
 
@@ -57,6 +60,32 @@ async function runDashboard(values) {
   const dashboard = await startDashboard({ cwd: process.cwd(), home: os.homedir(), port, version });
   process.stdout.write(`Dashboard for this project: ${dashboard.url}\nIt runs only on this laptop. Press Ctrl+C to stop.\n`);
   if (!values["no-open"]) openBrowser(dashboard.url);
+}
+
+async function runAi(values, context, task, print) {
+  const preview = await aiAction({ ...context, task });
+  let consent = values.yes;
+  if (!consent) {
+    process.stdout.write(preview.text);
+    consent = await confirm(`Ask ${preview.data.runner.name} now? (y/N) `);
+    if (!consent) return void process.stdout.write("Nothing was sent. Run with --ai --yes to allow it.\n");
+  }
+  process.stdout.write(`Asking ${preview.data.runner.name}…\n`);
+  return print(await aiAction({ ...context, task, consent: true }));
+}
+
+async function runSlim(values, context, print) {
+  if (values.apply) return print(await slimAction({ ...context, apply: true }));
+  const preview = await slimAction(context);
+  if (!preview.data.needsConsent) return print(preview);
+  let consent = values.yes;
+  if (!consent) {
+    process.stdout.write(preview.text);
+    consent = await confirm(`Send it to ${preview.data.runner.name} now? (y/N) `);
+    if (!consent) return void process.stdout.write("Nothing was sent. Run slim --yes to allow it.\n");
+  }
+  process.stdout.write(`Asking ${preview.data.runner.name} to shorten ${preview.data.target.file}…\n`);
+  return print(await slimAction({ ...context, consent: true }));
 }
 
 async function runFix(values, installed) {
@@ -108,6 +137,8 @@ async function main() {
       version: { type: "boolean", default: false },
       without: { type: "string", multiple: true, default: [] },
       "no-open": { type: "boolean", default: false },
+      ai: { type: "boolean", default: false },
+      apply: { type: "boolean", default: false },
       port: { type: "string", default: "0" },
     },
   });
@@ -127,9 +158,12 @@ async function main() {
   if (command === "dashboard") return runDashboard(values);
   if (command === "doctor") return print(doctorAction(context));
   if (command === "tokens") return print(tokensAction(context));
+  if (command === "usage") return print(usageAction(context));
+  if (command === "slim") return runSlim(values, context, print);
   if (command === "handoff") return print(handoffAction({ ...context, task: positionals.slice(1).join(" ").trim() }));
   if (command === "sync") return runSync(values, installed);
   if (command === "fix") return runFix(values, installed);
+  if (values.ai) return runAi(values, context, positionals.join(" "), print);
   return print(recommendAction({ ...context, task: positionals.join(" ") }));
 }
 

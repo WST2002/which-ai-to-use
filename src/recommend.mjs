@@ -44,6 +44,16 @@ function reasonFor(tool, found, categories, privacy) {
   return parts.join("; ");
 }
 
+const CLAUDE_MODELS = new Set(["haiku", "sonnet", "opus"]);
+
+/** The command to start `task` in an installed tool, with a Claude Code model alias when one is given. */
+export function runCommandFor(found, task, model = "") {
+  const tool = toolById(found.id);
+  const command = commandFor(tool, found, tool.run, task);
+  const alias = model.toLowerCase();
+  return tool.id === "claude-code" && hasCommand(found) && CLAUDE_MODELS.has(alias) ? command.replace(/^claude /, `claude --model ${alias} `) : command;
+}
+
 function commandFor(tool, found, template, task) {
   if (!template) return null;
   const onlyExtension = isCliTool(tool) && !hasCommand(found);

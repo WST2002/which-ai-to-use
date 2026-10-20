@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import http from "node:http";
 import path from "node:path";
-import { checkupAction, doctorAction, fixAction, handoffAction, recommendAction, tokensAction } from "./actions.mjs";
+import { aiAction, checkupAction, doctorAction, fixAction, handoffAction, recommendAction, slimAction, tokensAction, usageAction } from "./actions.mjs";
 import { dashboardPage } from "./dashboard-page.mjs";
 import { detectTools } from "./detect.mjs";
 import { toolById } from "./tools.mjs";
@@ -15,6 +15,9 @@ const ACTIONS = {
   fix: (context, body) => fixAction({ ...context, apply: body.apply === true }),
   tokens: (context) => tokensAction(context),
   doctor: (context) => doctorAction(context),
+  usage: (context) => usageAction(context),
+  ai: (context, body) => aiAction({ ...context, task: body.task, consent: body.consent === true }),
+  slim: (context, body) => slimAction({ ...context, consent: body.consent === true, apply: body.apply === true }),
 };
 
 function readBody(req) {
@@ -45,7 +48,8 @@ const json = (res, status, data) => send(res, status, "application/json; charset
  * Local dashboard on 127.0.0.1. Requests need the random token from the printed link, a local Host header
  * (blocks DNS rebinding) and no foreign Origin (blocks other websites), because some actions write files.
  */
-export function startDashboard({ cwd, home, detect = detectTools, port = 0, version = "" }) {
+/** `ask` replaces the real AI call (tests only use it to avoid spending anyone's usage). */
+export function startDashboard({ cwd, home, detect = detectTools, port = 0, version = "", ask }) {
   const token = randomBytes(16).toString("hex");
   let actualPort = port;
   const localHost = (host) => host === `127.0.0.1:${actualPort}` || host === `localhost:${actualPort}`;
@@ -70,7 +74,7 @@ export function startDashboard({ cwd, home, detect = detectTools, port = 0, vers
       const body = await readBody(req);
       const without = Array.isArray(body.without) ? body.without.filter((id) => toolById(id)) : [];
       const installed = detect().filter((found) => !without.includes(found.id));
-      return json(res, 200, action({ cwd, home, installed }, body));
+      return json(res, 200, await action({ cwd, home, installed, ...(ask ? { ask } : {}) }, body));
     } catch (error) {
       return json(res, 400, { error: error.message });
     }

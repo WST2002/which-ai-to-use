@@ -93,3 +93,31 @@ test("answers carry structured data for the page", async (t) => {
   assert.equal(task.best.name, "Claude Code");
   assert.ok(task.suggested.length > 0);
 });
+
+test("AI mode and slim ask for consent before anything is sent", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "waitu-dash-ai-"));
+  fs.writeFileSync(path.join(dir, "CLAUDE.md"), `# Rules\n${"- keep it small\n".repeat(700)}`);
+  let asked = 0;
+  const ask = async (runner, question) => {
+    asked++;
+    return question.includes("<<<ORIGINAL")
+      ? { ok: true, text: "<<<FILE\n# Rules\n- keep it small\nFILE>>>", seconds: 1 }
+      : { ok: true, text: '{"best_anywhere":"claude-code","best_installed":"claude-code","model":"","why":"Fine.","prompt":"Do it","steps":[]}', seconds: 1 };
+  };
+  const server = await startDashboard({ cwd: dir, home: dir, detect: claudeOnly, ask });
+  t.after(async () => { await server.close(); fs.rmSync(dir, { recursive: true, force: true }); });
+  const call = async (action, body = {}) =>
+    (await fetch(`http://127.0.0.1:${server.port}/api/${action}`, { method: "POST", headers: { "content-type": "application/json", "x-dashboard-token": server.token }, body: JSON.stringify(body) })).json();
+
+  assert.equal((await call("ai", { task: "fix the bug" })).data.needsConsent, true);
+  assert.equal((await call("slim")).data.needsConsent, true);
+  assert.equal(asked, 0);
+
+  const ai = await call("ai", { task: "fix the bug", consent: true });
+  assert.equal(ai.data.answer.bestInstalledName, "Claude Code");
+  const slim = await call("slim", { consent: true });
+  assert.equal(slim.data.written, "CLAUDE.slim.md");
+  assert.equal(asked, 2);
+  const usage = await call("usage");
+  assert.equal(usage.data.found, false);
+});
