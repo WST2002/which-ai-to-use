@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 import { createInterface } from "node:readline/promises";
 import fs from "node:fs";
+import os from "node:os";
 import { parseArgs } from "node:util";
 import { classifyTask } from "../src/classify.mjs";
 import { detectTools } from "../src/detect.mjs";
-import { formatDoctor, formatRecommendation, formatSyncPlan } from "../src/format.mjs";
+import { formatDoctor, formatRecommendation, formatSyncPlan, formatTokens } from "../src/format.mjs";
+import { betterPrompt, relevantFiles, verifyCommand } from "../src/prompt.mjs";
+import { listProjectFiles, tokenReport } from "../src/tokens.mjs";
 import { RULES_FILES, scanProject } from "../src/project.mjs";
 import { recommend } from "../src/recommend.mjs";
 import { applySync, planSync } from "../src/sync.mjs";
-import { toolById } from "../src/tools.mjs";
+import { TOOLS, toolById } from "../src/tools.mjs";
 
 const PREFERENCES = ["balanced", "free", "quality"];
 const version = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -19,10 +22,12 @@ Usage:
   which-ai-to-use "<task>"            Recommend which of your AI tools to use
   which-ai-to-use doctor              Show installed AI tools and this project's rules files
   which-ai-to-use sync                Copy your project rules to every installed AI's rules file
+  which-ai-to-use tokens              Find what wastes tokens: big rules files, heavy files, MCP servers
 
 Options:
   --prefer balanced|free|quality      Rank free/local tools or the most capable agents first
   --private                           Rank local tools first (automatic when .env or keys are found)
+  --without <tool>                    Leave a tool out, e.g. when its usage limit is reached (claude-code, codex, gemini-cli, ...)
   --json                              Machine-readable output
   --from <file>                       sync: source rules file (default: AGENTS.md or the first one found)
   --all                               sync: write rules files for every supported AI, not only installed ones
@@ -68,24 +73,36 @@ async function main() {
       yes: { type: "boolean", default: false },
       help: { type: "boolean", default: false },
       version: { type: "boolean", default: false },
+      without: { type: "string", multiple: true, default: [] },
     },
   });
   if (values.version) return void process.stdout.write(`${version}\n`);
   if (values.help || positionals.length === 0) return void process.stdout.write(HELP);
   if (!PREFERENCES.includes(values.prefer)) throw new Error(`--prefer must be one of: ${PREFERENCES.join(", ")}`);
 
-  const installed = detectTools();
+  const skipped = values.without.flatMap((value) => value.split(",")).map((id) => id.trim()).filter(Boolean);
+  for (const id of skipped) {
+    if (!toolById(id)) throw new Error(`unknown tool "${id}" for --without. Use one of: ${TOOLS.map((tool) => tool.id).join(", ")}`);
+  }
+  const installed = detectTools().filter((found) => !skipped.includes(found.id));
   const [command] = positionals;
   if (command === "doctor") {
     const project = scanProject(process.cwd());
     return void process.stdout.write(values.json ? `${JSON.stringify({ installed, project }, null, 2)}\n` : formatDoctor(installed, project));
   }
   if (command === "sync") return runSync(values, installed);
+  if (command === "tokens") {
+    const report = tokenReport({ dir: process.cwd(), home: os.homedir(), installedIds: installed.map((found) => found.id) });
+    return void process.stdout.write(values.json ? `${JSON.stringify(report, null, 2)}\n` : formatTokens(report));
+  }
 
   const task = positionals.join(" ").trim();
   if (!task) throw new Error('task is empty: describe it in quotes, e.g. which-ai-to-use "fix the login bug"');
-  const { sensitive } = scanProject(process.cwd());
-  const result = recommend({ task, categories: classifyTask(task), installed, sensitive, prefer: values.prefer, private: values.private });
+  const cwd = process.cwd();
+  const { sensitive } = scanProject(cwd);
+  const files = relevantFiles(task, listProjectFiles(cwd));
+  const prompt = betterPrompt(task, files, verifyCommand(cwd));
+  const result = recommend({ task, prompt, files, categories: classifyTask(task), installed, sensitive, prefer: values.prefer, private: values.private });
   process.stdout.write(values.json ? `${JSON.stringify(result, null, 2)}\n` : formatRecommendation(result));
 }
 

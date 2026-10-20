@@ -52,12 +52,28 @@ function commandFor(tool, found, template, task) {
   return template.replaceAll("{task}", task).replaceAll("<model>", model);
 }
 
-function describe(found, categories, privacy, task) {
-  const tool = toolById(found.id);
-  return { id: tool.id, name: tool.name, reason: reasonFor(tool, found, categories, privacy), command: commandFor(tool, found, tool.run, task) };
+const HARD = new Set(["refactor", "security-sensitive", "explain-codebase"]);
+const LIGHT = new Set(["quick-edit", "docs"]);
+
+/** Claude Code model aliases: a small model saves usage on small edits, the strongest pays off on hard work. */
+function claudeModel(categories) {
+  if (categories.some((c) => HARD.has(c))) return { alias: "opus", why: "strongest model for risky or large changes" };
+  if (categories.every((c) => LIGHT.has(c))) return { alias: "haiku", why: "small, fast model: uses far less of your limit" };
+  return null;
 }
 
-export function recommend({ task, categories, installed, sensitive = [], prefer = "balanced", private: forcePrivate = false }) {
+function describe(found, categories, privacy, task) {
+  const tool = toolById(found.id);
+  const entry = { id: tool.id, name: tool.name, reason: reasonFor(tool, found, categories, privacy), command: commandFor(tool, found, tool.run, task) };
+  const model = tool.id === "claude-code" && hasCommand(found) ? claudeModel(categories) : null;
+  if (model) {
+    entry.command = entry.command.replace(/^claude /, `claude --model ${model.alias} `);
+    entry.model = `${model.alias} — ${model.why}`;
+  }
+  return entry;
+}
+
+export function recommend({ task, prompt = task, files = [], categories, installed, sensitive = [], prefer = "balanced", private: forcePrivate = false }) {
   const privacy = forcePrivate || sensitive.length > 0;
   const notes = [];
   if (privacy && sensitive.length) {
@@ -81,10 +97,10 @@ export function recommend({ task, categories, installed, sensitive = [], prefer 
     .sort((a, b) => b.score - a.score || a.order - b.order);
 
   const [top, ...rest] = ranked;
-  const best = describe(top.found, categories, privacy, task);
-  const also = rest.slice(0, 3).map((entry) => describe(entry.found, categories, privacy, task));
+  const best = describe(top.found, categories, privacy, prompt);
+  const also = rest.slice(0, 3).map((entry) => describe(entry.found, categories, privacy, prompt));
   const freeEntry = ranked.find((entry) => entry.tool.capabilities.freeTier || entry.tool.capabilities.local);
-  const free = freeEntry ? describe(freeEntry.found, categories, privacy, task) : null;
+  const free = freeEntry ? describe(freeEntry.found, categories, privacy, prompt) : null;
 
   let reviewer = null;
   if (categories.some((c) => SECOND_OPINION.has(c))) {
@@ -100,5 +116,5 @@ export function recommend({ task, categories, installed, sensitive = [], prefer 
   }
   if (top.tool.id === "ollama" && !top.found.models?.length) notes.push("No Ollama models installed yet. Try: ollama pull qwen2.5-coder");
 
-  return { task, categories, best, also, free, reviewer, notes };
+  return { task, files, categories, best, also, free, reviewer, notes };
 }

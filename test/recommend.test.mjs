@@ -72,3 +72,14 @@ test("sensitive files without any local tool say so instead of claiming local ra
   assert.doesNotMatch(notes, /ranked first/);
   assert.match(notes, /Ollama/);
 });
+
+test("Claude Code gets a cheaper model for small edits and the strongest for hard tasks", () => {
+  const quick = recommend({ ...base, task: "fix a typo in the footer", categories: ["quick-edit"], installed: [found("claude-code")] });
+  assert.equal(quick.best.command, 'claude --model haiku "fix a typo in the footer"');
+  assert.match(quick.best.model, /haiku/);
+  const hard = recommend({ ...base, task: "refactor auth", categories: ["refactor", "security-sensitive"], installed: [found("claude-code")] });
+  assert.equal(hard.best.command, 'claude --model opus "refactor auth"');
+  const normal = recommend({ ...base, installed: [found("claude-code")] });
+  assert.equal(normal.best.command, 'claude "add two-factor login"');
+  assert.equal(normal.best.model, undefined);
+});

@@ -95,3 +95,49 @@ test("an empty task is rejected with a fix", (t) => {
   assert.match(result.stderr, /task is empty/i);
   assert.match(result.stderr, /which-ai-to-use "/);
 });
+
+test("tokens reports rules size, heavy files with ignore advice, and MCP servers", (t) => {
+  const { run } = machine(t, {
+    bins: ["claude"],
+    files: { "CLAUDE.md": `# Rules\n${"word ".repeat(3000)}\n`, "package-lock.json": "x".repeat(40 * 1024), "src/app.js": "x" },
+  });
+  const result = run("tokens");
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /CLAUDE\.md\s+~3,\d{3} tokens/);
+  assert.match(result.stdout, /over 2,000/);
+  assert.match(result.stdout, /package-lock\.json\s+~10,240 tokens/);
+  assert.match(result.stdout, /\.claude\/settings\.json/);
+  assert.match(result.stdout, /Read\(\.\/package-lock\.json\)/);
+  assert.match(result.stdout, /MCP servers: none found/);
+});
+
+test("tokens --json is machine-readable", (t) => {
+  const result = machine(t, { files: { "AGENTS.md": "Use npm test.\n" } }).run("tokens", "--json");
+  const data = JSON.parse(result.stdout);
+  assert.equal(data.rules[0].file, "AGENTS.md");
+  assert.deepEqual(data.heavy, []);
+  assert.deepEqual(data.mcp, []);
+});
+
+test("the run command carries relevant files and the project's test command", (t) => {
+  const { run } = machine(t, {
+    bins: ["claude"],
+    files: { "src/auth/login.ts": "x", "src/cart.ts": "x", "package.json": JSON.stringify({ scripts: { test: "vitest run" } }) },
+  });
+  const result = run("fix the login redirect bug");
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Files:\s+src\/auth\/login\.ts/);
+  assert.match(result.stdout, /claude "fix the login redirect bug\. Start with src\/auth\/login\.ts\. When done, run npm test and report the result\."/);
+});
+
+test("--without skips a tool, for example when its usage limit is reached", (t) => {
+  const result = machine(t, { bins: ["claude", "gemini"] }).run("add a dashboard", "--without", "claude-code", "--json");
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(JSON.parse(result.stdout).best.id, "gemini-cli");
+});
+
+test("--without rejects unknown tools with the valid ids", (t) => {
+  const result = machine(t, { bins: ["claude"] }).run("add a dashboard", "--without", "chatgpt");
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /unknown tool "chatgpt".*claude-code/);
+});
