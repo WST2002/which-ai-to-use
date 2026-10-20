@@ -1,0 +1,126 @@
+{
+  "asOf": "2026-10-20",
+  "note": "Features of everyday AI apps, for the website. Facts only (what each app can do and whether it has a free plan), not opinions about quality. Features change often: check the app before relying on one.",
+  "apps": [
+    {
+      "id": "chatgpt",
+      "name": "ChatGPT",
+      "maker": "OpenAI",
+      "url": "https://chatgpt.com",
+      "free": true,
+      "can": ["writing", "chat", "images", "web-search", "files", "data", "voice", "coding", "translation", "math"]
+    },
+    {
+      "id": "claude",
+      "name": "Claude",
+      "maker": "Anthropic",
+      "url": "https://claude.ai",
+      "free": true,
+      "can": ["writing", "chat", "long-documents", "files", "data", "coding", "translation", "math", "web-search"]
+    },
+    {
+      "id": "gemini",
+      "name": "Gemini",
+      "maker": "Google",
+      "url": "https://gemini.google.com",
+      "free": true,
+      "can": ["writing", "chat", "images", "web-search", "files", "long-documents", "voice", "video", "coding", "translation", "google-apps"]
+    },
+    {
+      "id": "copilot",
+      "name": "Microsoft Copilot",
+      "maker": "Microsoft",
+      "url": "https://copilot.microsoft.com",
+      "free": true,
+      "can": ["writing", "chat", "images", "web-search", "voice", "translation", "office-apps"]
+    },
+    {
+      "id": "perplexity",
+      "name": "Perplexity",
+      "maker": "Perplexity AI",
+      "url": "https://www.perplexity.ai",
+      "free": true,
+      "can": ["web-search", "sources", "chat", "files"]
+    },
+    {
+      "id": "notebooklm",
+      "name": "NotebookLM",
+      "maker": "Google",
+      "url": "https://notebooklm.google.com",
+      "free": true,
+      "can": ["study", "long-documents", "sources", "audio-summary"]
+    },
+    {
+      "id": "canva",
+      "name": "Canva AI",
+      "maker": "Canva",
+      "url": "https://www.canva.com",
+      "free": true,
+      "can": ["design", "presentations", "images", "social-posts", "video"]
+    },
+    {
+      "id": "gamma",
+      "name": "Gamma",
+      "maker": "Gamma",
+      "url": "https://gamma.app",
+      "free": true,
+      "can": ["presentations", "documents", "websites"]
+    },
+    {
+      "id": "midjourney",
+      "name": "Midjourney",
+      "maker": "Midjourney",
+      "url": "https://www.midjourney.com",
+      "free": false,
+      "can": ["images", "art"]
+    },
+    {
+      "id": "suno",
+      "name": "Suno",
+      "maker": "Suno",
+      "url": "https://suno.com",
+      "free": true,
+      "can": ["music", "songs"]
+    },
+    {
+      "id": "elevenlabs",
+      "name": "ElevenLabs",
+      "maker": "ElevenLabs",
+      "url": "https://elevenlabs.io",
+      "free": true,
+      "can": ["voice", "voiceover", "translation-audio"]
+    },
+    {
+      "id": "grammarly",
+      "name": "Grammarly",
+      "maker": "Grammarly",
+      "url": "https://www.grammarly.com",
+      "free": true,
+      "can": ["grammar", "writing"]
+    },
+    {
+      "id": "claude-code",
+      "name": "Claude Code",
+      "maker": "Anthropic",
+      "url": "https://claude.com/claude-code",
+      "free": false,
+      "can": ["coding", "coding-agent"]
+    },
+    {
+      "id": "github-copilot",
+      "name": "GitHub Copilot",
+      "maker": "GitHub",
+      "url": "https://github.com/features/copilot",
+      "free": true,
+      "can": ["coding", "coding-agent", "inline-code"]
+    },
+    {
+      "id": "cursor",
+      "name": "Cursor",
+      "maker": "Anysphere",
+      "url": "https://cursor.com",
+      "free": true,
+      "can": ["coding", "coding-agent", "inline-code"]
+    }
+  ]
+}
