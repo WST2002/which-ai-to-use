@@ -39,6 +39,8 @@ export function dashboardPage({ token, project, version }) {
 
   .layout { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: clamp(16px, 2vw, 28px);
     padding: clamp(16px, 2.5vw, 32px) clamp(16px, 3vw, 40px); max-width: 1680px; margin: 0 auto; }
+  /* Grid items default to min-width: auto, so a long command would stretch the whole column. */
+  main { min-width: 0; }
   nav { position: sticky; top: 76px; align-self: start; display: flex; flex-direction: column; gap: 6px; }
   .nav-btn { display: flex; gap: 12px; align-items: flex-start; text-align: left; width: 100%; padding: 12px 14px; border-radius: 12px;
     border: 1px solid transparent; background: transparent; color: var(--fg); cursor: pointer; }
@@ -77,6 +79,9 @@ export function dashboardPage({ token, project, version }) {
   .card h3 { margin: 0; font-size: 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .card .tag { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--panel); color: var(--muted); border: 1px solid var(--line); }
   .card .tag.star { background: var(--accent); color: var(--accent-fg); border: 0; }
+  .card .tag.yes { background: var(--good-soft); color: var(--good); border-color: color-mix(in srgb, var(--good) 40%, transparent); }
+  .card .tag.no { background: var(--warn-soft); color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+  .card.mine { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
   .card p { margin: 6px 0 0; color: var(--muted); }
   .card a { color: var(--accent); }
   .section-title { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 20px 0 10px; }
@@ -248,21 +253,35 @@ export function dashboardPage({ token, project, version }) {
       ];
     },
     task(data) {
-      const tool = (entry, best) =>
-        el("div", { class: "card" + (best ? " best" : "") },
-          el("h3", {}, entry.name, el("span", { class: "tag" + (best ? " star" : ""), text: best ? "★ Best for this task" : entry.where }), best ? el("span", { class: "tag", text: entry.where }) : null),
-          el("p", { text: sentence(entry.why) }),
-          best ? command(entry.command) : null,
-          best && entry.model ? el("p", { text: "Model: " + entry.model }) : null);
       const parts = [el("p", { class: "muted", text: "Task type: " + data.labels.join(", ") })];
       if (!data.best) return parts.concat(data.notes.map((n) => el("p", { text: n })));
-      parts.push(el("div", { class: "grid" }, tool(data.best, true), data.also.map((a) => tool(a, false))));
-      if (data.files.length) parts.push(el("div", { class: "section-title", text: "Start with these files" }), el("p", { text: data.files.join(", ") }));
-      if (data.reviewer) parts.push(el("div", { class: "section-title", text: "Second opinion from " + data.reviewer.name }), command(data.reviewer.command));
-      if (data.suggested.length) {
-        parts.push(el("div", { class: "section-title", text: "Not installed, but good for this" }),
-          el("div", { class: "grid" }, data.suggested.map((s) => el("div", { class: "card" }, el("h3", { text: s.name }), el("p", { text: sentence(s.why) }), el("p", {}, el("a", { href: s.homepage, target: "_blank", rel: "noopener", text: s.homepage.replace("https://", "") }))))));
+      const o = data.overall;
+      const more = o.alsoGreat.length > 2 ? " and " + (o.alsoGreat.length - 2) + " more" : "";
+      parts.push(
+        el("div", { class: "section-title", text: "① Best AI for this task (any tool)" }),
+        el("div", { class: "card best" },
+          el("h3", {}, o.name, el("span", { class: "tag " + (o.installed ? "yes" : "no"), text: o.installed ? "✓ On your laptop" : "✗ Not on your laptop" })),
+          el("p", { text: sentence(o.why) }),
+          o.installed ? el("p", { text: "You already have it: use the command below." })
+            : el("p", {}, "Get it: ", el("a", { href: o.homepage, target: "_blank", rel: "noopener", text: o.homepage.replace("https://", "") })),
+          o.alsoGreat.length ? el("p", { text: "Just as good: " + o.alsoGreat.slice(0, 2).join(", ") + more }) : null),
+      );
+      const yours = [data.best, ...data.also];
+      if (data.free && !yours.some((t) => t.id === data.free.id)) yours.push(data.free);
+      parts.push(
+        el("div", { class: "section-title", text: "② On your laptop: " + yours.map((t) => t.name).join(", ") }),
+        el("div", { class: "card mine" },
+          el("h3", {}, data.best.name, el("span", { class: "tag star", text: "★ Best of yours" }), el("span", { class: "tag", text: data.best.where })),
+          data.best.id !== o.id ? el("p", { text: sentence(data.best.why) }) : null,
+          command(data.best.command),
+          data.best.model ? el("p", { text: "Model: " + data.best.model }) : null,
+          data.files.length ? el("p", { text: "Starts with: " + data.files.join(", ") }) : null),
+      );
+      if (yours.length > 1) {
+        parts.push(el("div", { class: "grid", style: "margin-top:12px" }, yours.slice(1).map((t) =>
+          el("div", { class: "card" }, el("h3", {}, t.name, el("span", { class: "tag", text: t.where })), t.why !== data.best.why ? el("p", { text: sentence(t.why) }) : null))));
       }
+      if (data.reviewer) parts.push(el("div", { class: "section-title", text: "Second opinion from " + data.reviewer.name }), command(data.reviewer.command));
       if (data.notes.length) parts.push(el("div", { class: "section-title", text: "Notes" }), ...data.notes.map((n) => el("p", { class: "muted", text: n })));
       return parts;
     },
