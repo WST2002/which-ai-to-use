@@ -53,6 +53,10 @@ The dashboard runs only on your laptop (127.0.0.1) and needs the private link pr
 
 Nothing is sent anywhere: it only looks at your laptop and your project.
 
+**How good is your setup?** `npx which-ai-to-use score`, or the dashboard's Score card, which you can download and post:
+
+![AI setup score card: 53/100, grade D, with what costs points](media/score-card.png)
+
 ## Install
 
 You don't have to install anything. Pick the way that suits you:
@@ -85,6 +89,7 @@ You don't have to install anything. Pick the way that suits you:
 | **Better prompt** | Names the files that match the task and asks the agent to run your tests and report the result |
 | **Model choice** | For Claude Code: `--model haiku` for small edits (uses far less of your limit), `--model opus` for risky or large work |
 | **Dashboard** | `dashboard`: every command as a button in your browser, on localhost only |
+| **Score** | `score`: your AI setup out of 100 with a grade, what costs points (each with a fix), the tokens a fix saves, and a line to share. The dashboard draws it as an image to post |
 | **Checkup** | `npx which-ai-to-use`: your AI tools and, in plain words, what wastes tokens with one fix each |
 | **Fix** | `fix`: makes each installed AI skip heavy files (Claude Code deny rules, `.cursorignore`, `.geminiignore`, `.aiderignore`), after asking |
 | **Token details** | `tokens`: instructions files sent with every message (and their biggest sections), heavy files, add-ons (MCP servers) |
@@ -104,6 +109,7 @@ npx which-ai-to-use "<task>"            # recommend
 npx which-ai-to-use "<task>" --ai       # also ask an AI you have (asks permission first)
 npx which-ai-to-use fix                 # make your AI tools skip heavy files (asks first)
 npx which-ai-to-use usage               # Claude Code tokens today and this week
+npx which-ai-to-use score               # your AI setup score out of 100, ready to share
 npx which-ai-to-use slim                # shorter CLAUDE.md written by your AI (asks first)
 npx which-ai-to-use dashboard           # the same as buttons in your browser
 npx which-ai-to-use tokens              # find what wastes tokens in this project
