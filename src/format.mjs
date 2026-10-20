@@ -2,19 +2,46 @@ import { TOOLS, TOOLS_AS_OF } from "./tools.mjs";
 
 const pad = (label) => `${label}:`.padEnd(9);
 
+export const LABELS = {
+  ui: "design (UI)",
+  "multi-file-feature": "new feature",
+  "bug-fix": "bug fix",
+  tests: "tests",
+  refactor: "refactor",
+  "code-review": "code review",
+  "explain-codebase": "understand the code",
+  docs: "docs",
+  "quick-edit": "small edit",
+  "security-sensitive": "risky (security, payments, data)",
+};
+
+const sentence = (text) => `${text[0].toUpperCase()}${text.slice(1)}.`;
+
 export function formatRecommendation(result) {
-  const lines = [`Task: ${result.task}  →  ${result.categories.join(", ")}`, ""];
+  const lines = [`Task: ${result.task}  →  ${result.categories.map((c) => LABELS[c] ?? c).join(", ")}`, ""];
   if (!result.best) {
     lines.push(...result.notes);
     return `${lines.join("\n")}\n`;
   }
-  lines.push(`${pad("Best")}${result.best.name} — ${result.best.reason}`);
-  for (const alt of result.also) lines.push(`${pad("Also")}${alt.name} — ${alt.reason}`);
-  if (result.free && result.free.id !== result.best.id) lines.push(`${pad("Free")}${result.free.name} — ${result.free.reason}`);
+  const { overall, best } = result;
+  const indent = "   ";
+  lines.push("① Best AI for this task (any tool)", `${indent}${overall.name}: ${overall.why}.`);
+  lines.push(overall.installed ? `${indent}✓ It's on your laptop, use it.` : `${indent}✗ Not on your laptop · get it: ${overall.homepage.replace(/^https:\/\//, "")}`);
+  if (overall.alsoGreat.length) {
+    const more = overall.alsoGreat.length > 2 ? ` and ${overall.alsoGreat.length - 2} more` : "";
+    lines.push(`${indent}Just as good: ${overall.alsoGreat.slice(0, 2).join(", ")}${more}`);
+  }
+
+  const yours = [best, ...result.also];
+  if (result.free && !yours.some((entry) => entry.id === result.free.id)) yours.push(result.free);
+  lines.push("", `② On your laptop: ${yours.map((entry) => entry.name).join(", ")}`, `${indent}Best of these: ${best.name} ★ (${best.where})`);
+  if (best.id !== overall.id) lines.push(`${indent}${sentence(best.why)}`);
+  for (const alt of yours.slice(1)) lines.push(`${indent}Also: ${alt.name} (${alt.where})${alt.why === best.why ? "" : `: ${alt.why}`}`);
+
   lines.push("");
   if (result.files?.length) lines.push(`${pad("Files")}${result.files.join(", ")}`);
-  lines.push(`${pad("Run")}${result.best.command}`);
-  if (result.best.model) lines.push(`${pad("Model")}${result.best.model}`);
+  lines.push(`${pad("Run")}${best.command}`);
+  if (best.model) lines.push(`${pad("Model")}${best.model}`);
   if (result.reviewer) lines.push(`${pad("Review")}${result.reviewer.command}  (second opinion from ${result.reviewer.name})`);
   if (result.notes.length) lines.push("", ...result.notes.map((note) => `Note: ${note}`));
   return `${lines.join("\n")}\n`;
@@ -85,39 +112,53 @@ export function formatTokens(report) {
 
 const short = (names, max = 3) => (names.length > max ? `${names.slice(0, max).join(", ")}…` : names.join(", "));
 
+/** What wastes tokens, in plain words, each with one fix. `kind` lets the dashboard offer the matching button. */
+export function checkupIssues(report) {
+  const issues = [];
+  for (const rule of report.rules.filter((r) => r.large)) {
+    const biggest = rule.sections[0];
+    issues.push({
+      kind: "instructions",
+      tokens: rule.tokens,
+      problem: `${rule.file} (your instructions file) is ${count(rule.tokens)}. It is sent with every message.`,
+      fix: `Make it shorter. The biggest part is "${biggest.title}" (${count(biggest.tokens)}).`,
+    });
+  }
+  if (report.heavy.length) {
+    const [first] = report.heavy;
+    const total = report.heavy.reduce((sum, file) => sum + file.tokens, 0);
+    const what = report.heavy.length === 1 ? `${first.file} is ${count(first.tokens)}` : `${report.heavy.length} big files (${count(total)}, e.g. ${first.file})`;
+    issues.push({
+      kind: report.ignore.length ? "heavy-files" : "heavy-files-manual",
+      tokens: total,
+      problem: `${what}. Your AI can read ${report.heavy.length === 1 ? "it" : "them"} while searching.`,
+      fix: report.ignore.length ? "Fix it:  npx which-ai-to-use fix" : "Tell your AI tool to skip it.",
+    });
+  }
+  if (report.mcp.length) {
+    const names = [...new Set(report.mcp.map((server) => server.name))];
+    const claude = report.mcp.find((server) => server.tool === "Claude Code");
+    const how = claude ? `, e.g. claude mcp remove ${claude.name}` : "";
+    issues.push({
+      kind: "add-ons",
+      tokens: 0,
+      problem: `${names.length} add-on${names.length === 1 ? " is" : "s are"} switched on (${short(names)}). Each one is sent with every message.`,
+      fix: `Turn off the ones you don't use${how}`,
+    });
+  }
+  return issues;
+}
+
 /** The default screen: what is installed and, in plain words, what wastes tokens and how to fix it. */
 export function formatCheckup({ project, installed, report }) {
   const lines = [`✓ Checked: ${project}`, ""];
   lines.push(installed.length ? `Your AI tools: ${installed.map((found) => found.name).join(", ")}` : "No AI coding tools found. Free options: Gemini CLI (free tier) or Ollama (runs on your laptop).");
   lines.push("");
 
-  const issues = [];
-  for (const rule of report.rules.filter((r) => r.large)) {
-    const biggest = rule.sections[0];
-    issues.push([
-      `${rule.file} (your instructions file) is ${count(rule.tokens)}. It is sent with every message.`,
-      `→ Make it shorter. The biggest part is "${biggest.title}" (${count(biggest.tokens)}).`,
-    ]);
-  }
-  if (report.heavy.length) {
-    const [first] = report.heavy;
-    const total = report.heavy.reduce((sum, file) => sum + file.tokens, 0);
-    const what = report.heavy.length === 1 ? `${first.file} is ${count(first.tokens)}` : `${report.heavy.length} big files (${count(total)}, e.g. ${first.file})`;
-    issues.push([
-      `${what}. Your AI can read ${report.heavy.length === 1 ? "it" : "them"} while searching.`,
-      report.ignore.length ? "→ Fix it:  npx which-ai-to-use fix" : "→ Tell your AI tool to skip it.",
-    ]);
-  }
-  if (report.mcp.length) {
-    const names = [...new Set(report.mcp.map((server) => server.name))];
-    const claude = report.mcp.find((server) => server.tool === "Claude Code");
-    const how = claude ? `, e.g. claude mcp remove ${claude.name}` : "";
-    issues.push([`${names.length} add-on${names.length === 1 ? " is" : "s are"} switched on (${short(names)}). Each one is sent with every message.`, `→ Turn off the ones you don't use${how}`]);
-  }
-
+  const issues = checkupIssues(report);
   if (issues.length) {
     lines.push(`${issues.length} thing${issues.length === 1 ? " is" : "s are"} wasting your tokens:`);
-    issues.forEach(([problem, fix], i) => lines.push(`  ${i + 1}. ${problem}`, `     ${fix}`));
+    issues.forEach(({ problem, fix }, i) => lines.push(`  ${i + 1}. ${problem}`, `     → ${fix}`));
   } else {
     lines.push("Nothing is wasting your tokens here.");
   }

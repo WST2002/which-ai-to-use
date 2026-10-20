@@ -42,7 +42,7 @@ test("buttons run the same commands as the CLI", async (t) => {
   const checkup = await (await call("checkup")).json();
   assert.match(checkup.text, /package-lock\.json is ~10,240 tokens/);
   const task = await (await call("task", { task: "fix the login bug" })).json();
-  assert.match(task.text, /Best:\s+Claude Code/);
+  assert.match(task.text, /Best of these: Claude Code/);
   assert.match(task.text, /src\/login\.js/);
   const doctor = await (await call("doctor")).json();
   assert.match(doctor.text, /✓ Claude Code/);
@@ -80,4 +80,16 @@ test("other websites cannot call the dashboard", async (t) => {
     req.end("{}");
   });
   assert.equal(reboundStatus, 403);
+});
+
+test("answers carry structured data for the page", async (t) => {
+  const { call } = await dashboard(t, { "package-lock.json": "x".repeat(40 * 1024), "src/hero.js": "x" });
+  const checkup = (await (await call("checkup")).json()).data;
+  assert.deepEqual(checkup.installed.map((f) => f.name), ["Claude Code"]);
+  assert.equal(checkup.issues[0].kind, "heavy-files");
+  assert.equal(checkup.issues[0].tokens, 10240);
+  const task = (await (await call("task", { task: "make the hero look better" })).json()).data;
+  assert.deepEqual(task.labels, ["design (UI)"]);
+  assert.equal(task.best.name, "Claude Code");
+  assert.ok(task.suggested.length > 0);
 });

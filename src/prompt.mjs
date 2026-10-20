@@ -27,12 +27,16 @@ const pathWords = (file) =>
 export function relevantFiles(task, files) {
   const wanted = words(task);
   if (!wanted.length) return [];
-  return files
+  const candidates = files
     .filter((file) => !NOT_SOURCE.test(file))
-    .map((file) => {
-      const parts = pathWords(file);
-      const name = pathWords(path.posix.basename(file));
-      const score = wanted.reduce((sum, word) => sum + (name.includes(word) ? 2 : parts.includes(word) ? 1 : 0), 0);
+    .map((file) => ({ file, parts: pathWords(file), name: pathWords(path.posix.basename(file)) }));
+  // A word found in few paths ("hero") says more about the right file than one found in many ("section").
+  const weight = Object.fromEntries(
+    wanted.map((word) => [word, Math.log(1 + candidates.length / Math.max(1, candidates.filter((c) => c.parts.includes(word)).length))]),
+  );
+  return candidates
+    .map(({ file, parts, name }) => {
+      const score = wanted.reduce((sum, word) => sum + weight[word] * (name.includes(word) ? 2 : parts.includes(word) ? 1 : 0), 0);
       return { file, score };
     })
     .filter((entry) => entry.score > 0)
