@@ -1,0 +1,50 @@
+{
+  "name": "which-ai-to-use",
+  "displayName": "Which AI to Use",
+  "description": "See what wastes your AI tokens, your AI setup score, which AI and model to use for a task, and hand work to another AI when Claude's limit runs out. Runs locally.",
+  "version": "0.1.0",
+  "publisher": "wst2002",
+  "license": "MIT",
+  "author": "Wageesha Tripathi",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/WST2002/which-ai-to-use"
+  },
+  "homepage": "https://github.com/WST2002/which-ai-to-use#readme",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": ["AI", "Other"],
+  "keywords": ["claude", "claude code", "codex", "gemini", "copilot", "tokens", "ai tools"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "whichAi.menu", "title": "Which AI: Open menu" },
+      { "command": "whichAi.checkup", "title": "Which AI: Checkup" },
+      { "command": "whichAi.task", "title": "Which AI: Which AI for a task?" },
+      { "command": "whichAi.fix", "title": "Which AI: Fix wasted tokens" },
+      { "command": "whichAi.score", "title": "Which AI: AI setup score" },
+      { "command": "whichAi.handoff", "title": "Which AI: Claude limit over? Write a handoff" }
+    ],
+    "configuration": {
+      "title": "Which AI to Use",
+      "properties": {
+        "whichAi.statusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the AI setup score and tokens at risk in the status bar."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "sync": "node scripts/sync.mjs",
+    "test": "node scripts/sync.mjs && node test/run.mjs",
+    "package": "node scripts/sync.mjs && vsce package"
+  },
+  "devDependencies": {
+    "@vscode/test-electron": "3.1.0",
+    "@vscode/vsce": "4.0.0"
+  }
+}

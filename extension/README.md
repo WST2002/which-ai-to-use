@@ -1,0 +1,27 @@
+# Which AI to Use
+
+See what wastes your AI tokens, your AI setup score, which AI (and model) to use for a task, and hand work to another AI when Claude's limit runs out. Everything runs on your machine.
+
+## In the status bar
+
+`✦ AI 77/100 · 58k tokens at risk`: your project's AI setup score and the tokens your AI may waste. Hover for the reasons, click for the menu.
+
+## Commands
+
+Open the Command Palette (Ctrl+Shift+P / Cmd+Shift+P) and type **Which AI**:
+
+| Command | What it does |
+|---|---|
+| **Checkup** | Your AI tools and, in plain words, what wastes tokens with one fix each |
+| **Which AI for a task?** | The best AI for the task among all tools, then the best of the ones you have, with the command to copy |
+| **Fix wasted tokens** | Shows which heavy files your AI tools will skip and applies it only after you click Apply |
+| **AI setup score** | Your score out of 100, what costs points, and a line to share |
+| **Claude limit over? Write a handoff** | Writes HANDOFF.md so another AI carries on instead of starting over |
+
+Works with Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, Windsurf, Cline, Aider and Ollama. Nothing is sent anywhere.
+
+Same engine as the command-line tool: `npx which-ai-to-use`. Not a developer? Try the website: https://wst2002.github.io/which-ai-to-use/
+
+---
+
+Made by **Wageesha Tripathi** · [LinkedIn](https://www.linkedin.com/in/wst2002/) · [Email](mailto:tripathiwageesha2002@gmail.com) · [GitHub](https://github.com/WST2002)

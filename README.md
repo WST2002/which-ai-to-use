@@ -57,6 +57,10 @@ Nothing is sent anywhere: it only looks at your laptop and your project.
 
 ![AI setup score card: 53/100, grade D, with what costs points](media/score-card.png)
 
+## VS Code extension
+
+The same features inside VS Code: your AI setup score and tokens at risk in the status bar, and **Which AI** commands for checkup, task advice, fix, score and handoff. It lives in [`extension/`](extension) and is tested inside a real VS Code. Marketplace listing coming soon; until then build it with `cd extension && npm ci && npm run package` and install the `.vsix` (Extensions → … → Install from VSIX).
+
 ## Install
 
 You don't have to install anything. Pick the way that suits you:
