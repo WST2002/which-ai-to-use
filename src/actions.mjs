@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { classifyTask } from "./classify.mjs";
 import { applyIgnoreAdvice } from "./fix.mjs";
-import { formatCheckup, formatDoctor, formatRecommendation, formatTokens } from "./format.mjs";
+import { LABELS, checkupIssues, formatCheckup, formatDoctor, formatRecommendation, formatTokens } from "./format.mjs";
 import { collectHandoff, renderHandoff } from "./handoff.mjs";
 import { scanProject } from "./project.mjs";
 import { betterPrompt, relevantFiles, verifyCommand } from "./prompt.mjs";
@@ -15,7 +15,8 @@ const ids = (installed) => installed.map((found) => found.id);
 
 export function checkupAction({ cwd, home, installed }) {
   const report = tokenReport({ dir: cwd, home, installedIds: ids(installed) });
-  return { text: formatCheckup({ project: path.basename(cwd), installed, report }), data: { installed, ...report } };
+  const project = path.basename(cwd);
+  return { text: formatCheckup({ project, installed, report }), data: { project, installed, ...report, issues: checkupIssues(report) } };
 }
 
 export function tokensAction({ cwd, home, installed }) {
@@ -35,7 +36,7 @@ export function recommendAction({ cwd, task, installed, prefer = "balanced", pri
   const files = relevantFiles(clean, listProjectFiles(cwd));
   const prompt = betterPrompt(clean, files, verifyCommand(cwd));
   const result = recommend({ task: clean, prompt, files, categories: classifyTask(clean), installed, sensitive, prefer, private: forcePrivate });
-  return { text: formatRecommendation(result), data: result };
+  return { text: formatRecommendation(result), data: { ...result, labels: result.categories.map((c) => LABELS[c] ?? c) } };
 }
 
 const CONTINUE = "Read HANDOFF.md and continue the task.";

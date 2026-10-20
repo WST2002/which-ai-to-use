@@ -81,3 +81,15 @@ test("other websites cannot call the dashboard", async (t) => {
   });
   assert.equal(reboundStatus, 403);
 });
+
+test("answers carry structured data for the page", async (t) => {
+  const { call } = await dashboard(t, { "package-lock.json": "x".repeat(40 * 1024), "src/hero.js": "x" });
+  const checkup = (await (await call("checkup")).json()).data;
+  assert.deepEqual(checkup.installed.map((f) => f.name), ["Claude Code"]);
+  assert.equal(checkup.issues[0].kind, "heavy-files");
+  assert.equal(checkup.issues[0].tokens, 10240);
+  const task = (await (await call("task", { task: "make the hero look better" })).json()).data;
+  assert.deepEqual(task.labels, ["design (UI)"]);
+  assert.equal(task.best.name, "Claude Code");
+  assert.ok(task.suggested.length > 0);
+});
