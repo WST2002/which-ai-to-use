@@ -2,20 +2,39 @@ import { TOOLS, TOOLS_AS_OF } from "./tools.mjs";
 
 const pad = (label) => `${label}:`.padEnd(9);
 
+const LABELS = {
+  ui: "design (UI)",
+  "multi-file-feature": "new feature",
+  "bug-fix": "bug fix",
+  tests: "tests",
+  refactor: "refactor",
+  "code-review": "code review",
+  "explain-codebase": "understand the code",
+  docs: "docs",
+  "quick-edit": "small edit",
+  "security-sensitive": "risky (security, payments, data)",
+};
+
+const sentence = (text) => `${text[0].toUpperCase()}${text.slice(1)}.`;
+
 export function formatRecommendation(result) {
-  const lines = [`Task: ${result.task}  →  ${result.categories.join(", ")}`, ""];
+  const lines = [`Task: ${result.task}  →  ${result.categories.map((c) => LABELS[c] ?? c).join(", ")}`, ""];
   if (!result.best) {
     lines.push(...result.notes);
     return `${lines.join("\n")}\n`;
   }
-  lines.push(`${pad("Best")}${result.best.name} — ${result.best.reason}`);
-  for (const alt of result.also) lines.push(`${pad("Also")}${alt.name} — ${alt.reason}`);
-  if (result.free && result.free.id !== result.best.id) lines.push(`${pad("Free")}${result.free.name} — ${result.free.reason}`);
+  const tool = (label, entry) => [`${pad(label)}${entry.name} (${entry.where})`, `${" ".repeat(9)}${sentence(entry.why)}`];
+  lines.push(...tool("Best", result.best));
+  for (const alt of result.also) lines.push(...tool("Also", alt));
+  if (result.free && result.free.id !== result.best.id && !result.also.some((a) => a.id === result.free.id)) lines.push(...tool("Free", result.free));
   lines.push("");
   if (result.files?.length) lines.push(`${pad("Files")}${result.files.join(", ")}`);
   lines.push(`${pad("Run")}${result.best.command}`);
   if (result.best.model) lines.push(`${pad("Model")}${result.best.model}`);
   if (result.reviewer) lines.push(`${pad("Review")}${result.reviewer.command}  (second opinion from ${result.reviewer.name})`);
+  if (result.suggested?.length) {
+    lines.push("", "Not installed, but good for this:", ...result.suggested.map((s) => `  • ${s.name}: ${s.why} (${s.homepage})`));
+  }
   if (result.notes.length) lines.push("", ...result.notes.map((note) => `Note: ${note}`));
   return `${lines.join("\n")}\n`;
 }

@@ -87,3 +87,28 @@ test("Claude Code gets a cheaper model for small edits and the strongest for har
   assert.equal(normal.best.command, 'claude "add two-factor login"');
   assert.equal(normal.best.model, undefined);
 });
+
+test("each tool gets a reason written for this kind of task", () => {
+  const ui = recommend({ ...base, task: "redesign the footer", categories: ["ui"], installed: [found("claude-code"), viaExtension("codex")] });
+  assert.match(ui.best.why, /run your dev server/);
+  const bug = recommend({ ...base, task: "fix the crash", categories: ["bug-fix"], installed: [found("claude-code")] });
+  assert.match(bug.best.why, /run the failing/);
+  const explain = recommend({ ...base, task: "explain this project", categories: ["explain-codebase"], installed: [found("gemini-cli")] });
+  assert.match(explain.best.why, /most of your project at once/);
+});
+
+test("tools that are not installed but suit the task better are suggested", () => {
+  const result = recommend({ ...base, task: "redesign the footer", categories: ["ui"], installed: [found("claude-code")] });
+  const ids = result.suggested.map((s) => s.id);
+  assert.ok(ids.includes("cursor"));
+  assert.ok(!ids.includes("claude-code"));
+  assert.ok(result.suggested.length <= 2);
+  const cursor = result.suggested.find((s) => s.id === "cursor");
+  assert.match(cursor.why, /design change right in the editor/);
+  assert.equal(cursor.homepage, "https://cursor.com");
+});
+
+test("no suggestions when the best installed tool is already as good as any", () => {
+  const result = recommend({ ...base, task: "fix the crash", categories: ["bug-fix"], installed: [found("claude-code")] });
+  assert.deepEqual(result.suggested, []);
+});

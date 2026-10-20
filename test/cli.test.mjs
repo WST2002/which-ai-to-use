@@ -72,7 +72,7 @@ test("recommends from the tools on this machine", (t) => {
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Best:\s+Claude Code/);
   assert.match(result.stdout, /claude "add two-factor login"/);
-  assert.match(result.stdout, /Free:\s+Gemini CLI/);
+  assert.match(result.stdout, /Gemini CLI \(installed, free tier\)/);
 });
 
 test("--json prints machine-readable output", (t) => {
@@ -235,4 +235,11 @@ test("dashboard prints a local link and serves the page", async (t) => {
     child.kill();
     await exited;
   }
+});
+
+test("the recommendation explains each choice in plain words", (t) => {
+  const result = machine(t, { bins: ["claude"] }).run("make the hero section look better");
+  assert.match(result.stdout, /→\s+design \(UI\)/);
+  assert.match(result.stdout, /Best:\s+Claude Code \(installed\)\n\s+Can change several components and run your dev server/);
+  assert.match(result.stdout, /Not installed, but good for this:\n\s+• Cursor: shows each design change right in the editor/);
 });

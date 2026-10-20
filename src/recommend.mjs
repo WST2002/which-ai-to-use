@@ -1,4 +1,4 @@
-import { toolById } from "./tools.mjs";
+import { TOOLS, toolById } from "./tools.mjs";
 
 const NEEDS = {
   "quick-edit": { inline: 3, agent: 1 },
@@ -63,9 +63,47 @@ function claudeModel(categories) {
   return null;
 }
 
+// Why a tool fits each kind of task, by the capability that matters most for it (first match wins).
+const WHY = {
+  ui: [["inline", "shows each design change right in the editor as you go"], ["agent", "can change several components and run your dev server to check the result"]],
+  "quick-edit": [["inline", "fastest for a small change: edit right where your cursor is"], ["agent", "makes the change and can check it"]],
+  "bug-fix": [["agent", "can run the failing code or test, fix it and run it again"]],
+  tests: [["agent", "writes the tests and runs them to prove they pass"]],
+  refactor: [["largeContext", "keeps the whole module in view while restructuring"], ["agent", "moves code across files and re-runs your tests"]],
+  "code-review": [["largeContext", "can read the whole change at once"], ["agent", "reads the diff and runs the tests"]],
+  "explain-codebase": [["largeContext", "can read most of your project at once"], ["agent", "opens and searches files to explain them"]],
+  docs: [["agent", "reads the code and writes the docs next to it"], ["inline", "writes comments right in the editor"]],
+  "security-sensitive": [["agent", "makes careful changes across files; get a second AI to review"]],
+  "multi-file-feature": [["agent", "builds the feature across several files and runs your commands"]],
+};
+
+function whyFor(tool, categories) {
+  const caps = tool.capabilities;
+  for (const category of categories) {
+    const match = (WHY[category] ?? []).find(([cap]) => caps[cap]);
+    if (match) return match[1];
+  }
+  if (caps.local) return "runs on your laptop, so your code stays private";
+  return "a general coding assistant";
+}
+
+const MAX_SUGGESTED = 2;
+
 function describe(found, categories, privacy, task) {
   const tool = toolById(found.id);
-  const entry = { id: tool.id, name: tool.name, reason: reasonFor(tool, found, categories, privacy), command: commandFor(tool, found, tool.run, task) };
+  const entry = {
+    id: tool.id,
+    name: tool.name,
+    reason: reasonFor(tool, found, categories, privacy),
+    why: whyFor(tool, categories),
+    where: [
+      hasCommand(found) || !isCliTool(tool) ? "installed" : "installed, in your editor",
+      tool.capabilities.local ? "runs on your laptop" : tool.capabilities.freeTier ? "free tier" : "",
+    ]
+      .filter(Boolean)
+      .join(", "),
+    command: commandFor(tool, found, tool.run, task),
+  };
   const model = tool.id === "claude-code" && hasCommand(found) ? claudeModel(categories) : null;
   if (model) {
     entry.command = entry.command.replace(/^claude /, `claude --model ${model.alias} `);
@@ -89,7 +127,7 @@ export function recommend({ task, prompt = task, files = [], categories, install
 
   if (installed.length === 0) {
     notes.push("No AI coding tools found. Free options: Gemini CLI (free tier) or Ollama (local and private).");
-    return { task, categories, best: null, also: [], free: null, reviewer: null, notes };
+    return { task, categories, best: null, also: [], free: null, reviewer: null, suggested: [], notes };
   }
 
   const ranked = installed
@@ -100,6 +138,13 @@ export function recommend({ task, prompt = task, files = [], categories, install
   const [top, ...rest] = ranked;
   const best = describe(top.found, categories, privacy, prompt);
   const also = rest.slice(0, 3).map((entry) => describe(entry.found, categories, privacy, prompt));
+  const installedIds = new Set(installed.map((found) => found.id));
+  const suggested = TOOLS.filter((tool) => !installedIds.has(tool.id))
+    .map((tool) => ({ tool, score: score(tool, categories, prefer, privacy) }))
+    .filter((entry) => entry.score > top.score)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_SUGGESTED)
+    .map(({ tool }) => ({ id: tool.id, name: tool.name, why: whyFor(tool, categories), homepage: tool.homepage }));
   const freeEntry = ranked.find((entry) => entry.tool.capabilities.freeTier || entry.tool.capabilities.local);
   const free = freeEntry ? describe(freeEntry.found, categories, privacy, prompt) : null;
 
@@ -117,5 +162,5 @@ export function recommend({ task, prompt = task, files = [], categories, install
   }
   if (top.tool.id === "ollama" && !top.found.models?.length) notes.push("No Ollama models installed yet. Try: ollama pull qwen2.5-coder");
 
-  return { task, files, categories, best, also, free, reviewer, notes };
+  return { task, files, categories, best, also, free, reviewer, suggested, notes };
 }
