@@ -6,12 +6,13 @@ import { applyIgnoreAdvice } from "./fix.mjs";
 import { LABELS, checkupIssues, formatAiAnswer, formatCheckup, formatDoctor, formatRecommendation, formatTokens, formatUsage, usageTip } from "./format.mjs";
 import { claudeUsage } from "./usage.mjs";
 import { collectHandoff, renderHandoff } from "./handoff.mjs";
-import { scanProject } from "./project.mjs";
+import { RULES_FILES, scanProject } from "./project.mjs";
+import { buildSlimPrompt, parseSlim, slimFileName } from "./slim.mjs";
 import { betterPrompt, relevantFiles, verifyCommand } from "./prompt.mjs";
 import { recommend, runCommandFor } from "./recommend.mjs";
 import { aiRunner, askAi, buildAiPrompt, parseAiAnswer } from "./ai.mjs";
 import { startCost } from "./cost.mjs";
-import { listProjectFiles, mcpServers, tokenReport } from "./tokens.mjs";
+import { estimateTokens, listProjectFiles, mcpServers, rulesCost, tokenReport } from "./tokens.mjs";
 import { toolById } from "./tools.mjs";
 
 const ids = (installed) => installed.map((found) => found.id);
@@ -57,6 +58,45 @@ export async function aiAction({ cwd, home, task, installed, consent = false, as
   const installedFound = installed.find((f) => f.id === answer.bestInstalled);
   const command = runCommandFor(installedFound, answer.prompt, answer.model);
   return { text: formatAiAnswer({ runner, seconds: reply.seconds, answer, anywhere, installedIds: installed.map((f) => f.id), command, rules: r }), data: { runner, answer, command, rules: r } };
+}
+
+/**
+ * Slim the largest instructions file with an installed AI. Without consent it only explains what would be sent.
+ * The result goes to <file>.slim.md; `apply` swaps it in and keeps the old file as <file>.bak.
+ */
+export async function slimAction({ cwd, installed, consent = false, apply = false, ask = askAi }) {
+  const target = rulesCost(cwd).filter((rule) => rule.large).sort((a, b) => b.tokens - a.tokens)[0];
+  if (apply) {
+    const pending = RULES_FILES.find((file) => fs.existsSync(path.join(cwd, slimFileName(file))));
+    if (!pending) throw new Error("nothing to apply: run slim first");
+    fs.copyFileSync(path.join(cwd, pending), path.join(cwd, `${pending}.bak`));
+    fs.renameSync(path.join(cwd, slimFileName(pending)), path.join(cwd, pending));
+    return { text: `Replaced ${pending}; the old one is in ${pending}.bak.\n`, data: { applied: pending } };
+  }
+  if (!target) return { text: "No instructions file over 2,000 tokens, so there is nothing worth slimming.\n", data: { target: null } };
+  const runner = aiRunner(installed);
+  if (!runner) throw new Error("slim needs an AI you can run from the terminal (claude, gemini, codex or ollama).");
+  if (!consent) {
+    return {
+      text: `slim will send the full text of ${target.file} (~${target.tokens.toLocaleString("en-US")} tokens) to ${runner.name}${runner.local ? ", which runs on this laptop" : ", a cloud service"}.\nAllow it with --yes, or answer y when asked.\n`,
+      data: { needsConsent: true, runner, target },
+    };
+  }
+  const original = fs.readFileSync(path.join(cwd, target.file), "utf8");
+  const reply = await ask(runner, buildSlimPrompt(target.file, original));
+  const slim = reply.ok ? parseSlim(reply.text, original) : null;
+  if (!slim) {
+    const reason = reply.ok ? "did not return a shorter file" : `could not answer (${reply.error})`;
+    return { text: `${runner.name} ${reason}. Nothing was written.\n`, data: { runner, target, written: null } };
+  }
+  const written = slimFileName(target.file);
+  fs.writeFileSync(path.join(cwd, written), slim);
+  const after = estimateTokens(slim);
+  const text = [
+    `${runner.name} wrote ${written}: ~${target.tokens.toLocaleString("en-US")} → ~${after.toLocaleString("en-US")} tokens per message.`,
+    `${target.file} is unchanged. Read ${written}; if it keeps everything you need, run: npx which-ai-to-use slim --apply`,
+  ].join("\n");
+  return { text: `${text}\n`, data: { runner, target, written, before: target.tokens, after, slim } };
 }
 
 export function usageAction({ home, installed, now = new Date() }) {
