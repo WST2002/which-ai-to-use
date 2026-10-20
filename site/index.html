@@ -58,6 +58,23 @@
   .how .card p { margin-bottom: 0; }
   footer { color: var(--muted); font-size: 14px; text-align: center; padding: 40px 0 32px; }
   @media (max-width: 560px) { .examples .chip:nth-child(n+7) { display: none; } }
+  .btn:disabled { opacity: .7; cursor: progress; }
+  .thinking { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; box-shadow: var(--shadow); }
+  .steps { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 8px; }
+  .steps li { display: flex; align-items: center; gap: 10px; color: var(--muted); transition: color .2s; }
+  .steps li .dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line); flex: none; display: grid; place-items: center; font-size: 11px; }
+  .steps li.active { color: var(--fg); font-weight: 600; }
+  .steps li.active .dot { border-color: var(--accent); border-top-color: transparent; animation: spin .7s linear infinite; }
+  .steps li.done { color: var(--fg); }
+  .steps li.done .dot { border-color: var(--good); background: var(--good); color: #fff; }
+  .bar { height: 6px; border-radius: 999px; background: var(--panel-2); overflow: hidden; }
+  .bar span { display: block; height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .35s ease; }
+  .skeleton { height: 120px; border-radius: 16px; margin-top: 14px; background: linear-gradient(90deg, var(--panel-2) 25%, var(--line) 50%, var(--panel-2) 75%); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; }
+  .rise { animation: rise .45s ease both; animation-delay: calc(var(--i, 0) * 90ms); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .rise, .skeleton, .steps li.active .dot { animation: none; } }
   @media (max-width: 560px) { form.ask { flex-direction: column; } .btn { width: 100%; text-align: center; } .prompt { flex-direction: column; } .card .btn { width: auto; } }
 </style>
 </head>
@@ -104,6 +121,8 @@
       subtitle: "Type what you want to do. See the best AI app for it, the free option, and a ready prompt to paste.",
       placeholder: "e.g. make slides for my college project",
       find: "Find my AI",
+      searching: "Searching…",
+      steps: ["Understanding your task…", "Checking {n} AI apps…", "Picking the best one for you…"],
       best: "Best for this",
       also: "Also good",
       free: "Free plan",
@@ -126,6 +145,8 @@
       subtitle: "लिखिए आप क्या करना चाहते हैं। जानिए उसके लिए सबसे अच्छा AI ऐप, मुफ़्त विकल्प, और कॉपी करने लायक तैयार प्रॉम्प्ट।",
       placeholder: "जैसे: कॉलेज प्रोजेक्ट के लिए presentation बनाना है",
       find: "मेरा AI ढूँढो",
+      searching: "ढूँढ रहे हैं…",
+      steps: ["आपका काम समझ रहे हैं…", "{n} AI ऐप्स देख रहे हैं…", "आपके लिए सबसे अच्छा चुन रहे हैं…"],
       best: "इसके लिए सबसे अच्छा",
       also: "ये भी अच्छे हैं",
       free: "मुफ़्त प्लान",
@@ -170,7 +191,7 @@
     document.querySelectorAll("[data-t]").forEach((node) => (node.innerHTML = t(node.dataset.t)));
     input.placeholder = t("placeholder");
     document.querySelectorAll("[data-lang]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
-    document.getElementById("examples").replaceChildren(...t("examples").map((text) => el("button", { type: "button", class: "chip", text, onclick: () => { input.value = text; show(); } })));
+    document.getElementById("examples").replaceChildren(...t("examples").map((text) => el("button", { type: "button", class: "chip", text, onclick: () => { input.value = text; search(); } })));
     if (input.value.trim()) show();
   }
 
@@ -187,7 +208,7 @@
     const [top, ...others] = advice.best;
     const copy = el("button", { class: "btn ghost small", type: "button", text: t("copy"), onclick: () => { navigator.clipboard.writeText(advice.prompt); copy.textContent = t("copied"); setTimeout(() => (copy.textContent = t("copy")), 1500); } });
     // replaceChildren() would print a null as the text "null", so optional parts are filtered out.
-    answer.replaceChildren(...[
+    const parts = [
       el("div", { class: "kind", text: advice.kind.label[lang] }),
       el("div", { class: "grid" }, appCard(top, true), others.map((app) => appCard(app, false))),
       advice.free && !advice.best.some((app) => app.id === advice.free.id) ? el("p", { class: "section", text: t("freeOption") + " " + advice.free.name }) : null,
@@ -195,10 +216,45 @@
       el("div", { class: "prompt" }, el("pre", { text: advice.prompt }), copy),
       el("p", { class: "kind", style: "text-transform:none;letter-spacing:0;margin-top:8px", text: t("promptNote") }),
       advice.hint ? el("div", { class: "hint", text: advice.hint }) : null,
-    ].filter(Boolean));
+    ].filter(Boolean);
+    parts.forEach((part, i) => { part.classList.add("rise"); part.style.setProperty("--i", i); });
+    answer.replaceChildren(...parts);
+    answer.querySelectorAll(".grid .card").forEach((card, i) => { card.classList.add("rise"); card.style.setProperty("--i", i + 1); });
   }
 
-  document.getElementById("ask").addEventListener("submit", (e) => { e.preventDefault(); show(); });
+  // A short "thinking" sequence before the answer, so the result feels found rather than dumped.
+  // The steps describe what the page really does; people who turn motion off get the answer at once.
+  const STEP_MS = 420;
+  const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const findButton = document.querySelector("#ask .btn");
+  let searchId = 0;
+
+  async function search() {
+    if (!input.value.trim()) return answer.replaceChildren();
+    const id = ++searchId;
+    if (!calm) {
+      const bar = el("span");
+      const items = t("steps").map((step) => el("li", {}, el("span", { class: "dot" }), el("span", { text: step.replace("{n}", apps.length) })));
+      answer.replaceChildren(el("div", { class: "thinking" }, el("ul", { class: "steps" }, items), el("div", { class: "bar" }, bar)), el("div", { class: "skeleton" }), el("div", { class: "skeleton" }));
+      findButton.disabled = true;
+      findButton.textContent = t("searching");
+      for (let i = 0; i < items.length; i++) {
+        items[i].className = "active";
+        bar.style.width = ((i + 1) / items.length) * 100 + "%";
+        await wait(STEP_MS);
+        if (id !== searchId) return;
+        items[i].className = "done";
+        items[i].firstChild.textContent = "✓";
+      }
+      findButton.disabled = false;
+      findButton.textContent = t("find");
+    }
+    show();
+    if (window.matchMedia("(max-width: 560px)").matches) answer.scrollIntoView({ behavior: calm ? "auto" : "smooth", block: "start" });
+  }
+
+  document.getElementById("ask").addEventListener("submit", (e) => { e.preventDefault(); search(); });
   document.querySelectorAll("[data-lang]").forEach((b) => b.addEventListener("click", () => {
     lang = b.dataset.lang;
     try { localStorage.setItem("lang", lang); } catch {}
