@@ -82,7 +82,8 @@ async function main() {
   }
   if (command === "sync") return runSync(values, installed);
 
-  const task = positionals.join(" ");
+  const task = positionals.join(" ").trim();
+  if (!task) throw new Error('task is empty: describe it in quotes, e.g. which-ai-to-use "fix the login bug"');
   const { sensitive } = scanProject(process.cwd());
   const result = recommend({ task, categories: classifyTask(task), installed, sensitive, prefer: values.prefer, private: values.private });
   process.stdout.write(values.json ? `${JSON.stringify(result, null, 2)}\n` : formatRecommendation(result));
