@@ -82,6 +82,9 @@ export function dashboardPage({ token, project, version }) {
   .card .tag.yes { background: var(--good-soft); color: var(--good); border-color: color-mix(in srgb, var(--good) 40%, transparent); }
   .card .tag.no { background: var(--warn-soft); color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
   .card.mine { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+  .consent { border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line)); background: var(--warn-soft); border-radius: 14px; padding: 14px 16px; margin-bottom: 14px; }
+  .consent p { margin: 6px 0 12px; white-space: pre-line; }
+  ol { margin: 0; padding-left: 22px; }
   .card p { margin: 6px 0 0; color: var(--muted); }
   .card a { color: var(--accent); }
   .section-title { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 20px 0 10px; }
@@ -140,6 +143,8 @@ export function dashboardPage({ token, project, version }) {
     <button class="nav-btn" data-view="handoff"><span class="icon">🔁</span><span><strong>Claude limit over?</strong><small>Hand the task to another AI</small></span></button>
     <button class="nav-btn" data-view="fix"><span class="icon">🧹</span><span><strong>Fix wasted tokens</strong><small>Make your AI skip heavy files</small></span></button>
     <button class="nav-btn" data-view="tokens"><span class="icon">📊</span><span><strong>Token details</strong><small>Everything that is counted</small></span></button>
+    <button class="nav-btn" data-view="usage"><span class="icon">📈</span><span><strong>Usage</strong><small>Claude tokens today and this week</small></span></button>
+    <button class="nav-btn" data-view="slim"><span class="icon">✂️</span><span><strong>Shorten CLAUDE.md</strong><small>Ask your AI for a shorter version</small></span></button>
     <button class="nav-btn" data-view="doctor"><span class="icon">🧰</span><span><strong>Installed tools</strong><small>AI tools on this laptop</small></span></button>
   </nav>
 
@@ -155,7 +160,16 @@ export function dashboardPage({ token, project, version }) {
       <div class="panel-body">
         <div class="form hidden" id="form-task">
           <input type="text" id="task" placeholder="Describe the task, e.g. make the hero section look better" aria-label="Task">
+          <label class="check"><input type="checkbox" id="use-ai"> 🤖 Ask my AI too</label>
           <button class="btn" id="ask">Ask</button>
+        </div>
+        <div class="form hidden" id="form-slim">
+          <button class="btn" id="slim-start">Ask my AI to shorten it</button>
+        </div>
+        <div class="consent hidden" id="consent" role="dialog" aria-labelledby="consent-title">
+          <strong id="consent-title">Allow this?</strong>
+          <p id="consent-text"></p>
+          <div class="form" style="margin:0"><button class="btn" id="consent-yes">Allow and ask</button><button class="btn ghost" id="consent-no">Cancel</button></div>
         </div>
         <div class="form hidden" id="form-handoff">
           <input type="text" id="handoff-task" placeholder="What were you working on?" aria-label="Task to hand off">
@@ -178,6 +192,8 @@ export function dashboardPage({ token, project, version }) {
     handoff: { title: "Claude limit over?", sub: "Writes HANDOFF.md in your project, so another AI carries on instead of starting over." },
     fix: { title: "Fix wasted tokens", sub: "These files cost many tokens when your AI reads them. Nothing changes until you click Apply." },
     tokens: { title: "Token details", sub: "Instructions files, heavy files and add-ons, with numbers." },
+    usage: { title: "Usage", sub: "Claude Code tokens from its own logs on this laptop: numbers only, never your messages." },
+    slim: { title: "Shorten CLAUDE.md", sub: "Your instructions file is sent with every message. Your AI writes a shorter copy next to it; you decide whether to use it." },
     doctor: { title: "Installed tools", sub: "Which AI tools this laptop has and which instructions files this project has." },
   };
   const $ = (id) => document.getElementById(id);
@@ -301,6 +317,46 @@ export function dashboardPage({ token, project, version }) {
     },
     tokens: (data, _, text) => [el("pre", { class: "raw", text })],
     doctor: (data, _, text) => [el("pre", { class: "raw", text })],
+    usage(data) {
+      if (!data.found) return [el("div", { class: "ok", text: "No Claude Code logs on this laptop, so there is no usage to show." })];
+      const n = (v) => "~" + v.toLocaleString("en-US");
+      const stat = (label, bucket) => el("div", { class: "card" }, el("div", { class: "muted", text: label }), el("h3", { text: n(bucket.fresh) + " tokens" }), el("p", { text: bucket.replies + " replies · + " + n(bucket.cached) + " re-read from cache" }));
+      const parts = [el("div", { class: "grid" }, stat("Today", data.today), stat("Last 7 days", data.week))];
+      if (data.projects.length) parts.push(el("div", { class: "section-title", text: "Busiest projects (7 days)" }), el("table", {}, data.projects.map((p) => el("tr", {}, el("td", { text: p.project }), el("td", { text: n(p.fresh) + " tokens" })))));
+      if (data.tip) parts.push(el("div", { class: "consent", style: "margin-top:14px" }, el("strong", { text: "Tip" }), el("p", { text: data.tip })));
+      return parts;
+    },
+    ai(data) {
+      if (!data.answer) return [el("div", { class: "consent" }, el("strong", { text: data.fallback + ", so here is the rules answer." }))].concat(RENDER.task(data.rules));
+      const a = data.answer;
+      const parts = [el("p", { class: "muted", text: "🤖 Answer from " + data.runner.name + " (asked with no tools). Rules answer: " + data.rules.overall.name + " / " + data.rules.best.name + "." })];
+      parts.push(el("div", { class: "section-title", text: "① Best AI for this task (any tool)" }),
+        el("div", { class: "card best" },
+          el("h3", {}, a.bestAnywhereName, el("span", { class: "tag " + (a.bestAnywhereInstalled ? "yes" : "no"), text: a.bestAnywhereInstalled ? "✓ On your laptop" : "✗ Not on your laptop" })),
+          a.bestAnywhereInstalled ? el("p", { text: "You already have it: use the command below." })
+            : el("p", {}, "Get it: ", el("a", { href: a.bestAnywhereHomepage, target: "_blank", rel: "noopener", text: a.bestAnywhereHomepage.replace("https://", "") }))));
+      parts.push(el("div", { class: "section-title", text: "② Use on your laptop" }),
+        el("div", { class: "card mine" },
+          el("h3", {}, a.bestInstalledName, a.model ? el("span", { class: "tag", text: "model: " + a.model }) : null),
+          el("p", { text: a.why }),
+          command(data.command)));
+      if (a.steps.length) parts.push(el("div", { class: "section-title", text: "Steps" }), el("ol", {}, a.steps.map((s) => el("li", { text: s }))));
+      parts.push(el("div", { class: "section-title", text: "Better prompt" }), el("pre", { class: "raw", text: a.prompt }));
+      return parts;
+    },
+    slim(data) {
+      if (data.applied) return [el("div", { class: "ok", text: "Done. " + data.applied + " now uses the shorter version; the old one is in " + data.applied + ".bak." })];
+      if (!data.target) return [el("div", { class: "ok", text: "No instructions file over 2,000 tokens, so there is nothing worth shortening." })];
+      if (!data.written) return [el("div", { class: "consent" }, el("strong", { text: data.runner.name + " did not return a shorter file. Nothing was written." }))];
+      return [
+        el("div", { class: "grid" },
+          el("div", { class: "card" }, el("div", { class: "muted", text: "Now" }), el("h3", { text: "~" + data.before.toLocaleString("en-US") + " tokens per message" })),
+          el("div", { class: "card mine" }, el("div", { class: "muted", text: "Shorter copy (" + data.written + ")" }), el("h3", { text: "~" + data.after.toLocaleString("en-US") + " tokens per message" }))),
+        el("p", { class: "muted", text: data.target.file + " is unchanged. Read the shorter copy below; use it only if it keeps everything you need." }),
+        el("pre", { class: "raw", text: data.slim }),
+        el("button", { class: "btn", style: "margin-top:14px", text: "Use the shorter version", onclick: () => load("slim", { apply: true }) }),
+      ];
+    },
   };
 
   async function load(action, body = {}, applied = false) {
@@ -323,15 +379,46 @@ export function dashboardPage({ token, project, version }) {
     $("view-sub").textContent = VIEWS[view].sub;
     $("form-task").classList.toggle("hidden", view !== "task");
     $("form-handoff").classList.toggle("hidden", view !== "handoff");
+    $("form-slim").classList.toggle("hidden", view !== "slim");
+    $("consent").classList.add("hidden");
     result.replaceChildren();
     status.textContent = "";
     if (view === "task") $("task").focus();
     else if (view === "handoff") $("handoff-task").focus();
-    else load(view);
+    else if (view !== "slim") load(view);
+  }
+
+  // Nothing goes to an AI until the user has read what will be sent and clicked Allow.
+  let onAllow = null;
+  function askConsent(text, allow) {
+    $("consent-text").textContent = text;
+    $("consent").classList.remove("hidden");
+    onAllow = allow;
+  }
+  $("consent-yes").addEventListener("click", () => { $("consent").classList.add("hidden"); if (onAllow) onAllow(); });
+  $("consent-no").addEventListener("click", () => { $("consent").classList.add("hidden"); status.textContent = "Nothing was sent."; });
+
+  let aiAllowed = false;
+  async function ask() {
+    const task = $("task").value;
+    if (!$("use-ai").checked) return load("task", { task });
+    if (aiAllowed) return load("ai", { task, consent: true });
+    const preview = await call("ai", { task });
+    if (!preview) return;
+    result.replaceChildren(...RENDER.task(preview.data.rules));
+    askConsent(preview.text, () => { aiAllowed = true; load("ai", { task, consent: true }); });
+  }
+
+  async function startSlim() {
+    const preview = await call("slim");
+    if (!preview) return;
+    if (!preview.data.needsConsent) return result.replaceChildren(...RENDER.slim(preview.data));
+    askConsent(preview.text, () => load("slim", { consent: true }));
   }
 
   document.querySelectorAll(".nav-btn").forEach((b) => b.addEventListener("click", () => show(b.dataset.view)));
-  $("ask").addEventListener("click", () => load("task", { task: $("task").value }));
+  $("ask").addEventListener("click", ask);
+  $("slim-start").addEventListener("click", startSlim);
   $("write-handoff").addEventListener("click", () => load("handoff", { task: $("handoff-task").value, without: $("without-claude").checked ? ["claude-code"] : [] }));
   $("task").addEventListener("keydown", (e) => e.key === "Enter" && $("ask").click());
   $("handoff-task").addEventListener("keydown", (e) => e.key === "Enter" && $("write-handoff").click());

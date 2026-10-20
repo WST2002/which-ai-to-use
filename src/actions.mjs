@@ -42,7 +42,7 @@ export async function aiAction({ cwd, home, task, installed, consent = false, as
   if (!consent) {
     const where = runner.local ? "It runs on this laptop." : "It is a cloud service and uses your usage limit.";
     return {
-      text: `AI mode will ask ${runner.name}: ${sends.join(", ")}. ${where}\nAllow it with --yes, or answer y when asked.\n`,
+      text: `AI mode will ask ${runner.name}: ${sends.join(", ")}. ${where}\n`,
       data: { needsConsent: true, runner, sends, rules: rules.data },
     };
   }
@@ -57,7 +57,14 @@ export async function aiAction({ cwd, home, task, installed, consent = false, as
   const anywhere = toolById(answer.bestAnywhere);
   const installedFound = installed.find((f) => f.id === answer.bestInstalled);
   const command = runCommandFor(installedFound, answer.prompt, answer.model);
-  return { text: formatAiAnswer({ runner, seconds: reply.seconds, answer, anywhere, installedIds: installed.map((f) => f.id), command, rules: r }), data: { runner, answer, command, rules: r } };
+  const named = {
+    ...answer,
+    bestAnywhereName: anywhere.name,
+    bestAnywhereInstalled: installed.some((f) => f.id === anywhere.id),
+    bestInstalledName: toolById(answer.bestInstalled).name,
+    bestAnywhereHomepage: anywhere.homepage,
+  };
+  return { text: formatAiAnswer({ runner, seconds: reply.seconds, answer, anywhere, installedIds: installed.map((f) => f.id), command, rules: r }), data: { runner, answer: named, command, rules: r } };
 }
 
 /**
@@ -78,7 +85,7 @@ export async function slimAction({ cwd, installed, consent = false, apply = fals
   if (!runner) throw new Error("slim needs an AI you can run from the terminal (claude, gemini, codex or ollama).");
   if (!consent) {
     return {
-      text: `slim will send the full text of ${target.file} (~${target.tokens.toLocaleString("en-US")} tokens) to ${runner.name}${runner.local ? ", which runs on this laptop" : ", a cloud service"}.\nAllow it with --yes, or answer y when asked.\n`,
+      text: `slim will send the full text of ${target.file} (~${target.tokens.toLocaleString("en-US")} tokens) to ${runner.name}${runner.local ? ", which runs on this laptop" : ", a cloud service"}.\n`,
       data: { needsConsent: true, runner, target },
     };
   }

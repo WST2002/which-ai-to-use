@@ -22,7 +22,7 @@ export function usageTip(usage, installed) {
   const average = usage.week.fresh / 7;
   if (!usage.today.fresh || usage.today.fresh < 2 * average) return null;
   const free = freeToolNames(installed);
-  const where = free.length ? `${free[0]} (free)` : "`--model haiku`";
+  const where = free.length ? `${free[0]} (free)` : "Claude with --model haiku";
   return `Today is ${(usage.today.fresh / average).toFixed(1)}× your daily average. Send small tasks to ${where} to save your Claude limit.`;
 }
 
