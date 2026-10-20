@@ -91,3 +91,47 @@ export function ignoreAdvice(files, installedIds) {
     return IGNORE_FILES[id] ? [{ id, file: IGNORE_FILES[id], snippet: files.join("\n") }] : [];
   });
 }
+
+const readJson = (file) => {
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    return null;
+  }
+};
+
+const normalisePath = (p) => String(p).replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+
+function claudeProjectServers(config, projectKey) {
+  const entry = Object.entries(config?.projects ?? {}).find(([key]) => normalisePath(key) === normalisePath(projectKey));
+  return Object.keys(entry?.[1]?.mcpServers ?? {});
+}
+
+function codexServers(home) {
+  let toml = "";
+  try {
+    toml = fs.readFileSync(path.join(home, ".codex", "config.toml"), "utf8");
+  } catch {
+    return [];
+  }
+  return [...toml.matchAll(/^\[mcp_servers\.(?:"([^"]+)"|([\w-]+))\]/gm)].map((match) => match[1] ?? match[2]);
+}
+
+/** MCP servers each tool loads here; every server adds its tool descriptions to each request. */
+export function mcpServers({ home, dir, projectKey = dir }) {
+  const claudeUser = readJson(path.join(home, ".claude.json"));
+  const sources = [
+    ["Claude Code", Object.keys(claudeUser?.mcpServers ?? {})],
+    ["Claude Code", claudeProjectServers(claudeUser, projectKey)],
+    ["Claude Code", Object.keys(readJson(path.join(dir, ".mcp.json"))?.mcpServers ?? {})],
+    ["Cursor", Object.keys(readJson(path.join(home, ".cursor", "mcp.json"))?.mcpServers ?? {})],
+    ["Cursor", Object.keys(readJson(path.join(dir, ".cursor", "mcp.json"))?.mcpServers ?? {})],
+    ["Gemini CLI", Object.keys(readJson(path.join(home, ".gemini", "settings.json"))?.mcpServers ?? {})],
+    ["Gemini CLI", Object.keys(readJson(path.join(dir, ".gemini", "settings.json"))?.mcpServers ?? {})],
+    ["Codex CLI", codexServers(home)],
+  ];
+  const seen = new Set();
+  return sources.flatMap(([tool, names]) =>
+    names.filter((name) => !seen.has(`${tool}:${name}`) && seen.add(`${tool}:${name}`)).map((name) => ({ tool, name })),
+  );
+}

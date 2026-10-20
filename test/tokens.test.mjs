@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { estimateTokens, heavyFiles, ignoreAdvice, listProjectFiles, rulesCost } from "../src/tokens.mjs";
+import { estimateTokens, heavyFiles, ignoreAdvice, listProjectFiles, mcpServers, rulesCost } from "../src/tokens.mjs";
 
 function project(t, files) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "waitu-tokens-"));
@@ -69,4 +69,25 @@ test("ignore advice uses each installed tool's own mechanism", () => {
   assert.equal(byTool.cursor.snippet, "package-lock.json\ndata/export.csv");
   assert.equal(byTool["gemini-cli"].file, ".geminiignore");
   assert.equal(byTool.codex, undefined);
+});
+
+test("MCP servers are listed from each tool's user and project config", (t) => {
+  const home = project(t, {
+    ".claude.json": JSON.stringify({ mcpServers: { figma: {} }, projects: { "/work/shop": { mcpServers: { slack: {} } } } }),
+    ".cursor/mcp.json": JSON.stringify({ mcpServers: { github: {} } }),
+    ".codex/config.toml": '[mcp_servers.notion]\ncommand = "npx"\n\n[mcp_servers."docs-search"]\ncommand = "x"\n',
+  });
+  const dir = project(t, { ".mcp.json": JSON.stringify({ mcpServers: { playwright: {} } }), ".gemini/settings.json": JSON.stringify({ mcpServers: { db: {} } }) });
+  const servers = mcpServers({ home, dir, projectKey: "/work/shop" });
+  const names = (tool) => servers.filter((s) => s.tool === tool).map((s) => s.name).sort();
+  assert.deepEqual(names("Claude Code"), ["figma", "playwright", "slack"]);
+  assert.deepEqual(names("Cursor"), ["github"]);
+  assert.deepEqual(names("Gemini CLI"), ["db"]);
+  assert.deepEqual(names("Codex CLI"), ["docs-search", "notion"]);
+});
+
+test("missing or broken MCP config files are skipped", (t) => {
+  const home = project(t, { ".claude.json": "{ not json" });
+  const dir = project(t, {});
+  assert.deepEqual(mcpServers({ home, dir, projectKey: dir }), []);
 });
