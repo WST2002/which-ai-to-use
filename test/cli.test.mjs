@@ -129,3 +129,15 @@ test("the run command carries relevant files and the project's test command", (t
   assert.match(result.stdout, /Files:\s+src\/auth\/login\.ts/);
   assert.match(result.stdout, /claude "fix the login redirect bug\. Start with src\/auth\/login\.ts\. When done, run npm test and report the result\."/);
 });
+
+test("--without skips a tool, for example when its usage limit is reached", (t) => {
+  const result = machine(t, { bins: ["claude", "gemini"] }).run("add a dashboard", "--without", "claude-code", "--json");
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(JSON.parse(result.stdout).best.id, "gemini-cli");
+});
+
+test("--without rejects unknown tools with the valid ids", (t) => {
+  const result = machine(t, { bins: ["claude"] }).run("add a dashboard", "--without", "chatgpt");
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /unknown tool "chatgpt".*claude-code/);
+});

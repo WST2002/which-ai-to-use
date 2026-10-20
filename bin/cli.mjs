@@ -11,7 +11,7 @@ import { listProjectFiles, tokenReport } from "../src/tokens.mjs";
 import { RULES_FILES, scanProject } from "../src/project.mjs";
 import { recommend } from "../src/recommend.mjs";
 import { applySync, planSync } from "../src/sync.mjs";
-import { toolById } from "../src/tools.mjs";
+import { TOOLS, toolById } from "../src/tools.mjs";
 
 const PREFERENCES = ["balanced", "free", "quality"];
 const version = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -27,6 +27,7 @@ Usage:
 Options:
   --prefer balanced|free|quality      Rank free/local tools or the most capable agents first
   --private                           Rank local tools first (automatic when .env or keys are found)
+  --without <tool>                    Leave a tool out, e.g. when its usage limit is reached (claude-code, codex, gemini-cli, ...)
   --json                              Machine-readable output
   --from <file>                       sync: source rules file (default: AGENTS.md or the first one found)
   --all                               sync: write rules files for every supported AI, not only installed ones
@@ -72,13 +73,18 @@ async function main() {
       yes: { type: "boolean", default: false },
       help: { type: "boolean", default: false },
       version: { type: "boolean", default: false },
+      without: { type: "string", multiple: true, default: [] },
     },
   });
   if (values.version) return void process.stdout.write(`${version}\n`);
   if (values.help || positionals.length === 0) return void process.stdout.write(HELP);
   if (!PREFERENCES.includes(values.prefer)) throw new Error(`--prefer must be one of: ${PREFERENCES.join(", ")}`);
 
-  const installed = detectTools();
+  const skipped = values.without.flatMap((value) => value.split(",")).map((id) => id.trim()).filter(Boolean);
+  for (const id of skipped) {
+    if (!toolById(id)) throw new Error(`unknown tool "${id}" for --without. Use one of: ${TOOLS.map((tool) => tool.id).join(", ")}`);
+  }
+  const installed = detectTools().filter((found) => !skipped.includes(found.id));
   const [command] = positionals;
   if (command === "doctor") {
     const project = scanProject(process.cwd());
