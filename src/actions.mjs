@@ -8,7 +8,8 @@ import { collectHandoff, renderHandoff } from "./handoff.mjs";
 import { scanProject } from "./project.mjs";
 import { betterPrompt, relevantFiles, verifyCommand } from "./prompt.mjs";
 import { recommend } from "./recommend.mjs";
-import { listProjectFiles, tokenReport } from "./tokens.mjs";
+import { startCost } from "./cost.mjs";
+import { listProjectFiles, mcpServers, tokenReport } from "./tokens.mjs";
 import { toolById } from "./tools.mjs";
 
 const ids = (installed) => installed.map((found) => found.id);
@@ -29,13 +30,18 @@ export function doctorAction({ cwd, installed }) {
   return { text: formatDoctor(installed, project), data: { installed, project } };
 }
 
-export function recommendAction({ cwd, task, installed, prefer = "balanced", private: forcePrivate = false }) {
+export function recommendAction({ cwd, home, task, installed, prefer = "balanced", private: forcePrivate = false }) {
   const clean = String(task ?? "").trim();
   if (!clean) throw new Error('task is empty: describe it in quotes, e.g. which-ai-to-use "fix the login bug"');
   const { sensitive } = scanProject(cwd);
   const files = relevantFiles(clean, listProjectFiles(cwd));
   const prompt = betterPrompt(clean, files, verifyCommand(cwd));
   const result = recommend({ task: clean, prompt, files, categories: classifyTask(clean), installed, sensitive, prefer, private: forcePrivate });
+  if (result.best) {
+    const name = toolById(result.best.id).name;
+    const addOns = home ? mcpServers({ home, dir: cwd }).filter((server) => server.tool === name).length : 0;
+    result.cost = startCost({ dir: cwd, toolId: result.best.id, files, prompt, addOns });
+  }
   return { text: formatRecommendation(result), data: { ...result, labels: result.categories.map((c) => LABELS[c] ?? c) } };
 }
 
