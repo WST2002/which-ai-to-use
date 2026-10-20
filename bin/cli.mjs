@@ -6,7 +6,7 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 import { classifyTask } from "../src/classify.mjs";
 import { detectTools } from "../src/detect.mjs";
-import { formatDoctor, formatRecommendation, formatSyncPlan, formatTokens } from "../src/format.mjs";
+import { formatCheckup, formatDoctor, formatRecommendation, formatSyncPlan, formatTokens } from "../src/format.mjs";
 import { collectHandoff, renderHandoff } from "../src/handoff.mjs";
 import { betterPrompt, relevantFiles, verifyCommand } from "../src/prompt.mjs";
 import { listProjectFiles, tokenReport } from "../src/tokens.mjs";
@@ -97,7 +97,7 @@ async function main() {
     },
   });
   if (values.version) return void process.stdout.write(`${version}\n`);
-  if (values.help || positionals.length === 0) return void process.stdout.write(HELP);
+  if (values.help) return void process.stdout.write(HELP);
   if (!PREFERENCES.includes(values.prefer)) throw new Error(`--prefer must be one of: ${PREFERENCES.join(", ")}`);
 
   const skipped = values.without.flatMap((value) => value.split(",")).map((id) => id.trim()).filter(Boolean);
@@ -106,6 +106,12 @@ async function main() {
   }
   const installed = detectTools().filter((found) => !skipped.includes(found.id));
   const [command] = positionals;
+  if (!command) {
+    const cwd = process.cwd();
+    const report = tokenReport({ dir: cwd, home: os.homedir(), installedIds: installed.map((found) => found.id) });
+    if (values.json) return void process.stdout.write(`${JSON.stringify({ installed, ...report }, null, 2)}\n`);
+    return void process.stdout.write(formatCheckup({ project: path.basename(cwd), installed, report }));
+  }
   if (command === "doctor") {
     const project = scanProject(process.cwd());
     return void process.stdout.write(values.json ? `${JSON.stringify({ installed, project }, null, 2)}\n` : formatDoctor(installed, project));
