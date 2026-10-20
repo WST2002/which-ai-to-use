@@ -189,3 +189,17 @@ test("handoff outside a git repository fails with a fix", (t) => {
   assert.equal(result.status, 1);
   assert.match(result.stderr, /handoff needs a git repository/);
 });
+
+test("fix shows what it would change and needs a yes before writing", (t) => {
+  const { project, run } = machine(t, { bins: ["claude"], files: { "package-lock.json": "x".repeat(40 * 1024) } });
+  const preview = run("fix");
+  assert.equal(preview.status, 0, preview.stderr);
+  assert.match(preview.stdout, /package-lock\.json → \.claude\/settings\.json \(Claude Code\)/);
+  assert.match(preview.stdout, /--yes/);
+  assert.equal(fs.existsSync(path.join(project, ".claude", "settings.json")), false);
+
+  const applied = run("fix", "--yes");
+  assert.match(applied.stdout, /Updated \.claude\/settings\.json\./);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(project, ".claude", "settings.json"), "utf8")).permissions.deny, ["Read(./package-lock.json)"]);
+  assert.match(run("fix", "--yes").stdout, /Nothing to fix/);
+});

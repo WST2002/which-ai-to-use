@@ -8,6 +8,7 @@ import { classifyTask } from "../src/classify.mjs";
 import { detectTools } from "../src/detect.mjs";
 import { formatCheckup, formatDoctor, formatRecommendation, formatSyncPlan, formatTokens } from "../src/format.mjs";
 import { collectHandoff, renderHandoff } from "../src/handoff.mjs";
+import { applyIgnoreAdvice } from "../src/fix.mjs";
 import { betterPrompt, relevantFiles, verifyCommand } from "../src/prompt.mjs";
 import { listProjectFiles, tokenReport } from "../src/tokens.mjs";
 import { RULES_FILES, scanProject } from "../src/project.mjs";
@@ -39,6 +40,24 @@ Options:
 
 Made by Wageesha Tripathi — https://github.com/WST2002/which-ai-to-use
 `;
+
+async function runFix(values, installed) {
+  const cwd = process.cwd();
+  const report = tokenReport({ dir: cwd, home: os.homedir(), installedIds: installed.map((found) => found.id) });
+  if (!report.ignore.length) return void process.stdout.write("Nothing to fix: no heavy files, or none of your AI tools can be told to skip files.\n");
+  const lines = ["Your AI tools will skip these files:"];
+  for (const advice of report.ignore) {
+    const files = advice.id === "claude-code" ? report.heavy.map((h) => h.file) : advice.snippet.split("\n");
+    for (const file of files) lines.push(`  ${file} → ${advice.file} (${toolById(advice.id).name})`);
+  }
+  process.stdout.write(`${lines.join("\n")}\n`);
+  const approved = values.yes || (await confirm("Apply these changes? (y/N) "));
+  if (!approved) return void process.stdout.write("Nothing changed. Run again with --yes to apply.\n");
+  const changes = applyIgnoreAdvice(cwd, report.ignore);
+  if (!changes.length) return void process.stdout.write("Nothing to fix: your AI tools already skip these files.\n");
+  const skipped = report.ignore.length - changes.length;
+  process.stdout.write(`Updated ${changes.map((c) => c.file).join(", ")}${skipped ? ` (${skipped} file skipped)` : ""}.\n`);
+}
 
 async function confirm(question) {
   if (!process.stdin.isTTY) return false;
@@ -117,6 +136,7 @@ async function main() {
     return void process.stdout.write(values.json ? `${JSON.stringify({ installed, project }, null, 2)}\n` : formatDoctor(installed, project));
   }
   if (command === "sync") return runSync(values, installed);
+  if (command === "fix") return runFix(values, installed);
   if (command === "handoff") return runHandoff(positionals.slice(1).join(" ").trim(), installed, values);
   if (command === "tokens") {
     const report = tokenReport({ dir: process.cwd(), home: os.homedir(), installedIds: installed.map((found) => found.id) });
