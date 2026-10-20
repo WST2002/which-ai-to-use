@@ -51,7 +51,7 @@ Nothing is sent anywhere: it only looks at your laptop and your project.
 
 | | |
 |---|---|
-| **Recommend** | Best tool for the task, with the reason and the exact command to run |
+| **Recommend** | Best tool for the task with a reason written for that kind of task (design, bug fix, tests, review…), the exact command to run, and tools you don't have yet that would suit it better |
 | **Better prompt** | Names the files that match the task and asks the agent to run your tests and report the result |
 | **Model choice** | For Claude Code: `--model haiku` for small edits (uses far less of your limit), `--model opus` for risky or large work |
 | **Dashboard** | `dashboard`: every command as a button in your browser, on localhost only |
