@@ -1,6 +1,8 @@
 # which-ai-to-use
 
-You have Claude Code, Codex, Gemini CLI, Copilot, Cursor or Ollama installed. **Which one should do this task?**
+You have Claude Code, Codex, Gemini CLI, Copilot, Cursor or Ollama installed. **Which one should do this task?** Where are your tokens going? And when one hits its usage limit, how does another carry on?
+
+![which-ai-to-use finds wasted tokens and hands a task to another AI when Claude hits its limit](media/which-ai-to-use-demo.gif)
 
 ```bash
 npx which-ai-to-use "add two-factor login with stripe payments"
