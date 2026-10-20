@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { recommend } from "../src/recommend.mjs";
+import { recommend, runCommandFor } from "../src/recommend.mjs";
 
 const found = (id, extra = {}) => ({ id, onPath: true, via: [`command: ${id}`], ...extra });
 const viaExtension = (id) => ({ id, onPath: true, via: [`extension: x`] });
@@ -127,4 +127,10 @@ test("when an installed tool is as good as any, it is the overall pick", () => {
   const result = recommend({ ...base, task: "fix the crash", categories: ["bug-fix"], installed: [found("claude-code")] });
   assert.equal(result.overall.id, "claude-code");
   assert.equal(result.overall.installed, true);
+});
+
+test("a full Claude model id from an AI becomes the short alias the CLI takes", () => {
+  assert.equal(runCommandFor(found("claude-code"), "tidy the hero", "claude-sonnet-5-5"), 'claude --model sonnet "tidy the hero"');
+  assert.equal(runCommandFor(found("claude-code"), "tidy the hero", "Haiku"), 'claude --model haiku "tidy the hero"');
+  assert.equal(runCommandFor(found("claude-code"), "tidy the hero", "gpt-6"), 'claude "tidy the hero"');
 });
