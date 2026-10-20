@@ -12,7 +12,8 @@ Task: add two-factor login with stripe payments  →  security-sensitive, multi-
 Best:    Claude Code — terminal agent: edits many files and runs your commands
 Also:    Codex CLI — agent inside your editor
 
-Run:     claude "add two-factor login with stripe payments"
+Run:     claude --model opus "add two-factor login with stripe payments"
+Model:   opus — strongest model for risky or large changes
 Review:  Open Codex in VS Code and ask: Review my uncommitted changes for bugs  (second opinion from Codex CLI)
 ```
 
@@ -23,6 +24,10 @@ Works with any AI tool, because it is a plain command-line tool that looks at wh
 | | |
 |---|---|
 | **Recommend** | Best tool for the task, with the reason and the exact command to run |
+| **Better prompt** | Names the files that match the task and asks the agent to run your tests and report the result |
+| **Model choice** | For Claude Code: `--model haiku` for small edits (uses far less of your limit), `--model opus` for risky or large work |
+| **Token check** | `tokens`: rules files sent with every message, heavy files an agent may read (with ignore rules for each tool), loaded MCP servers |
+| **Limit reached** | `--without claude-code` recommends the next best tool |
 | **Second opinion** | For risky tasks (security, payments, auth, migrations, refactors), a review command for a *different* AI |
 | **Privacy mode** | `.env` or private keys in the project → local tools (Ollama) ranked first, cloud tools flagged |
 | **Budget** | `--prefer free` ranks free and local tools first; `--prefer quality` ranks the most capable agents first |
@@ -35,15 +40,41 @@ Works with any AI tool, because it is a plain command-line tool that looks at wh
 npx github:WST2002/which-ai-to-use "<task>"          # recommend
 npx github:WST2002/which-ai-to-use doctor             # what is installed
 npx github:WST2002/which-ai-to-use sync               # share project rules with every installed AI
+npx github:WST2002/which-ai-to-use tokens             # find what wastes tokens in this project
 ```
 
-Options: `--prefer balanced|free|quality`, `--private`, `--json`, and for `sync`: `--from <file>`, `--all`, `--yes`.
+Options: `--prefer balanced|free|quality`, `--private`, `--without <tool>`, `--json`, and for `sync`: `--from <file>`, `--all`, `--yes`.
+
+## Save tokens
+
+```
+npx github:WST2002/which-ai-to-use tokens
+```
+
+```
+Rules files (sent with every message)
+  ! CLAUDE.md                         ~6,200 tokens  (over 2,000: trim it)
+      Largest sections: Setup ~4,000 tokens · Style ~1,200 tokens · Project ~300 tokens
+
+Heavy files an agent may read (~57,820 tokens in total)
+  package-lock.json                   ~57,820 tokens
+
+  Tell your AI tools to skip them:
+  Claude Code → .claude/settings.json
+      { "permissions": { "deny": ["Read(./package-lock.json)"] } }
+
+MCP servers loaded (each adds its tool descriptions to every request)
+  Claude Code: figma, sanity
+  Turn off the ones you don't use in this project.
+```
+
+Token counts are estimates (about four characters per token). Nothing is changed for you: copy the rules you want.
 
 ## Supported tools
 
 Claude Code · Codex CLI · Gemini CLI · Cursor · GitHub Copilot · Windsurf · Cline · Aider · Ollama
 
-Tools are detected from commands on your `PATH`, their settings folders and VS Code/Cursor extensions. Nothing is sent over the network and no credentials are read.
+Tools are detected from commands on your `PATH`, their settings folders and VS Code/Cursor extensions. Nothing is sent over the network. `tokens` reads MCP config files (such as `~/.claude.json`) only for server names; keys and other values in them are never shown or stored.
 
 Capabilities in [`data/tools.json`](data/tools.json) describe features (terminal agent, inline edits, large context, local, free tier), not opinions about model quality, and carry an "as of" date.
 

@@ -1,6 +1,6 @@
 {
   "name": "which-ai-to-use",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Find out which of your AI coding tools (Claude Code, Codex, Gemini CLI, Copilot, Cursor, Aider, Ollama) to use for a task, and keep their project rules in sync.",
   "type": "module",
   "bin": {
