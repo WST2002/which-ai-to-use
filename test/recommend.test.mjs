@@ -112,3 +112,19 @@ test("no suggestions when the best installed tool is already as good as any", ()
   const result = recommend({ ...base, task: "fix the crash", categories: ["bug-fix"], installed: [found("claude-code")] });
   assert.deepEqual(result.suggested, []);
 });
+
+test("the best AI for the task is chosen from every tool, and says whether it is installed", () => {
+  const result = recommend({ ...base, task: "redesign the footer", categories: ["ui"], installed: [found("claude-code"), viaExtension("codex")] });
+  assert.equal(result.overall.id, "cursor");
+  assert.equal(result.overall.installed, false);
+  assert.match(result.overall.why, /design change right in the editor/);
+  assert.equal(result.overall.homepage, "https://cursor.com");
+  assert.deepEqual(result.overall.alsoGreat, ["GitHub Copilot", "Windsurf"]);
+  assert.equal(result.best.id, "claude-code");
+});
+
+test("when an installed tool is as good as any, it is the overall pick", () => {
+  const result = recommend({ ...base, task: "fix the crash", categories: ["bug-fix"], installed: [found("claude-code")] });
+  assert.equal(result.overall.id, "claude-code");
+  assert.equal(result.overall.installed, true);
+});

@@ -70,7 +70,7 @@ test("a clean project checkup says nothing is wasted", (t) => {
 test("recommends from the tools on this machine", (t) => {
   const result = machine(t, { bins: ["claude", "gemini"] }).run("add", "two-factor", "login");
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /Best:\s+Claude Code/);
+  assert.match(result.stdout, /Best of these: Claude Code/);
   assert.match(result.stdout, /claude "add two-factor login"/);
   assert.match(result.stdout, /Gemini CLI \(installed, free tier\)/);
 });
@@ -240,6 +240,15 @@ test("dashboard prints a local link and serves the page", async (t) => {
 test("the recommendation explains each choice in plain words", (t) => {
   const result = machine(t, { bins: ["claude"] }).run("make the hero section look better");
   assert.match(result.stdout, /→\s+design \(UI\)/);
-  assert.match(result.stdout, /Best:\s+Claude Code \(installed\)\n\s+Can change several components and run your dev server/);
-  assert.match(result.stdout, /Not installed, but good for this:\n\s+• Cursor: shows each design change right in the editor/);
+  assert.match(result.stdout, /Best of these: Claude Code ★ \(installed\)\n\s+Can change several components and run your dev server/);
+});
+
+test("the answer first names the best AI anywhere, then the best one on this laptop", (t) => {
+  const result = machine(t, { bins: ["claude"] }).run("make the hero section look better");
+  assert.match(result.stdout, /① Best AI for this task \(any tool\)\n\s+Cursor: shows each design change right in the editor as you go\.\n\s+✗ Not on your laptop · get it: cursor\.com/);
+  assert.match(result.stdout, /② On your laptop: Claude Code\n\s+Best of these: Claude Code ★/);
+  assert.match(result.stdout, /Run:\s+claude "make the hero section look better/);
+
+  const bug = machine(t, { bins: ["claude"] }).run("fix the crash in checkout");
+  assert.match(bug.stdout, /① Best AI for this task \(any tool\)\n\s+Claude Code: .+\n\s+✓ It's on your laptop, use it\./);
 });

@@ -23,18 +23,26 @@ export function formatRecommendation(result) {
     lines.push(...result.notes);
     return `${lines.join("\n")}\n`;
   }
-  const tool = (label, entry) => [`${pad(label)}${entry.name} (${entry.where})`, `${" ".repeat(9)}${sentence(entry.why)}`];
-  lines.push(...tool("Best", result.best));
-  for (const alt of result.also) lines.push(...tool("Also", alt));
-  if (result.free && result.free.id !== result.best.id && !result.also.some((a) => a.id === result.free.id)) lines.push(...tool("Free", result.free));
+  const { overall, best } = result;
+  const indent = "   ";
+  lines.push("① Best AI for this task (any tool)", `${indent}${overall.name}: ${overall.why}.`);
+  lines.push(overall.installed ? `${indent}✓ It's on your laptop, use it.` : `${indent}✗ Not on your laptop · get it: ${overall.homepage.replace(/^https:\/\//, "")}`);
+  if (overall.alsoGreat.length) {
+    const more = overall.alsoGreat.length > 2 ? ` and ${overall.alsoGreat.length - 2} more` : "";
+    lines.push(`${indent}Just as good: ${overall.alsoGreat.slice(0, 2).join(", ")}${more}`);
+  }
+
+  const yours = [best, ...result.also];
+  if (result.free && !yours.some((entry) => entry.id === result.free.id)) yours.push(result.free);
+  lines.push("", `② On your laptop: ${yours.map((entry) => entry.name).join(", ")}`, `${indent}Best of these: ${best.name} ★ (${best.where})`);
+  if (best.id !== overall.id) lines.push(`${indent}${sentence(best.why)}`);
+  for (const alt of yours.slice(1)) lines.push(`${indent}Also: ${alt.name} (${alt.where})${alt.why === best.why ? "" : `: ${alt.why}`}`);
+
   lines.push("");
   if (result.files?.length) lines.push(`${pad("Files")}${result.files.join(", ")}`);
-  lines.push(`${pad("Run")}${result.best.command}`);
-  if (result.best.model) lines.push(`${pad("Model")}${result.best.model}`);
+  lines.push(`${pad("Run")}${best.command}`);
+  if (best.model) lines.push(`${pad("Model")}${best.model}`);
   if (result.reviewer) lines.push(`${pad("Review")}${result.reviewer.command}  (second opinion from ${result.reviewer.name})`);
-  if (result.suggested?.length) {
-    lines.push("", "Not installed, but good for this:", ...result.suggested.map((s) => `  • ${s.name}: ${s.why} (${s.homepage})`));
-  }
   if (result.notes.length) lines.push("", ...result.notes.map((note) => `Note: ${note}`));
   return `${lines.join("\n")}\n`;
 }

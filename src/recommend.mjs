@@ -127,7 +127,7 @@ export function recommend({ task, prompt = task, files = [], categories, install
 
   if (installed.length === 0) {
     notes.push("No AI coding tools found. Free options: Gemini CLI (free tier) or Ollama (local and private).");
-    return { task, categories, best: null, also: [], free: null, reviewer: null, suggested: [], notes };
+    return { task, categories, overall: null, best: null, also: [], free: null, reviewer: null, suggested: [], notes };
   }
 
   const ranked = installed
@@ -139,6 +139,19 @@ export function recommend({ task, prompt = task, files = [], categories, install
   const best = describe(top.found, categories, privacy, prompt);
   const also = rest.slice(0, 3).map((entry) => describe(entry.found, categories, privacy, prompt));
   const installedIds = new Set(installed.map((found) => found.id));
+  // The best fit among every supported tool, by features. On a tie an installed tool wins, so we never
+  // push an install that would not help.
+  const everyTool = TOOLS.map((tool, order) => ({ tool, order, score: score(tool, categories, prefer, privacy), installed: installedIds.has(tool.id) }))
+    .sort((a, b) => b.score - a.score || Number(b.installed) - Number(a.installed) || a.order - b.order);
+  const [winner] = everyTool;
+  const overall = {
+    id: winner.tool.id,
+    name: winner.tool.name,
+    why: whyFor(winner.tool, categories),
+    homepage: winner.tool.homepage,
+    installed: winner.installed,
+    alsoGreat: everyTool.filter((entry) => entry !== winner && entry.score === winner.score).map((entry) => entry.tool.name),
+  };
   const suggested = TOOLS.filter((tool) => !installedIds.has(tool.id))
     .map((tool) => ({ tool, score: score(tool, categories, prefer, privacy) }))
     .filter((entry) => entry.score > top.score)
@@ -162,5 +175,5 @@ export function recommend({ task, prompt = task, files = [], categories, install
   }
   if (top.tool.id === "ollama" && !top.found.models?.length) notes.push("No Ollama models installed yet. Try: ollama pull qwen2.5-coder");
 
-  return { task, files, categories, best, also, free, reviewer, suggested, notes };
+  return { task, files, categories, overall, best, also, free, reviewer, suggested, notes };
 }
