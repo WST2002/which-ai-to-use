@@ -64,3 +64,11 @@ test("only one tool installed says so", () => {
   assert.equal(result.best.id, "claude-code");
   assert.match(result.notes.join(" "), /only AI tool/);
 });
+
+test("sensitive files without any local tool say so instead of claiming local ranking", () => {
+  const result = recommend({ ...base, sensitive: [".env"], installed: [found("claude-code")] });
+  const notes = result.notes.join(" ");
+  assert.match(notes, /\.env/);
+  assert.doesNotMatch(notes, /ranked first/);
+  assert.match(notes, /Ollama/);
+});

@@ -36,3 +36,9 @@ test("unknown text falls back to a general feature", () => {
   assert.deepEqual(classifyTask("do the thing"), ["multi-file-feature"]);
   assert.deepEqual(classifyTask(""), ["multi-file-feature"]);
 });
+
+test("file paths in the task do not change its category", () => {
+  assert.deepEqual(classifyTask("fix the failing test in site/build.mjs"), ["bug-fix", "tests"]);
+  assert.ok(!classifyTask("fix the crash in src/api/routes.js").includes("multi-file-feature"));
+  has("update README.md with setup steps", "docs");
+});

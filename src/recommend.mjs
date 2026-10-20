@@ -60,7 +60,15 @@ function describe(found, categories, privacy, task) {
 export function recommend({ task, categories, installed, sensitive = [], prefer = "balanced", private: forcePrivate = false }) {
   const privacy = forcePrivate || sensitive.length > 0;
   const notes = [];
-  if (privacy && sensitive.length) notes.push(`Sensitive files found (${sensitive.slice(0, 3).join(", ")}): local tools are ranked first.`);
+  if (privacy && sensitive.length) {
+    const files = sensitive.slice(0, 3).join(", ");
+    const hasLocal = installed.some((found) => toolById(found.id).capabilities.local);
+    notes.push(
+      hasLocal
+        ? `Sensitive files found (${files}): local tools are ranked first.`
+        : `Sensitive files found (${files}), but none of your AI tools run locally, so your code goes to a cloud service. For private work, install Ollama.`,
+    );
+  }
 
   if (installed.length === 0) {
     notes.push("No AI coding tools found. Free options: Gemini CLI (free tier) or Ollama (local and private).");

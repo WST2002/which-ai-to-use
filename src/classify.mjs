@@ -11,10 +11,13 @@ const RULES = [
   ["multi-file-feature", /\b(add|build|create|implement|feature|integrate|support|banao|bana do|add karo|dashboard|endpoint|api|page)\b/i],
 ];
 
+// File paths and source file names ("site/build.mjs") say where the work is, not what kind it is.
+const FILE_REFERENCE = /\S*[\\/]\S*|\b[\w-]+\.(?:[cm]?[jt]sx?|py|java|kt|go|rs|rb|php|cs|c|cpp|h|swift|css|scss|html|json|ya?ml|toml|sql)\b/gi;
+
 export const CATEGORIES = RULES.map(([category]) => category);
 
 export function classifyTask(text) {
-  const value = String(text ?? "");
+  const value = String(text ?? "").replace(FILE_REFERENCE, " ");
   const found = RULES.filter(([, pattern]) => pattern.test(value)).map(([category]) => category);
   return found.length ? found : ["multi-file-feature"];
 }

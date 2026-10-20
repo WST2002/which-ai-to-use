@@ -88,3 +88,10 @@ test("invalid --prefer value is rejected with the allowed values", (t) => {
   assert.equal(result.status, 1);
   assert.match(result.stderr, /--prefer must be one of: balanced, free, quality/);
 });
+
+test("an empty task is rejected with a fix", (t) => {
+  const result = machine(t, { bins: ["claude"] }).run("  ");
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /task is empty/i);
+  assert.match(result.stderr, /which-ai-to-use "/);
+});
