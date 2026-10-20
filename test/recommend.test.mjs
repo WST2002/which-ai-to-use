@@ -79,6 +79,10 @@ test("Claude Code gets a cheaper model for small edits and the strongest for har
   assert.match(quick.best.model, /haiku/);
   const hard = recommend({ ...base, task: "refactor auth", categories: ["refactor", "security-sensitive"], installed: [found("claude-code")] });
   assert.equal(hard.best.command, 'claude --model opus "refactor auth"');
+  const typo = recommend({ ...base, task: "fix a typo in the footer", categories: ["bug-fix", "quick-edit"], installed: [found("claude-code")] });
+  assert.equal(typo.best.command, 'claude --model haiku "fix a typo in the footer"');
+  const bigQuick = recommend({ ...base, task: "x", categories: ["quick-edit", "multi-file-feature"], installed: [found("claude-code")] });
+  assert.equal(bigQuick.best.model, undefined);
   const normal = recommend({ ...base, installed: [found("claude-code")] });
   assert.equal(normal.best.command, 'claude "add two-factor login"');
   assert.equal(normal.best.model, undefined);
