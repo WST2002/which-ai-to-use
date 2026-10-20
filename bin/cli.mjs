@@ -1,8 +1,10 @@
 #!/usr/bin/env node
+import { spawn } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import fs from "node:fs";
 import os from "node:os";
 import { parseArgs } from "node:util";
+import { startDashboard } from "../src/dashboard.mjs";
 import { detectTools } from "../src/detect.mjs";
 import { checkupAction, doctorAction, fixAction, handoffAction, recommendAction, tokensAction } from "../src/actions.mjs";
 import { formatSyncPlan } from "../src/format.mjs";
@@ -20,6 +22,7 @@ Start here:
   which-ai-to-use "<task>"            Which AI (and model) to use for a task, with the command to run
   which-ai-to-use handoff "<task>"    Claude limit over? Write HANDOFF.md so another AI carries on
   which-ai-to-use fix                 Make your AI tools skip heavy files (asks first)
+  which-ai-to-use dashboard           Open all of this as buttons in your browser (localhost only)
 
 More:
   which-ai-to-use tokens              Token details: instructions files, heavy files, add-ons (MCP servers)
@@ -34,10 +37,27 @@ Options:
   --from <file>                       sync: source rules file (default: AGENTS.md or the first one found)
   --all                               sync: write rules files for every supported AI, not only installed ones
   --yes                               fix, sync: apply without asking
+  --port <n>, --no-open               dashboard: fixed port, don't open the browser
   --version, --help
 
 Made by Wageesha Tripathi — https://github.com/WST2002/which-ai-to-use
 `;
+
+function openBrowser(url) {
+  const [command, args] =
+    process.platform === "win32" ? ["cmd", ["/c", "start", "", url]] : process.platform === "darwin" ? ["open", [url]] : ["xdg-open", [url]];
+  const child = spawn(command, args, { stdio: "ignore", detached: true });
+  child.on("error", () => {});
+  child.unref();
+}
+
+async function runDashboard(values) {
+  const port = Number.parseInt(values.port, 10);
+  if (!(port >= 0 && port < 65536)) throw new Error("--port must be a number between 0 and 65535");
+  const dashboard = await startDashboard({ cwd: process.cwd(), home: os.homedir(), port, version });
+  process.stdout.write(`Dashboard for this project: ${dashboard.url}\nIt runs only on this laptop. Press Ctrl+C to stop.\n`);
+  if (!values["no-open"]) openBrowser(dashboard.url);
+}
 
 async function runFix(values, installed) {
   const context = { cwd: process.cwd(), home: os.homedir(), installed };
@@ -87,6 +107,8 @@ async function main() {
       help: { type: "boolean", default: false },
       version: { type: "boolean", default: false },
       without: { type: "string", multiple: true, default: [] },
+      "no-open": { type: "boolean", default: false },
+      port: { type: "string", default: "0" },
     },
   });
   if (values.version) return void process.stdout.write(`${version}\n`);
@@ -102,6 +124,7 @@ async function main() {
   const context = { cwd: process.cwd(), home: os.homedir(), installed, prefer: values.prefer, private: values.private };
   const print = ({ text, data }) => process.stdout.write(values.json ? `${JSON.stringify(data, null, 2)}\n` : text);
   if (!command) return print(checkupAction(context));
+  if (command === "dashboard") return runDashboard(values);
   if (command === "doctor") return print(doctorAction(context));
   if (command === "tokens") return print(tokensAction(context));
   if (command === "handoff") return print(handoffAction({ ...context, task: positionals.slice(1).join(" ").trim() }));

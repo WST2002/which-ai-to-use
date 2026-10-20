@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -211,4 +211,28 @@ test("doctor is honest when sensitive files exist but no AI tool runs locally", 
   assert.match(result.stdout, /Sensitive files: \.env/);
   assert.match(result.stdout, /none of your AI tools run on this laptop/);
   assert.doesNotMatch(result.stdout, /local tools will be preferred/);
+});
+
+test("dashboard prints a local link and serves the page", async (t) => {
+  const { project } = machine(t, { bins: ["claude"] });
+  const child = spawn(process.execPath, [cli, "dashboard", "--no-open"], { cwd: project, env: { ...process.env, PATH: "", HOME: project, USERPROFILE: project } });
+  const exited = new Promise((resolve) => child.once("exit", resolve));
+  try {
+    const link = await new Promise((resolve, reject) => {
+      let out = "";
+      child.stdout.on("data", (chunk) => {
+        out += chunk;
+        const match = /http:\/\/127\.0\.0\.1:\d+\/\?t=[a-f0-9]+/.exec(out);
+        if (match) resolve(match[0]);
+      });
+      exited.then(() => reject(new Error(`dashboard exited: ${out}`)));
+    });
+    const page = await fetch(link);
+    assert.equal(page.status, 200);
+    assert.match(await page.text(), /Run checkup/);
+  } finally {
+    // Stop the server before the temp folder is removed: Windows cannot delete a folder a process is using.
+    child.kill();
+    await exited;
+  }
 });
