@@ -80,11 +80,9 @@ export function taskKind(text) {
 
 function why(app, needs) {
   const matched = needs.filter((need) => app.can.includes(need));
-  return [...matched, app.free ? "free-plan" : null]
-    .filter(Boolean)
-    .slice(0, 3)
-    .map((tag) => (tag === "free-plan" ? "has a free plan" : ABILITY[tag]))
-    .join(", ");
+  // When the task needs one ability, add the app's other strengths so the reason says something.
+  const extra = app.can.filter((tag) => !matched.includes(tag) && ABILITY[tag]);
+  return [...matched, ...extra].slice(0, 3).map((tag) => ABILITY[tag]).join(", ");
 }
 
 /** Best apps for an everyday task: by abilities the task needs (the first counts double), then list order. */
