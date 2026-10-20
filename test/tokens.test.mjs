@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { estimateTokens, listProjectFiles, rulesCost } from "../src/tokens.mjs";
+import { estimateTokens, heavyFiles, ignoreAdvice, listProjectFiles, rulesCost } from "../src/tokens.mjs";
 
 function project(t, files) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "waitu-tokens-"));
@@ -46,4 +46,27 @@ test("rules files report their size and their largest sections", (t) => {
   assert.deepEqual(claude.sections.map((s) => s.title), ["Setup", "Style", "Project"]);
   assert.equal(report.find((r) => r.file === "AGENTS.md").large, false);
   assert.equal(report.length, 2);
+});
+
+test("heavy files are lockfiles, generated files and anything over 100 KB, largest first", (t) => {
+  const dir = project(t, {
+    "src/app.js": "small",
+    "package-lock.json": "x".repeat(5000),
+    "public/app.min.js": "x".repeat(3000),
+    "data/export.csv": "x".repeat(200 * 1024),
+  });
+  const heavy = heavyFiles(dir, listProjectFiles(dir));
+  assert.deepEqual(heavy.map((f) => f.file), ["data/export.csv", "package-lock.json", "public/app.min.js"]);
+  assert.equal(heavy[0].tokens, 51200);
+});
+
+test("ignore advice uses each installed tool's own mechanism", () => {
+  const advice = ignoreAdvice(["package-lock.json", "data/export.csv"], ["claude-code", "cursor", "gemini-cli", "codex"]);
+  const byTool = Object.fromEntries(advice.map((a) => [a.id, a]));
+  assert.equal(byTool["claude-code"].file, ".claude/settings.json");
+  assert.match(byTool["claude-code"].snippet, /"deny": \[\s*"Read\(\.\/package-lock\.json\)",\s*"Read\(\.\/data\/export\.csv\)"/);
+  assert.equal(byTool.cursor.file, ".cursorignore");
+  assert.equal(byTool.cursor.snippet, "package-lock.json\ndata/export.csv");
+  assert.equal(byTool["gemini-cli"].file, ".geminiignore");
+  assert.equal(byTool.codex, undefined);
 });

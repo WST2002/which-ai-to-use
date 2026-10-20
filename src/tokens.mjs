@@ -57,3 +57,37 @@ export function rulesCost(dir) {
     return { file, tokens, large: tokens > LARGE_RULES_TOKENS, sections: sections(text) };
   });
 }
+
+const HEAVY_BYTES = 100 * 1024;
+const LOCKFILES = new Set(["package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lockb", "poetry.lock", "Pipfile.lock", "Cargo.lock", "composer.lock", "Gemfile.lock", "go.sum"]);
+const GENERATED = /\.(min\.(js|css)|map|log|snap)$/i;
+
+/** Files an agent may read while searching that cost many tokens and rarely help. */
+export function heavyFiles(dir, files) {
+  return files
+    .map((file) => {
+      let bytes = 0;
+      try {
+        bytes = fs.statSync(path.join(dir, file)).size;
+      } catch {
+        return null;
+      }
+      const heavy = bytes > HEAVY_BYTES || LOCKFILES.has(path.posix.basename(file)) || GENERATED.test(file);
+      return heavy ? { file, bytes, tokens: Math.ceil(bytes / 4) } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.bytes - a.bytes);
+}
+
+const IGNORE_FILES = { cursor: ".cursorignore", "gemini-cli": ".geminiignore", aider: ".aiderignore" };
+
+/** How each installed tool can be told to skip files; tools without a project-level mechanism are left out. */
+export function ignoreAdvice(files, installedIds) {
+  return installedIds.flatMap((id) => {
+    if (id === "claude-code") {
+      const deny = JSON.stringify({ permissions: { deny: files.map((file) => `Read(./${file})`) } }, null, 2);
+      return [{ id, file: ".claude/settings.json", snippet: deny }];
+    }
+    return IGNORE_FILES[id] ? [{ id, file: IGNORE_FILES[id], snippet: files.join("\n") }] : [];
+  });
+}
