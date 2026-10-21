@@ -133,3 +133,15 @@ test("runAction gives the sidebar the same answers as the server, and leaves out
   assert.equal(task.data.best.id, "gemini-cli");
   await assert.rejects(runAction("format-disk", {}, { cwd: dir, home: dir, detect: two }), /unknown action format-disk/);
 });
+
+test("the page talks to the local server by default and to VS Code only in the sidebar", async () => {
+  const { dashboardPage } = await import("../src/dashboard-page.mjs");
+  const browser = dashboardPage({ token: "t", project: "shop", version: "1" });
+  assert.match(browser, /const vscodeApi = null;/);
+  assert.doesNotMatch(browser, /Content-Security-Policy/);
+  const sidebar = dashboardPage({ token: "", project: "shop", version: "1", bridge: "vscode", nonce: "n0nce" });
+  assert.match(sidebar, /const vscodeApi = acquireVsCodeApi\(\);/);
+  assert.match(sidebar, /content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'nonce-n0nce';"/);
+  assert.match(sidebar, /<script nonce="n0nce">/);
+  assert.match(sidebar, /body\.vscode-dark, body\.vscode-high-contrast \{/);
+});
