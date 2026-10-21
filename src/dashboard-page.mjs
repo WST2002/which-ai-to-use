@@ -237,7 +237,7 @@ ${NAV.map(([view, label]) => `    <button class="nav-btn" data-view="${view}" ti
     </section>
   </main>
 </div>
-<footer>Made by Wageesha Tripathi · github.com/WST2002/which-ai-to-use</footer>
+<footer>Made by <a href="https://www.linkedin.com/in/wst2002/" target="_blank" rel="noopener">Wageesha Tripathi</a> · <a href="https://github.com/WST2002/which-ai-to-use" target="_blank" rel="noopener">GitHub</a></footer>
 
 <script${nonce ? ` nonce="${nonce}"` : ""}>
   const TOKEN = ${JSON.stringify(token)};
