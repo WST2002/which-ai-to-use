@@ -291,7 +291,7 @@ test("the answer first names the best AI anywhere, then the best one on this lap
 
 test("the answer estimates the tokens it takes to start", (t) => {
   const result = machine(t, { bins: ["claude"], files: { "CLAUDE.md": "x".repeat(4000), "src/hero.tsx": "x".repeat(2000) } }).run("make the hero look better");
-  assert.match(result.stdout, /Cost:\s+~1,5\d\d tokens to start \(CLAUDE\.md ~1,000 · files ~500 · prompt ~\d+\)/);
+  assert.match(result.stdout, /Start:\s+~1,5\d\d tokens before any work \(CLAUDE\.md ~1,000 · files ~500 · prompt ~\d+\); the work itself uses more/);
 });
 
 test("usage shows Claude Code tokens from local logs, numbers only", (t) => {
