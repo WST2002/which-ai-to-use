@@ -45,23 +45,20 @@ const ICON_PATHS = {
   guide: '<circle cx="8" cy="8" r="6"/><path d="M6.4 6.3a1.7 1.7 0 0 1 3.2.6c0 1.1-1.6 1.4-1.6 2.4M8 11.3v.1"/>',
   lock: '<rect x="3.5" y="7" width="9" height="6.5" rx="1"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/>',
   expand: '<path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9"/>',
-  more: '<path d="M4 8h.01M8 8h.01M12 8h.01" stroke-width="2.4"/>',
 };
 const icon = (name) => `<svg class="i" viewBox="0 0 16 16" aria-hidden="true">${ICON_PATHS[name]}</svg>`;
 const NAV = [
-  ["checkup", "Checkup"],
-  ["task", "Pick an AI"],
-  ["handoff", "Limit over?"],
-  ["fix", "Fix tokens"],
-  ["usage", "Usage"],
-  ["score", "Score card"],
-  ["tokens", "Token details"],
-  ["slim", "Trim rules"],
-  ["doctor", "Installed tools"],
-  ["guide", "How to use"],
+  ["checkup", "Checkup", "What is wasting your tokens"],
+  ["task", "Which AI for a task?", "Best tool and model, with the command"],
+  ["handoff", "Claude limit over?", "Hand the task to another AI"],
+  ["fix", "Fix wasted tokens", "Make your AI skip heavy files"],
+  ["tokens", "Token details", "Everything that is counted"],
+  ["score", "Score card", "Your AI setup score, ready to share"],
+  ["usage", "Usage", "Limit reset time, tokens today and this week"],
+  ["slim", "Shorten CLAUDE.md", "Ask your AI for a shorter version"],
+  ["doctor", "Installed tools", "AI tools on this laptop"],
+  ["guide", "How to use", "Six steps to get started"],
 ];
-// On narrow screens only these show; the rest sit behind More.
-const MAIN_VIEWS = 4;
 
 /**
  * The single dashboard page. Every value from the server is inserted with textContent, never as HTML.
@@ -101,9 +98,13 @@ ${bridge === "vscode" ? "" : `  @media (prefers-color-scheme: dark) {
   /* Grid items default to min-width: auto, so a long command would stretch the whole column. */
   main { min-width: 0; }
   nav { position: sticky; top: 76px; align-self: start; display: flex; flex-direction: column; gap: 2px; }
-  .nav-btn { display: flex; gap: 10px; align-items: center; width: 100%; min-width: 0; height: 34px; padding: 0 10px; border-radius: var(--radius);
-    border: 0; background: transparent; color: var(--muted); text-align: left; cursor: pointer; }
-  .nav-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nav-btn { display: flex; gap: 10px; align-items: flex-start; width: 100%; min-width: 0; padding: 8px 10px; border-radius: var(--radius);
+    border: 0; background: transparent; color: var(--fg); text-align: left; cursor: pointer; }
+  .nav-btn svg.i { margin-top: 2px; color: var(--muted); }
+  .nav-btn strong { display: block; font-size: 13.5px; font-weight: 500; }
+  .nav-btn small { display: block; color: var(--muted); font-size: 12px; }
+  .nav-btn[aria-current="true"] svg.i { color: inherit; }
+  .nav-btn[aria-current="true"] small { color: inherit; opacity: .8; }
   .nav-btn:hover { background: var(--hover); color: var(--fg); }
   .nav-btn[aria-current="true"] { background: var(--selected-bg); color: var(--selected-fg); font-weight: 500; }
   .nav-btn:focus-visible, .btn:focus-visible, input:focus-visible { outline: 1px solid var(--focus); outline-offset: 1px; }
@@ -139,7 +140,6 @@ ${bridge === "vscode" ? "" : `  @media (prefers-color-scheme: dark) {
 
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
   .list { display: flex; flex-direction: column; gap: 8px; max-width: 760px; }
-  .nav-group { margin: 14px 10px 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
   .card { border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 12px 14px; background: var(--panel); min-width: 0; }
   .card.best { border-color: var(--accent); grid-column: 1 / -1; }
   .card h3 { margin: 0; font-size: 14px; font-weight: 600; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
@@ -176,7 +176,6 @@ ${bridge === "vscode" ? "" : `  @media (prefers-color-scheme: dark) {
   footer { text-align: center; color: var(--muted); font-size: 12px; padding: 4px 16px 24px; }
   footer a { color: inherit; }
 
-  .nav-more { display: none; }
   .sidebar-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 10px 0; }
   .sidebar-bar .muted { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tip { display: flex; gap: 8px; align-items: flex-start; margin: 8px 10px 0; padding: 8px 10px; border-radius: var(--radius); font-size: 12px;
@@ -188,17 +187,11 @@ ${bridge === "vscode" ? "" : `  @media (prefers-color-scheme: dark) {
   body.surface-sidebar .panel { border: 0; background: transparent; }
   body.surface-sidebar .panel-head, body.surface-sidebar .panel-body { padding-left: 0; padding-right: 0; }
 
-  /* Narrow: a phone or a VS Code sidebar. Four main actions show; the rest open under More. */
+  /* Narrow: a phone or a VS Code sidebar. The same menu becomes a list above the content, never a sideways strip. */
   @media (max-width: 900px) {
     .layout { grid-template-columns: 1fr; gap: 12px; padding: 12px; }
-    nav { position: static; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
-    .nav-btn, .nav-more { display: flex; align-items: center; height: 30px; padding: 0 8px; gap: 8px; border: 1px solid var(--line); background: var(--panel);
-      border-radius: var(--radius); color: var(--muted); cursor: pointer; min-width: 0; }
-    .nav-btn[aria-current="true"] { border-color: var(--focus); }
-    .nav-btn.extra, .nav-group { display: none; }
-    nav.open .nav-btn.extra, .nav-btn.extra[aria-current="true"] { display: flex; }
-    .nav-more { grid-column: 1 / -1; justify-content: center; border-style: dashed; }
-    .nav-more:hover { color: var(--fg); background: var(--hover); }
+    nav { position: static; gap: 1px; border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 4px; background: var(--panel); }
+    .nav-btn { padding: 6px 8px; }
     .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
     .stat { padding: 10px 12px; }
     .stat .value { font-size: 18px; }
@@ -227,8 +220,7 @@ ${surface === "sidebar" ? `<div class="sidebar-bar">
 
 <div class="layout">
   <nav aria-label="Actions">
-${NAV.map(([view, label], i) => `${i === MAIN_VIEWS ? '    <div class="nav-group">More tools</div>\n' : ""}    <button class="nav-btn${i < MAIN_VIEWS ? "" : " extra"}" data-view="${view}" title="${label}">${icon(view)}<span>${label}</span></button>`).join("\n")}
-    <button class="nav-more" id="nav-more" aria-expanded="false">${icon("more")}<span>More</span></button>
+${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${view}">${icon(view)}<span><strong>${label}</strong><small>${hint}</small></span></button>`).join("\n")}
   </nav>
 
   <main>
@@ -446,7 +438,7 @@ ${NAV.map(([view, label], i) => `${i === MAIN_VIEWS ? '    <div class="nav-group
               el("span", { class: "num", text: String(i + 1) }),
               el("div", {},
                 el("div", { text: issue.problem }),
-                el("div", { class: "fix", text: "→ " + issue.fix.replace("npx which-ai-to-use fix", "click Fix tokens") }),
+                el("div", { class: "fix", text: "→ " + issue.fix.replace("npx which-ai-to-use fix", "click Fix wasted tokens") }),
                 issue.kind === "heavy-files" ? el("button", { class: "btn small", style: "margin-top:10px", text: "Fix it", onclick: () => show("fix") }) : null)))),
         ),
       ];
@@ -574,9 +566,9 @@ ${NAV.map(([view, label], i) => `${i === MAIN_VIEWS ? '    <div class="nav-group
       el("p", { class: "muted", style: "margin:0 0 12px", text: "which-ai-to-use looks at this project and the AI tools on this laptop. Nothing leaves your laptop unless you allow Ask my AI too." }),
       el("div", { class: "grid" },
         step("1. Check your project", "Checkup lists the files and add-ons your AI reads that cost tokens, and your setup score.", "npx which-ai-to-use"),
-        step("2. Stop wasting tokens", "Fix tokens shows which heavy files your AI tools will skip. Nothing changes until you click Apply; your code is never touched.", "npx which-ai-to-use fix"),
-        step("3. Starting a task?", "Pick an AI: describe the task to get the best AI and model, the files to start with, and a command to copy.", 'npx which-ai-to-use "add a coupon field to the cart"'),
-        step("4. Claude's limit ran out?", "Limit over? writes HANDOFF.md, so Gemini CLI, Codex or a chat like ChatGPT carries on instead of starting over.", "npx which-ai-to-use handoff --copy"),
+        step("2. Stop wasting tokens", "Fix wasted tokens shows which heavy files your AI tools will skip. Nothing changes until you click Apply; your code is never touched.", "npx which-ai-to-use fix"),
+        step("3. Starting a task?", "Which AI for a task?: describe the task to get the best AI and model, the files to start with, and a command to copy.", 'npx which-ai-to-use "add a coupon field to the cart"'),
+        step("4. Claude's limit ran out?", "Claude limit over? writes HANDOFF.md, so Gemini CLI, Codex or a chat like ChatGPT carries on instead of starting over.", "npx which-ai-to-use handoff --copy"),
         step("5. Know when it resets", "Usage shows when your current 5-hour Claude window resets and how much you used today.", "npx which-ai-to-use usage"),
         step("6. Share your score", "Score card makes an image of your AI setup score to post.", "npx which-ai-to-use score --card"),
       ),
@@ -646,11 +638,6 @@ ${NAV.map(([view, label], i) => `${i === MAIN_VIEWS ? '    <div class="nav-group
   }
 
   document.querySelectorAll(".nav-btn").forEach((b) => b.addEventListener("click", () => show(b.dataset.view)));
-  $("nav-more").addEventListener("click", () => {
-    const open = document.querySelector("nav").classList.toggle("open");
-    $("nav-more").setAttribute("aria-expanded", String(open));
-    $("nav-more").querySelector("span").textContent = open ? "Less" : "More";
-  });
 
   // Sidebar only: open the full view, and a tip about widening the sidebar until it is dismissed.
   if ($("open-full")) $("open-full").addEventListener("click", () => vscodeApi.postMessage({ type: "openFull" }));
