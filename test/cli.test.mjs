@@ -186,6 +186,39 @@ test("handoff writes HANDOFF.md and gives the next tool a command to continue", 
   assert.match(result.stdout, /gemini -i "Read HANDOFF\.md and continue the task\."/);
 });
 
+function gitProject(t, bins) {
+  const { project, run } = machine(t, { bins, files: { "src/cart.js": "a\n" }, withGit: true });
+  for (const args of [["init", "-q", "-b", "main"], ["config", "user.name", "T"], ["config", "user.email", "t@example.com"], ["add", "-A"], ["commit", "-q", "-m", "Start"]]) {
+    spawnSync("git", args, { cwd: project });
+  }
+  return { project, run };
+}
+
+test("handoff leaves out Claude Code by default, since its limit is what ran out", (t) => {
+  const result = gitProject(t, ["claude", "gemini"]).run("handoff", "add coupons");
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Left out: Claude Code \(limit over\)\. Handing off from another AI\? Add --without <tool>\./);
+  assert.match(result.stdout, /Next:\s+Gemini CLI/);
+  assert.doesNotMatch(result.stdout, /Run:\s+claude /);
+});
+
+test("handoff from another AI keeps Claude Code as the next one", (t) => {
+  const result = gitProject(t, ["claude", "gemini"]).run("handoff", "add coupons", "--without", "gemini-cli");
+  assert.match(result.stdout, /Next:\s+Claude Code/);
+  assert.doesNotMatch(result.stdout, /Left out:/);
+});
+
+test("handoff with only Claude Code installed explains how to carry on anyway", (t) => {
+  const { project, run } = gitProject(t, ["claude"]);
+  const result = run("handoff", "add coupons");
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(fs.existsSync(path.join(project, "HANDOFF.md")));
+  assert.doesNotMatch(result.stdout, /No AI coding tools found/);
+  assert.match(result.stdout, /No other AI tool is installed\. To carry on:/);
+  assert.match(result.stdout, /Paste HANDOFF\.md into ChatGPT \(chatgpt\.com\) or Gemini \(gemini\.google\.com\)/);
+  assert.match(result.stdout, /npm i -g @google\/gemini-cli, then run: gemini -i "Read HANDOFF\.md and continue the task\."/);
+});
+
 test("handoff outside a git repository fails with a fix", (t) => {
   const result = machine(t, { bins: ["claude"] }).run("handoff");
   assert.equal(result.status, 1);
