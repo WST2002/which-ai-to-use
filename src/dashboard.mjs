@@ -21,6 +21,15 @@ const ACTIONS = {
   slim: (context, body) => slimAction({ ...context, consent: body.consent === true, apply: body.apply === true }),
 };
 
+/** Runs one dashboard action for the project. Shared by the local server and the VS Code sidebar. */
+export async function runAction(name, body, { cwd, home, detect = detectTools, ask }) {
+  const action = ACTIONS[name];
+  if (!action) throw new Error(`unknown action ${name}`);
+  const without = Array.isArray(body.without) ? body.without.filter((id) => toolById(id)) : [];
+  const installed = detect().filter((found) => !without.includes(found.id));
+  return action({ cwd, home, installed, ...(ask ? { ask } : {}) }, body);
+}
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let raw = "";
@@ -68,14 +77,10 @@ export function startDashboard({ cwd, home, detect = detectTools, port = 0, vers
     const match = /^\/api\/([a-z]+)$/.exec(url.pathname);
     if (req.method !== "POST" || !match) return send(res, 404, "text/plain", "Not found");
     if (req.headers["x-dashboard-token"] !== token) return send(res, 403, "text/plain", "Forbidden");
-    const action = ACTIONS[match[1]];
-    if (!action) return json(res, 404, { error: `unknown action ${match[1]}` });
+    if (!ACTIONS[match[1]]) return json(res, 404, { error: `unknown action ${match[1]}` });
 
     try {
-      const body = await readBody(req);
-      const without = Array.isArray(body.without) ? body.without.filter((id) => toolById(id)) : [];
-      const installed = detect().filter((found) => !without.includes(found.id));
-      return json(res, 200, await action({ cwd, home, installed, ...(ask ? { ask } : {}) }, body));
+      return json(res, 200, await runAction(match[1], await readBody(req), { cwd, home, detect, ask }));
     } catch (error) {
       return json(res, 400, { error: error.message });
     }

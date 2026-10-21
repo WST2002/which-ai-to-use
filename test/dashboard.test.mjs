@@ -4,7 +4,7 @@ import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
-import { startDashboard } from "../src/dashboard.mjs";
+import { runAction, startDashboard } from "../src/dashboard.mjs";
 
 const claudeOnly = () => [{ id: "claude-code", name: "Claude Code", onPath: true, via: ["command: claude"] }];
 
@@ -120,4 +120,16 @@ test("AI mode and slim ask for consent before anything is sent", async (t) => {
   assert.equal(asked, 2);
   const usage = await call("usage");
   assert.equal(usage.data.found, false);
+});
+
+test("runAction gives the sidebar the same answers as the server, and leaves out tools on request", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "waitu-run-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(dir, "package-lock.json"), "x".repeat(40 * 1024));
+  const two = () => [...claudeOnly(), { id: "gemini-cli", name: "Gemini CLI", onPath: true, via: ["command: gemini"] }];
+  const checkup = await runAction("checkup", {}, { cwd: dir, home: dir, detect: two });
+  assert.match(checkup.text, /package-lock\.json is ~10,240 tokens/);
+  const task = await runAction("task", { task: "fix the login bug", without: ["claude-code"] }, { cwd: dir, home: dir, detect: two });
+  assert.equal(task.data.best.id, "gemini-cli");
+  await assert.rejects(runAction("format-disk", {}, { cwd: dir, home: dir, detect: two }), /unknown action format-disk/);
 });
