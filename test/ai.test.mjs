@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { aiAction } from "../src/actions.mjs";
-import { aiRunner, buildAiPrompt, parseAiAnswer } from "../src/ai.mjs";
+import { aiRunner, askAi, buildAiPrompt, parseAiAnswer } from "../src/ai.mjs";
 
 const found = (id, extra = {}) => ({ id, name: id, onPath: true, via: [`command: ${id}`], ...extra });
 
@@ -70,4 +70,10 @@ test("without consent nothing is sent; with it the AI's answer is shown next to 
   const fallback = await aiAction({ cwd: dir, home: dir, task: "make the hero look better", installed, consent: true, ask: reply("no idea") });
   assert.match(fallback.text, /did not give a usable answer, so here is the rules answer/);
   assert.match(fallback.text, /① Best AI for this task \(any tool\)/);
+});
+
+test("an AI that answers nothing or fails says so in plain words", async () => {
+  const node = (code) => ({ name: "Test AI", bin: "node", args: ["-e", `process.exit(${code})`] });
+  assert.deepEqual((await askAi(node(0), "hi")).error, "it gave an empty answer");
+  assert.deepEqual((await askAi(node(3), "hi")).error, "it stopped with exit code 3");
 });
