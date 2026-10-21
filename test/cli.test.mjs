@@ -217,6 +217,14 @@ test("handoff with only Claude Code installed explains how to carry on anyway", 
   assert.match(result.stdout, /No other AI tool is installed\. To carry on:/);
   assert.match(result.stdout, /Paste HANDOFF\.md into ChatGPT \(chatgpt\.com\) or Gemini \(gemini\.google\.com\)/);
   assert.match(result.stdout, /npm i -g @google\/gemini-cli, then run: gemini -i "Read HANDOFF\.md and continue the task\."/);
+  assert.match(result.stdout, /Add --copy to put HANDOFF\.md on your clipboard\./);
+});
+
+test("handoff --copy puts the note on the clipboard, or says how to copy it by hand", (t) => {
+  const result = gitProject(t, ["claude"]).run("handoff", "add coupons", "--copy");
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Copied HANDOFF\.md to your clipboard: paste it into any AI chat\.|Could not reach the clipboard \(no clipboard tool found\): open HANDOFF\.md and copy it\./);
+  assert.doesNotMatch(result.stdout, /Add --copy/);
 });
 
 test("handoff outside a git repository fails with a fix", (t) => {
@@ -306,6 +314,7 @@ test("usage shows Claude Code tokens from local logs, numbers only", (t) => {
   const result = run("usage");
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Today:\s+~4,500 tokens in 3 replies \(\+ ~27,000 re-read from cache\)/);
+  assert.match(result.stdout, /5-hour limit window \(estimate\)\n\s+~4,500 tokens in 3 replies since \d\d:\d\d · resets about \d\d:\d\d \(in (\d h )?\d+ min\)/);
   assert.match(result.stdout, /Busiest projects \(7 days\): shop ~4,500/);
   assert.match(result.stdout, /Tip: Today is 7\.0× your daily average\. Send small tasks to Gemini CLI \(free\)/);
   assert.doesNotMatch(result.stdout, /SECRET-TEXT/);
@@ -320,4 +329,25 @@ test("score explains the points and gives a line to share; checkup shows the sco
   assert.match(score.stdout, /−3  1 heavy file \(~10,240 tokens\) your AI can read\n\s+→ Make your AI skip it: npx which-ai-to-use fix/);
   assert.match(score.stdout, /My AI coding setup scored 77\/100 \(B\) with which-ai-to-use\. Fixing it saves ~10,240 tokens\./);
   assert.match(run().stdout, /AI setup score: 77\/100 \(B\)/);
+});
+
+test("score --card opens the dashboard straight on the score card", async (t) => {
+  const { project } = machine(t, { bins: ["claude"] });
+  const child = spawn(process.execPath, [cli, "score", "--card", "--no-open"], { cwd: project, env: { ...process.env, PATH: "", HOME: project, USERPROFILE: project } });
+  const exited = new Promise((resolve) => child.once("exit", resolve));
+  try {
+    const link = await new Promise((resolve, reject) => {
+      let out = "";
+      child.stdout.on("data", (chunk) => {
+        out += chunk;
+        const match = /http:\/\/127\.0\.0\.1:\d+\/\?t=[a-f0-9]+&view=score/.exec(out);
+        if (match) resolve(match[0]);
+      });
+      exited.then(() => reject(new Error(`score --card exited: ${out}`)));
+    });
+    assert.equal((await fetch(link)).status, 200);
+  } finally {
+    child.kill();
+    await exited;
+  }
 });

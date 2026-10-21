@@ -55,7 +55,7 @@ The dashboard runs only on your laptop (127.0.0.1) and needs the private link pr
 
 Nothing is sent anywhere: it only looks at your laptop and your project.
 
-**How good is your setup?** `npx which-ai-to-use score`, or the dashboard's Score card, which you can download and post:
+**How good is your setup?** `npx which-ai-to-use score`. Add `--card` to open the score card image, ready to download and post:
 
 ![AI setup score card: 53/100, grade D, with what costs points](media/score-card.png)
 
@@ -90,7 +90,7 @@ You don't have to install anything. Pick the way that suits you:
 | **Recommend** | First the best AI for the task among every supported tool (and whether it is on your laptop), then the best of the ones you have, with a reason for that kind of task and the command to run |
 | **AI mode** | `--ai`: with your permission, asks an AI you already have (Ollama first, then Claude Code, Gemini CLI, Codex) for a smarter answer and a better prompt. It runs with no tools, gets the task and file **names** only, and the rules answer is shown alongside |
 | **Cost to start** | Rough tokens the first message will take: the tool's instructions file, the files the prompt points at, the prompt |
-| **Usage** | `usage`: Claude Code tokens today and in the last 7 days, busiest projects, and a tip when today is far above average. Read from Claude Code's own logs: numbers only, never your messages |
+| **Usage** | `usage`: when your current 5-hour Claude limit window resets (an estimate) and the tokens used in it, Claude Code tokens today and in the last 7 days, busiest projects, and a tip when today is far above average. Read from Claude Code's own logs: numbers only, never your messages |
 | **Slim** | `slim`: your AI writes a shorter copy of a long `CLAUDE.md` next to it (it sends the file, so it asks first); `slim --apply` swaps it in and keeps a backup |
 | **Better prompt** | Names the files that match the task and asks the agent to run your tests and report the result |
 | **Model choice** | For Claude Code: `--model haiku` for small edits (uses far less of your limit), `--model opus` for risky or large work |
@@ -114,7 +114,7 @@ npx which-ai-to-use                     # checkup
 npx which-ai-to-use "<task>"            # recommend
 npx which-ai-to-use "<task>" --ai       # also ask an AI you have (asks permission first)
 npx which-ai-to-use fix                 # make your AI tools skip heavy files (asks first)
-npx which-ai-to-use usage               # Claude Code tokens today and this week
+npx which-ai-to-use usage               # when Claude's 5-hour window resets, tokens today and this week
 npx which-ai-to-use score               # your AI setup score out of 100, ready to share
 npx which-ai-to-use slim                # shorter CLAUDE.md written by your AI (asks first)
 npx which-ai-to-use dashboard           # the same as buttons in your browser
@@ -170,7 +170,7 @@ Run:     gemini -i "Read HANDOFF.md and continue the task."
 
 `HANDOFF.md` lists the task, the commits on the branch, every uncommitted file with its line counts, and the test command to run first. The next AI reads a short note instead of re-exploring the whole project. Don't commit it.
 
-Claude Code is left out by default, since its limit is what ran out. Coming from another AI? Name that one instead, for example `--without codex`. Only Claude installed? Handoff still writes the note and tells you how to carry on: paste `HANDOFF.md` into ChatGPT or Gemini on the web, or install Gemini CLI (free tier).
+Claude Code is left out by default, since its limit is what ran out. Coming from another AI? Name that one instead, for example `--without codex`. Only Claude installed? Handoff still writes the note and tells you how to carry on: paste `HANDOFF.md` into ChatGPT or Gemini on the web, or install Gemini CLI (free tier). Add `--copy` to put the note straight on your clipboard; the dashboard and the VS Code sidebar have a **Copy HANDOFF.md** button.
 
 ## Supported tools
 

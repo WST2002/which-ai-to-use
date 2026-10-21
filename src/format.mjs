@@ -26,11 +26,33 @@ export function usageTip(usage, installed) {
   return `Today is ${(usage.today.fresh / average).toFixed(1)}× your daily average. Send small tasks to ${where} to save your Claude limit.`;
 }
 
-export function formatUsage(usage, installed) {
+const clock = (ms) => new Date(ms).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+
+function duration(ms) {
+  const minutes = Math.max(1, Math.round(ms / 60000));
+  return minutes >= 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`;
+}
+
+/** "~1,200 tokens in 4 replies since 14:00 · resets about 19:00 (in 1 h 12 min)", or how a new window starts. */
+export function windowLine(window, now = new Date()) {
+  if (!window) return "No 5-hour window is open: your next Claude message starts a fresh one.";
+  const replies = `${window.replies} repl${window.replies === 1 ? "y" : "ies"}`;
+  return `~${window.fresh.toLocaleString("en-US")} tokens in ${replies} since ${clock(window.start)} · resets about ${clock(window.end)} (in ${duration(window.end - now.getTime())})`;
+}
+
+export function formatUsage(usage, installed, now = new Date()) {
   if (!usage.found) return "No Claude Code logs found on this laptop, so there is no usage to show.\n";
   const line = (label, bucket) =>
     `  ${label.padEnd(13)}~${bucket.fresh.toLocaleString("en-US")} tokens in ${bucket.replies} repl${bucket.replies === 1 ? "y" : "ies"} (+ ~${bucket.cached.toLocaleString("en-US")} re-read from cache)`;
-  const lines = ["Claude Code usage on this laptop", line("Today:", usage.today), line("Last 7 days:", usage.week)];
+  const lines = [
+    "Claude Code usage on this laptop",
+    "",
+    "5-hour limit window (estimate)",
+    `  ${windowLine(usage.window, now)}`,
+    "",
+    line("Today:", usage.today),
+    line("Last 7 days:", usage.week),
+  ];
   if (usage.projects.length) lines.push(`  Busiest projects (7 days): ${usage.projects.map((p) => `${p.project} ~${p.fresh.toLocaleString("en-US")}`).join(", ")}`);
   const tip = usageTip(usage, installed);
   if (tip) lines.push("", `Tip: ${tip}`);
@@ -67,7 +89,7 @@ export function formatScore(result) {
     for (const item of result.items) lines.push(`  ${String(item.points).replace("-", "−").padStart(4)}  ${item.label}`, `        → ${item.tip}`);
     if (result.saving) lines.push("", `Fixing these saves ~${result.saving.toLocaleString("en-US")} tokens.`);
   }
-  lines.push("", "Share it:", `  ${result.share}`, "", "Want an image to post? Run npx which-ai-to-use dashboard and open Score card.");
+  lines.push("", "Share it:", `  ${result.share}`, "", "Want an image to post? Run npx which-ai-to-use score --card");
   return `${lines.join("\n")}\n`;
 }
 

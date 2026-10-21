@@ -145,3 +145,12 @@ test("the page talks to the local server by default and to VS Code only in the s
   assert.match(sidebar, /<script nonce="n0nce">/);
   assert.match(sidebar, /body\.vscode-dark, body\.vscode-high-contrast \{/);
 });
+
+test("the usage view gets the 5-hour window line", async (t) => {
+  const { dir, call } = await dashboard(t);
+  const log = JSON.stringify({ type: "assistant", timestamp: new Date().toISOString(), cwd: dir, message: { id: "m1", usage: { input_tokens: 700, output_tokens: 300 } } });
+  fs.mkdirSync(path.join(dir, ".claude", "projects", "p"), { recursive: true });
+  fs.writeFileSync(path.join(dir, ".claude", "projects", "p", "s.jsonl"), `${log}\n`);
+  const usage = await (await call("usage")).json();
+  assert.match(usage.data.windowText, /^~1,000 tokens in 1 reply since \d\d:\d\d · resets about \d\d:\d\d/);
+});

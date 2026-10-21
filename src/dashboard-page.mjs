@@ -157,7 +157,7 @@ ${bridge === "vscode" ? `<meta http-equiv="Content-Security-Policy" content="def
     <button class="nav-btn" data-view="fix"><span class="icon">🧹</span><span><strong>Fix wasted tokens</strong><small>Make your AI skip heavy files</small></span></button>
     <button class="nav-btn" data-view="tokens"><span class="icon">📊</span><span><strong>Token details</strong><small>Everything that is counted</small></span></button>
     <button class="nav-btn" data-view="score"><span class="icon">🏆</span><span><strong>Score card</strong><small>Your AI setup score, ready to share</small></span></button>
-    <button class="nav-btn" data-view="usage"><span class="icon">📈</span><span><strong>Usage</strong><small>Claude tokens today and this week</small></span></button>
+    <button class="nav-btn" data-view="usage"><span class="icon">📈</span><span><strong>Usage</strong><small>Limit reset time, tokens today and this week</small></span></button>
     <button class="nav-btn" data-view="slim"><span class="icon">✂️</span><span><strong>Shorten CLAUDE.md</strong><small>Ask your AI for a shorter version</small></span></button>
     <button class="nav-btn" data-view="doctor"><span class="icon">🧰</span><span><strong>Installed tools</strong><small>AI tools on this laptop</small></span></button>
   </nav>
@@ -415,6 +415,9 @@ ${bridge === "vscode" ? `<meta http-equiv="Content-Security-Policy" content="def
     handoff(data) {
       const parts = [el("div", { class: "ok", text: "Wrote HANDOFF.md: " + data.changes.length + " changed file(s), " + data.commits.length + " commit(s) on " + data.branch + "." })];
       if (data.next.best) parts.push(el("div", { class: "section-title", text: "Continue with " + data.next.best.name }), command(data.next.best.command));
+      else parts.push(el("div", { class: "section-title", text: "No other AI tool is installed" }), el("p", { text: "Paste HANDOFF.md into ChatGPT or Gemini on the web and ask it to continue, or install Gemini CLI (free tier):" }), command("npm i -g @google/gemini-cli"));
+      const copyNote = el("button", { class: "btn ghost", style: "margin-top:12px", text: "Copy HANDOFF.md", onclick: () => { copyText(data.note); copyNote.textContent = "Copied"; setTimeout(() => (copyNote.textContent = "Copy HANDOFF.md"), 1500); } });
+      parts.push(copyNote);
       if (data.changes.length) parts.push(el("div", { class: "section-title", text: "Changed files in the note" }), el("table", {}, el("tr", {}, el("th", { text: "File" }), el("th", { text: "Change" })), data.changes.map((c) => el("tr", {}, el("td", { text: c.file }), el("td", { text: c.status + " (+" + c.added + " −" + c.removed + ")" })))));
       parts.push(el("p", { class: "muted", text: "HANDOFF.md is for the next AI only: don't commit it." }));
       return parts;
@@ -450,7 +453,10 @@ ${bridge === "vscode" ? `<meta http-equiv="Content-Security-Policy" content="def
       if (!data.found) return [el("div", { class: "ok", text: "No Claude Code logs on this laptop, so there is no usage to show." })];
       const n = (v) => "~" + v.toLocaleString("en-US");
       const stat = (label, bucket) => el("div", { class: "card" }, el("div", { class: "muted", text: label }), el("h3", { text: n(bucket.fresh) + " tokens" }), el("p", { text: bucket.replies + " replies · + " + n(bucket.cached) + " re-read from cache" }));
-      const parts = [el("div", { class: "grid" }, stat("Today", data.today), stat("Last 7 days", data.week))];
+      const parts = [
+        el("div", { class: "card best", style: "margin-bottom:14px" }, el("div", { class: "muted", text: "5-hour limit window (estimate)" }), el("p", { text: data.windowText })),
+        el("div", { class: "grid" }, stat("Today", data.today), stat("Last 7 days", data.week)),
+      ];
       if (data.projects.length) parts.push(el("div", { class: "section-title", text: "Busiest projects (7 days)" }), el("table", {}, data.projects.map((p) => el("tr", {}, el("td", { text: p.project }), el("td", { text: n(p.fresh) + " tokens" })))));
       if (data.tip) parts.push(el("div", { class: "consent", style: "margin-top:14px" }, el("strong", { text: "Tip" }), el("p", { text: data.tip })));
       return parts;
@@ -554,7 +560,9 @@ ${bridge === "vscode" ? `<meta http-equiv="Content-Security-Policy" content="def
   $("write-handoff").addEventListener("click", () => load("handoff", { task: $("handoff-task").value, without: $("without-claude").checked ? ["claude-code"] : [] }));
   $("task").addEventListener("keydown", (e) => e.key === "Enter" && $("ask").click());
   $("handoff-task").addEventListener("keydown", (e) => e.key === "Enter" && $("write-handoff").click());
-  show("checkup");
+  // "?view=score" (from "score --card") opens a view directly; anything unknown falls back to the checkup.
+  const first = new URLSearchParams(location.search).get("view");
+  show(Object.hasOwn(VIEWS, first) && first !== "task" && first !== "handoff" ? first : "checkup");
 </script>
 </body>
 </html>

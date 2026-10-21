@@ -23,12 +23,13 @@ Start here:
   which-ai-to-use handoff "<task>"    Claude limit over? Write HANDOFF.md so another AI carries on
   which-ai-to-use fix                 Make your AI tools skip heavy files (asks first)
   which-ai-to-use score               Your AI setup score out of 100, what costs points, a line to share
+                                      (--card opens the score card image to download and post)
   which-ai-to-use dashboard           Open all of this as buttons in your browser (localhost only)
 
 More:
   which-ai-to-use tokens              Token details: instructions files, heavy files, add-ons (MCP servers)
   which-ai-to-use doctor              Installed AI tools and instructions files in this project
-  which-ai-to-use usage               Claude Code tokens used today and this week (numbers only, from local logs)
+  which-ai-to-use usage               When Claude's 5-hour window resets, tokens today and this week (numbers only, from local logs)
   which-ai-to-use slim                Ask your AI for a shorter CLAUDE.md (asks first; writes CLAUDE.slim.md, --apply to swap)
   which-ai-to-use sync                Copy AGENTS.md to every installed AI's instructions file
 
@@ -41,6 +42,7 @@ Options:
   --from <file>                       sync: source rules file (default: AGENTS.md or the first one found)
   --all                               sync: write rules files for every supported AI, not only installed ones
   --yes                               fix, sync, --ai: go ahead without asking
+  --copy                              handoff: also copy HANDOFF.md to the clipboard, to paste into any AI chat
   --port <n>, --no-open               dashboard: fixed port, don't open the browser
   --version, --help
 
@@ -55,12 +57,13 @@ function openBrowser(url) {
   child.unref();
 }
 
-async function runDashboard(values) {
+async function runDashboard(values, view = "") {
   const port = Number.parseInt(values.port, 10);
   if (!(port >= 0 && port < 65536)) throw new Error("--port must be a number between 0 and 65535");
   const dashboard = await startDashboard({ cwd: process.cwd(), home: os.homedir(), port, version });
-  process.stdout.write(`Dashboard for this project: ${dashboard.url}\nIt runs only on this laptop. Press Ctrl+C to stop.\n`);
-  if (!values["no-open"]) openBrowser(dashboard.url);
+  const url = view ? `${dashboard.url}&view=${view}` : dashboard.url;
+  process.stdout.write(`Dashboard for this project: ${url}\nIt runs only on this laptop. Press Ctrl+C to stop.\n`);
+  if (!values["no-open"]) openBrowser(url);
 }
 
 async function runAi(values, context, task, print) {
@@ -134,6 +137,8 @@ async function main() {
       from: { type: "string" },
       all: { type: "boolean", default: false },
       yes: { type: "boolean", default: false },
+      copy: { type: "boolean", default: false },
+      card: { type: "boolean", default: false },
       help: { type: "boolean", default: false },
       version: { type: "boolean", default: false },
       without: { type: "string", multiple: true, default: [] },
@@ -160,10 +165,10 @@ async function main() {
   if (command === "doctor") return print(doctorAction(context));
   if (command === "tokens") return print(tokensAction(context));
   if (command === "usage") return print(usageAction(context));
-  if (command === "score") return print(scoreAction(context));
+  if (command === "score") return values.card ? runDashboard(values, "score") : print(scoreAction(context));
   if (command === "slim") return runSlim(values, context, print);
   // Handoff is for when Claude's limit is over, so Claude Code is left out unless --without names another tool.
-  if (command === "handoff") return print(handoffAction({ ...context, task: positionals.slice(1).join(" ").trim(), leftOut: skipped.length ? [] : ["claude-code"] }));
+  if (command === "handoff") return print(handoffAction({ ...context, task: positionals.slice(1).join(" ").trim(), leftOut: skipped.length ? [] : ["claude-code"], copy: values.copy }));
   if (command === "sync") return runSync(values, installed);
   if (command === "fix") return runFix(values, installed);
   if (values.ai) return runAi(values, context, positionals.join(" "), print);
