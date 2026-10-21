@@ -450,7 +450,10 @@ ${bridge === "vscode" ? `<meta http-equiv="Content-Security-Policy" content="def
       if (!data.found) return [el("div", { class: "ok", text: "No Claude Code logs on this laptop, so there is no usage to show." })];
       const n = (v) => "~" + v.toLocaleString("en-US");
       const stat = (label, bucket) => el("div", { class: "card" }, el("div", { class: "muted", text: label }), el("h3", { text: n(bucket.fresh) + " tokens" }), el("p", { text: bucket.replies + " replies · + " + n(bucket.cached) + " re-read from cache" }));
-      const parts = [el("div", { class: "grid" }, stat("Today", data.today), stat("Last 7 days", data.week))];
+      const parts = [
+        el("div", { class: "card best", style: "margin-bottom:14px" }, el("div", { class: "muted", text: "5-hour limit window (estimate)" }), el("p", { text: data.windowText })),
+        el("div", { class: "grid" }, stat("Today", data.today), stat("Last 7 days", data.week)),
+      ];
       if (data.projects.length) parts.push(el("div", { class: "section-title", text: "Busiest projects (7 days)" }), el("table", {}, data.projects.map((p) => el("tr", {}, el("td", { text: p.project }), el("td", { text: n(p.fresh) + " tokens" })))));
       if (data.tip) parts.push(el("div", { class: "consent", style: "margin-top:14px" }, el("strong", { text: "Tip" }), el("p", { text: data.tip })));
       return parts;

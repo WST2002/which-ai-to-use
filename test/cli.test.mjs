@@ -306,6 +306,7 @@ test("usage shows Claude Code tokens from local logs, numbers only", (t) => {
   const result = run("usage");
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Today:\s+~4,500 tokens in 3 replies \(\+ ~27,000 re-read from cache\)/);
+  assert.match(result.stdout, /5-hour limit window \(estimate\)\n\s+~4,500 tokens in 3 replies since \d\d:\d\d · resets about \d\d:\d\d \(in (\d h )?\d+ min\)/);
   assert.match(result.stdout, /Busiest projects \(7 days\): shop ~4,500/);
   assert.match(result.stdout, /Tip: Today is 7\.0× your daily average\. Send small tasks to Gemini CLI \(free\)/);
   assert.doesNotMatch(result.stdout, /SECRET-TEXT/);

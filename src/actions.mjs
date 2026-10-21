@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { classifyTask } from "./classify.mjs";
 import { applyIgnoreAdvice } from "./fix.mjs";
-import { LABELS, checkupIssues, formatAiAnswer, formatCheckup, formatDoctor, formatRecommendation, formatScore, formatTokens, formatUsage, usageTip } from "./format.mjs";
+import { LABELS, checkupIssues, formatAiAnswer, formatCheckup, formatDoctor, formatRecommendation, formatScore, formatTokens, formatUsage, usageTip, windowLine } from "./format.mjs";
 import { setupScore } from "./score.mjs";
 import { claudeUsage } from "./usage.mjs";
 import { collectHandoff, renderHandoff } from "./handoff.mjs";
@@ -116,7 +116,7 @@ export async function slimAction({ cwd, installed, consent = false, apply = fals
 
 export function usageAction({ home, installed, now = new Date() }) {
   const usage = claudeUsage({ home, now });
-  return { text: formatUsage(usage, installed), data: { ...usage, tip: usageTip(usage, installed) } };
+  return { text: formatUsage(usage, installed, now), data: { ...usage, tip: usageTip(usage, installed), windowText: windowLine(usage.window, now) } };
 }
 
 export function doctorAction({ cwd, installed }) {
