@@ -144,7 +144,8 @@ test("the page talks to the local server by default and to VS Code only in the s
   assert.match(sidebar, /content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'nonce-n0nce';"/);
   assert.match(sidebar, /<script nonce="n0nce">/);
   assert.match(sidebar, /--accent: var\(--vscode-button-background\)/, "the sidebar takes its colours from the VS Code theme");
-  assert.doesNotMatch(sidebar, /prefers-color-scheme|<header class="top">/);
+  assert.doesNotMatch(sidebar, /prefers-color-scheme/);
+  assert.match(sidebar, /<header class="top">[\s\S]*which-ai-to-use[\s\S]*id="open-full"[\s\S]*<\/header>/, "the sidebar has the logo header with Full view");
   assert.match(browser, /prefers-color-scheme: dark/);
   assert.doesNotMatch(browser, /--vscode-/);
   for (const page of [browser, sidebar]) assert.doesNotMatch(page, /[\u{1F300}-\u{1FAFF}]/u, "no emoji in the interface");

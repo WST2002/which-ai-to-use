@@ -176,8 +176,11 @@ ${bridge === "vscode" ? "" : `  @media (prefers-color-scheme: dark) {
   footer { text-align: center; color: var(--muted); font-size: 12px; padding: 4px 16px 24px; }
   footer a { color: inherit; }
 
-  .sidebar-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 10px 0; }
-  .sidebar-bar .muted { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* In the sidebar the header wraps: logo and project, then "Runs only on this laptop" and Full view. */
+  body.surface-sidebar .top { position: static; height: auto; flex-wrap: wrap; row-gap: 6px; padding: 10px 12px; }
+  body.surface-sidebar .meta { margin-left: 0; }
+  body.surface-sidebar .meta .long { display: inline; }
+  body.surface-sidebar #open-full { margin-left: auto; }
   .tip { display: flex; gap: 8px; align-items: flex-start; margin: 8px 10px 0; padding: 8px 10px; border-radius: var(--radius); font-size: 12px;
     color: var(--muted); background: var(--panel-2); border: 1px solid var(--line); }
   .tip strong { color: var(--fg); font-weight: 600; }
@@ -209,14 +212,12 @@ ${bridge === "vscode" ? "" : `  @media (prefers-color-scheme: dark) {
 </style>
 </head>
 <body class="surface-${surface}">
-${surface === "sidebar" ? `<div class="sidebar-bar">
-  <span class="muted">Project: ${escapeHtml(project)}</span>
-  <button class="btn ghost small" id="open-full" title="Open the full dashboard in an editor tab">${icon("expand")}<span>Full view</span></button>
-</div>
-<p class="tip hidden" id="width-tip"><span>Looks cramped? Drag the sidebar's edge to make it wider, or click <strong>Full view</strong>.</span><button id="tip-close" aria-label="Hide this tip">×</button></p>` : `<header class="top">
+<header class="top">
   <div class="brand"><span class="mark" aria-hidden="true"></span>which-ai-to-use<span class="project">/ ${escapeHtml(project)}</span></div>
   <div class="meta">${icon("lock")}<span class="long">Runs only on this laptop</span>${version ? `<span>· v${escapeHtml(version)}</span>` : ""}</div>
-</header>`}
+  ${surface === "sidebar" ? `<button class="btn ghost small" id="open-full" title="Open the full dashboard in an editor tab">${icon("expand")}<span>Full view</span></button>` : ""}
+</header>
+${surface === "sidebar" ? `<p class="tip hidden" id="width-tip"><span>Looks cramped? Drag the sidebar's edge to make it wider, or click <strong>Full view</strong>.</span><button id="tip-close" aria-label="Hide this tip">×</button></p>` : ""}
 
 <div class="layout">
   <nav aria-label="Actions">
