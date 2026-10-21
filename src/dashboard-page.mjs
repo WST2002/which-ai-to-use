@@ -74,7 +74,7 @@ export function dashboardPage({ token, project, version, bridge = "http", nonce 
 ${bridge === "vscode" ? `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">` : ""}
 <title>which-ai-to-use — ${escapeHtml(project)}</title>
 <style>
-  :root {${bridge === "vscode" ? VSCODE : LIGHT}${surface === "panel" ? "\n    --bg: var(--vscode-editor-background); --panel: var(--vscode-editor-background);" : ""}
+  :root {${bridge === "vscode" ? VSCODE : LIGHT}${surface === "panel" ? "\n    --bg: var(--vscode-editor-background, var(--vscode-sideBar-background)); --panel: var(--vscode-editor-background, var(--vscode-sideBar-background));" : ""}
   }
 ${bridge === "vscode" ? "" : `  @media (prefers-color-scheme: dark) {
     :root {${DARK}

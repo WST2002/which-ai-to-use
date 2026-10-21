@@ -57,7 +57,7 @@ exports.run = async () => {
     assert.match(api.sidebarHtml(), /id="open-full"/);
     const html = await run("whichAi.openFullView");
     assert.match(html, /<body class="surface-panel">/);
-    assert.match(html, /--bg: var\(--vscode-editor-background\)/);
+    assert.match(html, /--bg: var\(--vscode-editor-background, /);
     // The tab list updates a moment after the panel is created.
     const labels = () => vscode.window.tabGroups.all.flatMap((group) => group.tabs.map((tab) => tab.label));
     for (let i = 0; i < 50 && !labels().includes("Which AI"); i++) await new Promise((done) => setTimeout(done, 100));
