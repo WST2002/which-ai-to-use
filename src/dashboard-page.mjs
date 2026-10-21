@@ -560,7 +560,9 @@ ${bridge === "vscode" ? `<meta http-equiv="Content-Security-Policy" content="def
   $("write-handoff").addEventListener("click", () => load("handoff", { task: $("handoff-task").value, without: $("without-claude").checked ? ["claude-code"] : [] }));
   $("task").addEventListener("keydown", (e) => e.key === "Enter" && $("ask").click());
   $("handoff-task").addEventListener("keydown", (e) => e.key === "Enter" && $("write-handoff").click());
-  show("checkup");
+  // "?view=score" (from "score --card") opens a view directly; anything unknown falls back to the checkup.
+  const first = new URLSearchParams(location.search).get("view");
+  show(Object.hasOwn(VIEWS, first) && first !== "task" && first !== "handoff" ? first : "checkup");
 </script>
 </body>
 </html>

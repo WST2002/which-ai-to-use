@@ -55,7 +55,7 @@ The dashboard runs only on your laptop (127.0.0.1) and needs the private link pr
 
 Nothing is sent anywhere: it only looks at your laptop and your project.
 
-**How good is your setup?** `npx which-ai-to-use score`, or the dashboard's Score card, which you can download and post:
+**How good is your setup?** `npx which-ai-to-use score`. Add `--card` to open the score card image, ready to download and post:
 
 ![AI setup score card: 53/100, grade D, with what costs points](media/score-card.png)
 

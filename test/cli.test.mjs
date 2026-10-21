@@ -330,3 +330,24 @@ test("score explains the points and gives a line to share; checkup shows the sco
   assert.match(score.stdout, /My AI coding setup scored 77\/100 \(B\) with which-ai-to-use\. Fixing it saves ~10,240 tokens\./);
   assert.match(run().stdout, /AI setup score: 77\/100 \(B\)/);
 });
+
+test("score --card opens the dashboard straight on the score card", async (t) => {
+  const { project } = machine(t, { bins: ["claude"] });
+  const child = spawn(process.execPath, [cli, "score", "--card", "--no-open"], { cwd: project, env: { ...process.env, PATH: "", HOME: project, USERPROFILE: project } });
+  const exited = new Promise((resolve) => child.once("exit", resolve));
+  try {
+    const link = await new Promise((resolve, reject) => {
+      let out = "";
+      child.stdout.on("data", (chunk) => {
+        out += chunk;
+        const match = /http:\/\/127\.0\.0\.1:\d+\/\?t=[a-f0-9]+&view=score/.exec(out);
+        if (match) resolve(match[0]);
+      });
+      exited.then(() => reject(new Error(`score --card exited: ${out}`)));
+    });
+    assert.equal((await fetch(link)).status, 200);
+  } finally {
+    child.kill();
+    await exited;
+  }
+});
