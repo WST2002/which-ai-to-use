@@ -91,7 +91,9 @@ export function askAi(runner, question, { timeoutMs = TIMEOUT_MS } = {}) {
       clearTimeout(timer);
       const seconds = Math.round((Date.now() - started) / 1000);
       if (code === 0 && out.trim()) resolve({ ok: true, text: out, seconds });
-      else resolve({ ok: false, error: (err || out).trim().split("\n").slice(-3).join(" ") || `exited with code ${code}`, seconds });
+      else if (code === 0 && !err.trim()) resolve({ ok: false, error: "it gave an empty answer", seconds });
+      else if (code === null) resolve({ ok: false, error: `it took longer than ${Math.round(timeoutMs / 1000)} s`, seconds });
+      else resolve({ ok: false, error: (err || out).trim().split("\n").slice(-3).join(" ") || `it stopped with exit code ${code}`, seconds });
     });
     child.stdin.end(question);
   });

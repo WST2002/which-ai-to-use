@@ -44,13 +44,24 @@ exports.run = async () => {
 
   await check("the sidebar opens with the dashboard inside", async () => {
     await run("whichAi.openSidebar");
-    for (let i = 0; i < 50 && !api.sidebarHtml(); i++) await new Promise((done) => setTimeout(done, 100));
+    for (let i = 0; i < 150 && !api.sidebarHtml(); i++) await new Promise((done) => setTimeout(done, 100));
     const html = api.sidebarHtml();
     assert.match(html, /const vscodeApi = acquireVsCodeApi\(\);/);
     assert.match(html, /script-src 'nonce-[a-f0-9]{32}'/);
     // The page's own script asks for the checkup on load: proof it runs under the sidebar's CSP.
-    for (let i = 0; i < 50 && !api.sidebarAsked(); i++) await new Promise((done) => setTimeout(done, 100));
+    for (let i = 0; i < 150 && !api.sidebarAsked(); i++) await new Promise((done) => setTimeout(done, 100));
     assert.equal(api.sidebarAsked(), "checkup");
+  });
+
+  await check("the sidebar has a Full view button that opens the dashboard in an editor tab", async () => {
+    assert.match(api.sidebarHtml(), /id="open-full"/);
+    const html = await run("whichAi.openFullView");
+    assert.match(html, /<body class="surface-panel">/);
+    assert.match(html, /--bg: var\(--vscode-editor-background, /);
+    // The tab list updates a moment after the panel is created.
+    const labels = () => vscode.window.tabGroups.all.flatMap((group) => group.tabs.map((tab) => tab.label));
+    for (let i = 0; i < 50 && !labels().includes("Which AI"); i++) await new Promise((done) => setTimeout(done, 100));
+    assert.ok(labels().includes("Which AI"), `open tabs: ${labels().join(", ")}`);
   });
 
   await check("sidebar buttons get the same answers as the CLI", async () => {

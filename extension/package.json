@@ -26,8 +26,12 @@
       { "command": "whichAi.fix", "title": "Which AI: Fix wasted tokens" },
       { "command": "whichAi.score", "title": "Which AI: AI setup score" },
       { "command": "whichAi.handoff", "title": "Which AI: Claude limit over? Write a handoff" },
-      { "command": "whichAi.openSidebar", "title": "Which AI: Open the sidebar" }
+      { "command": "whichAi.openSidebar", "title": "Which AI: Open the sidebar" },
+      { "command": "whichAi.openFullView", "title": "Which AI: Open the full dashboard", "icon": "$(link-external)" }
     ],
+    "menus": {
+      "view/title": [{ "command": "whichAi.openFullView", "when": "view == whichAi.dashboard", "group": "navigation" }]
+    },
     "viewsContainers": {
       "activitybar": [{ "id": "whichAi", "title": "Which AI", "icon": "media/sidebar.svg" }]
     },

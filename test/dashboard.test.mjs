@@ -144,7 +144,8 @@ test("the page talks to the local server by default and to VS Code only in the s
   assert.match(sidebar, /content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'nonce-n0nce';"/);
   assert.match(sidebar, /<script nonce="n0nce">/);
   assert.match(sidebar, /--accent: var\(--vscode-button-background\)/, "the sidebar takes its colours from the VS Code theme");
-  assert.doesNotMatch(sidebar, /prefers-color-scheme|<header class="top">/);
+  assert.doesNotMatch(sidebar, /prefers-color-scheme/);
+  assert.match(sidebar, /<header class="top">[\s\S]*which-ai-to-use[\s\S]*id="open-full"[\s\S]*<\/header>/, "the sidebar has the logo header with Full view");
   assert.match(browser, /prefers-color-scheme: dark/);
   assert.doesNotMatch(browser, /--vscode-/);
   for (const page of [browser, sidebar]) assert.doesNotMatch(page, /[\u{1F300}-\u{1FAFF}]/u, "no emoji in the interface");
@@ -162,8 +163,9 @@ test("the usage view gets the 5-hour window line", async (t) => {
 test("the menu has a How to use guide and line icons, and other views still fill the summary", async () => {
   const { dashboardPage } = await import("../src/dashboard-page.mjs");
   const page = dashboardPage({ token: "t", project: "shop", version: "1" });
-  assert.match(page, /data-view="guide" title="How to use"><svg class="i"/);
+  assert.match(page, /data-view="guide"><svg class="i"[^>]*>.*<\/svg><span><strong>How to use<\/strong><small>Six steps to get started<\/small>/);
   assert.equal((page.match(/<button class="nav-btn"/g) ?? []).length, 10);
+  assert.doesNotMatch(page, /nav-more|More tools/);
   assert.match(page, /step\("4\. Claude's limit ran out\?"/);
   assert.match(page, /if \(opening !== "checkup"\) refreshStats\(\);/);
 });

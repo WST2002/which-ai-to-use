@@ -4,7 +4,7 @@ See what wastes your AI tokens, your AI setup score, which AI (and model) to use
 
 ## In the sidebar
 
-Click the **✦ Which AI** icon in the Activity Bar (left edge). The sidebar shows the same dashboard as `npx which-ai-to-use dashboard`, inside VS Code:
+Click the **✦ Which AI** icon in the Activity Bar (left edge). The sidebar shows the same dashboard as `npx which-ai-to-use dashboard`, inside VS Code and in your editor's theme. Sidebar too narrow? Click **Full view** to open it in an editor tab, or drag the sidebar's edge to widen it:
 
 - your AI setup score and the tokens at risk
 - **Checkup** and **Fix wasted tokens** (preview first, nothing changes until you click Apply)
