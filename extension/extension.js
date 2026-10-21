@@ -78,6 +78,10 @@ async function handleMessage(message) {
     if (target) fs.writeFileSync(target.fsPath, Buffer.from(image[1], "base64"));
     return null;
   }
+  if (message?.type === "openFull") {
+    await COMMANDS.openFullView();
+    return null;
+  }
   if (message?.type !== "action") return null;
   try {
     const { runAction, detectTools } = await load();
@@ -89,25 +93,33 @@ async function handleMessage(message) {
   }
 }
 
+let sidebarAsked; // the last action a dashboard page asked for, so tests can see its script really runs
+
+/** Shows the dashboard page in a webview: the narrow sidebar or the full view in an editor tab. */
+async function renderDashboard(webview, surface) {
+  webview.options = { enableScripts: true };
+  if (!vscode.workspace.workspaceFolders?.length) {
+    webview.html = `<!doctype html><html><body style="padding:12px;font-family:var(--vscode-font-family);color:var(--vscode-foreground)">Open a project folder to see what wastes your AI tokens.</body></html>`;
+    return;
+  }
+  const { dashboardPage } = await load();
+  webview.onDidReceiveMessage(async (message) => {
+    if (message?.type === "action") sidebarAsked = message.action;
+    const reply = await handleMessage(message);
+    if (reply) webview.postMessage(reply);
+  });
+  webview.html = dashboardPage({ token: "", project: path.basename(projectFolder()), version, bridge: "vscode", nonce: randomBytes(16).toString("hex"), surface });
+}
+
 let sidebar;
-let sidebarAsked; // the last action the sidebar page asked for, so tests can see its script really runs
 const sidebarProvider = {
   async resolveWebviewView(view) {
     sidebar = view;
-    view.webview.options = { enableScripts: true };
-    if (!vscode.workspace.workspaceFolders?.length) {
-      view.webview.html = `<!doctype html><html><body style="padding:12px;font-family:var(--vscode-font-family);color:var(--vscode-foreground)">Open a project folder to see what wastes your AI tokens.</body></html>`;
-      return;
-    }
-    const { dashboardPage } = await load();
-    view.webview.onDidReceiveMessage(async (message) => {
-      if (message?.type === "action") sidebarAsked = message.action;
-      const reply = await handleMessage(message);
-      if (reply) view.webview.postMessage(reply);
-    });
-    view.webview.html = dashboardPage({ token: "", project: path.basename(projectFolder()), version, bridge: "vscode", nonce: randomBytes(16).toString("hex") });
+    await renderDashboard(view.webview, "sidebar");
   },
 };
+
+let fullView;
 
 const COMMANDS = {
   async checkup() {
@@ -158,9 +170,20 @@ const COMMANDS = {
   openSidebar() {
     return vscode.commands.executeCommand("workbench.view.extension.whichAi");
   },
+  async openFullView() {
+    if (fullView) {
+      fullView.reveal();
+      return fullView.webview.html;
+    }
+    fullView = vscode.window.createWebviewPanel("whichAi.full", "Which AI", vscode.ViewColumn.Active, { enableScripts: true, retainContextWhenHidden: true });
+    fullView.onDidDispose(() => (fullView = undefined));
+    await renderDashboard(fullView.webview, "panel");
+    return fullView.webview.html;
+  },
   async menu() {
     const items = [
       { label: "$(layout-sidebar-left) Open the Which AI sidebar", command: "whichAi.openSidebar" },
+      { label: "$(link-external) Open the full dashboard", command: "whichAi.openFullView" },
       { label: "$(pulse) Checkup", command: "whichAi.checkup" },
       { label: "$(compass) Which AI for a task?", command: "whichAi.task" },
       { label: "$(wrench) Fix wasted tokens", command: "whichAi.fix" },
