@@ -217,6 +217,14 @@ test("handoff with only Claude Code installed explains how to carry on anyway", 
   assert.match(result.stdout, /No other AI tool is installed\. To carry on:/);
   assert.match(result.stdout, /Paste HANDOFF\.md into ChatGPT \(chatgpt\.com\) or Gemini \(gemini\.google\.com\)/);
   assert.match(result.stdout, /npm i -g @google\/gemini-cli, then run: gemini -i "Read HANDOFF\.md and continue the task\."/);
+  assert.match(result.stdout, /Add --copy to put HANDOFF\.md on your clipboard\./);
+});
+
+test("handoff --copy puts the note on the clipboard, or says how to copy it by hand", (t) => {
+  const result = gitProject(t, ["claude"]).run("handoff", "add coupons", "--copy");
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Copied HANDOFF\.md to your clipboard: paste it into any AI chat\.|Could not reach the clipboard \(no clipboard tool found\): open HANDOFF\.md and copy it\./);
+  assert.doesNotMatch(result.stdout, /Add --copy/);
 });
 
 test("handoff outside a git repository fails with a fix", (t) => {

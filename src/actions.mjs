@@ -6,6 +6,7 @@ import { applyIgnoreAdvice } from "./fix.mjs";
 import { LABELS, checkupIssues, formatAiAnswer, formatCheckup, formatDoctor, formatRecommendation, formatScore, formatTokens, formatUsage, usageTip, windowLine } from "./format.mjs";
 import { setupScore } from "./score.mjs";
 import { claudeUsage } from "./usage.mjs";
+import { copyFileToClipboard } from "./clipboard.mjs";
 import { collectHandoff, renderHandoff } from "./handoff.mjs";
 import { RULES_FILES, scanProject } from "./project.mjs";
 import { buildSlimPrompt, parseSlim, slimFileName } from "./slim.mjs";
@@ -146,10 +147,12 @@ const NO_OTHER_AI = [
   `  2. Or install Gemini CLI (free tier): npm i -g @google/gemini-cli, then run: gemini -i "${CONTINUE}"`,
 ];
 
-/** `leftOut`: tools left out because their limit is over, named in the answer. */
-export function handoffAction({ cwd, task = "", installed, leftOut = [], prefer = "balanced", private: forcePrivate = false, date = new Date().toISOString().slice(0, 10) }) {
+/** `leftOut`: tools left out because their limit is over, named in the answer. `copy`: also put the note on the clipboard. */
+export function handoffAction({ cwd, task = "", installed, leftOut = [], copy = false, prefer = "balanced", private: forcePrivate = false, date = new Date().toISOString().slice(0, 10) }) {
   const info = collectHandoff(cwd);
-  fs.writeFileSync(path.join(info.root, "HANDOFF.md"), renderHandoff({ task, info, verify: verifyCommand(info.root), date }));
+  const file = path.join(info.root, "HANDOFF.md");
+  const note = renderHandoff({ task, info, verify: verifyCommand(info.root), date });
+  fs.writeFileSync(file, note);
   const { sensitive } = scanProject(info.root);
   const available = installed.filter((found) => !leftOut.includes(found.id));
   const next = recommend({ task: CONTINUE, categories: classifyTask(task), installed: available, sensitive, prefer, private: forcePrivate });
@@ -157,8 +160,11 @@ export function handoffAction({ cwd, task = "", installed, leftOut = [], prefer 
   if (leftOut.length) lines.push(`Left out: ${leftOut.map((id) => toolById(id).name).join(", ")} (limit over). Handing off from another AI? Add --without <tool>.`, "");
   if (next.best) lines.push(`Next:    ${next.best.name} — ${next.best.reason}`, `Run:     ${next.best.command}`);
   else lines.push(...NO_OTHER_AI);
+  if (copy) {
+    lines.push("", copyFileToClipboard(file) ? "Copied HANDOFF.md to your clipboard: paste it into any AI chat." : "Could not reach the clipboard (no clipboard tool found): open HANDOFF.md and copy it.");
+  } else if (!next.best) lines.push("", "Add --copy to put HANDOFF.md on your clipboard.");
   lines.push("", "HANDOFF.md is for the next AI only: don't commit it.");
-  return { text: `${lines.join("\n")}\n`, data: { file: "HANDOFF.md", ...info, next } };
+  return { text: `${lines.join("\n")}\n`, data: { file: "HANDOFF.md", ...info, next, note } };
 }
 
 /** What fix would change; `apply` writes it. */

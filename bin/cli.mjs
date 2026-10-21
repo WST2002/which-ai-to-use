@@ -28,7 +28,7 @@ Start here:
 More:
   which-ai-to-use tokens              Token details: instructions files, heavy files, add-ons (MCP servers)
   which-ai-to-use doctor              Installed AI tools and instructions files in this project
-  which-ai-to-use usage               Claude Code tokens used today and this week (numbers only, from local logs)
+  which-ai-to-use usage               When Claude's 5-hour window resets, tokens today and this week (numbers only, from local logs)
   which-ai-to-use slim                Ask your AI for a shorter CLAUDE.md (asks first; writes CLAUDE.slim.md, --apply to swap)
   which-ai-to-use sync                Copy AGENTS.md to every installed AI's instructions file
 
@@ -41,6 +41,7 @@ Options:
   --from <file>                       sync: source rules file (default: AGENTS.md or the first one found)
   --all                               sync: write rules files for every supported AI, not only installed ones
   --yes                               fix, sync, --ai: go ahead without asking
+  --copy                              handoff: also copy HANDOFF.md to the clipboard, to paste into any AI chat
   --port <n>, --no-open               dashboard: fixed port, don't open the browser
   --version, --help
 
@@ -134,6 +135,7 @@ async function main() {
       from: { type: "string" },
       all: { type: "boolean", default: false },
       yes: { type: "boolean", default: false },
+      copy: { type: "boolean", default: false },
       help: { type: "boolean", default: false },
       version: { type: "boolean", default: false },
       without: { type: "string", multiple: true, default: [] },
@@ -163,7 +165,7 @@ async function main() {
   if (command === "score") return print(scoreAction(context));
   if (command === "slim") return runSlim(values, context, print);
   // Handoff is for when Claude's limit is over, so Claude Code is left out unless --without names another tool.
-  if (command === "handoff") return print(handoffAction({ ...context, task: positionals.slice(1).join(" ").trim(), leftOut: skipped.length ? [] : ["claude-code"] }));
+  if (command === "handoff") return print(handoffAction({ ...context, task: positionals.slice(1).join(" ").trim(), leftOut: skipped.length ? [] : ["claude-code"], copy: values.copy }));
   if (command === "sync") return runSync(values, installed);
   if (command === "fix") return runFix(values, installed);
   if (values.ai) return runAi(values, context, positionals.join(" "), print);
