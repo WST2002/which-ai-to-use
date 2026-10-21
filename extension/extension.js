@@ -1,16 +1,19 @@
 // VS Code extension for which-ai-to-use. It loads the CLI's engine from lib/ (see scripts/sync.mjs),
 // so every answer matches `npx which-ai-to-use`. Commands return their text, which the tests use.
 const vscode = require("vscode");
+const { randomBytes } = require("node:crypto");
+const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
+const { version } = require("./package.json");
 
 let engine;
 async function load() {
   if (!engine) {
     const lib = (file) => import(pathToFileURL(path.join(__dirname, "lib", "src", file)).href);
-    const [actions, detect] = await Promise.all([lib("actions.mjs"), lib("detect.mjs")]);
-    engine = { ...actions, detectTools: detect.detectTools };
+    const [actions, detect, dashboard, page] = await Promise.all([lib("actions.mjs"), lib("detect.mjs"), lib("dashboard.mjs"), lib("dashboard-page.mjs")]);
+    engine = { ...actions, detectTools: detect.detectTools, runAction: dashboard.runAction, dashboardPage: page.dashboardPage };
   }
   return engine;
 }
@@ -59,6 +62,53 @@ async function refreshStatus() {
   }
 }
 
+const PNG_DATA_URL = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/;
+
+/** Messages from the sidebar page: run an action, copy text, or save the score card. */
+async function handleMessage(message) {
+  if (message?.type === "copy") {
+    await vscode.env.clipboard.writeText(String(message.text));
+    vscode.window.setStatusBarMessage("Which AI: copied", 2000);
+    return null;
+  }
+  if (message?.type === "save") {
+    const image = PNG_DATA_URL.exec(String(message.dataUrl));
+    if (!image) return null;
+    const target = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(path.join(projectFolder(), "ai-setup-score.png")), filters: { Image: ["png"] } });
+    if (target) fs.writeFileSync(target.fsPath, Buffer.from(image[1], "base64"));
+    return null;
+  }
+  if (message?.type !== "action") return null;
+  try {
+    const { runAction, detectTools } = await load();
+    const data = await runAction(String(message.action), message.body ?? {}, { cwd: projectFolder(), home: os.homedir(), detect: detectTools });
+    if (message.action === "fix" && message.body?.apply) await refreshStatus();
+    return { id: message.id, data };
+  } catch (error) {
+    return { id: message.id, error: error.message };
+  }
+}
+
+let sidebar;
+let sidebarAsked; // the last action the sidebar page asked for, so tests can see its script really runs
+const sidebarProvider = {
+  async resolveWebviewView(view) {
+    sidebar = view;
+    view.webview.options = { enableScripts: true };
+    if (!vscode.workspace.workspaceFolders?.length) {
+      view.webview.html = `<!doctype html><html><body style="padding:12px;font-family:var(--vscode-font-family);color:var(--vscode-foreground)">Open a project folder to see what wastes your AI tokens.</body></html>`;
+      return;
+    }
+    const { dashboardPage } = await load();
+    view.webview.onDidReceiveMessage(async (message) => {
+      if (message?.type === "action") sidebarAsked = message.action;
+      const reply = await handleMessage(message);
+      if (reply) view.webview.postMessage(reply);
+    });
+    view.webview.html = dashboardPage({ token: "", project: path.basename(projectFolder()), version, bridge: "vscode", nonce: randomBytes(16).toString("hex") });
+  },
+};
+
 const COMMANDS = {
   async checkup() {
     const { checkupAction } = await load();
@@ -105,8 +155,12 @@ const COMMANDS = {
     show("Handoff", text);
     return text;
   },
+  openSidebar() {
+    return vscode.commands.executeCommand("workbench.view.extension.whichAi");
+  },
   async menu() {
     const items = [
+      { label: "$(layout-sidebar-left) Open the Which AI sidebar", command: "whichAi.openSidebar" },
       { label: "$(pulse) Checkup", command: "whichAi.checkup" },
       { label: "$(compass) Which AI for a task?", command: "whichAi.task" },
       { label: "$(wrench) Fix wasted tokens", command: "whichAi.fix" },
@@ -139,6 +193,7 @@ function activate(extension) {
   let timer;
   extension.subscriptions.push(
     status,
+    vscode.window.registerWebviewViewProvider("whichAi.dashboard", sidebarProvider),
     vscode.workspace.onDidSaveTextDocument((doc) => {
       if (!watched.test(doc.fileName)) return;
       clearTimeout(timer);
@@ -148,7 +203,7 @@ function activate(extension) {
     vscode.workspace.onDidChangeConfiguration((e) => e.affectsConfiguration("whichAi") && refreshStatus()),
   );
   refreshStatus();
-  return { refreshStatus, statusText: () => status.text };
+  return { refreshStatus, statusText: () => status.text, handleMessage, sidebarHtml: () => sidebar?.webview.html, sidebarAsked: () => sidebarAsked };
 }
 
 function deactivate() {}
