@@ -177,11 +177,13 @@ export function recommend({ task, prompt = task, files = [], categories, install
     const other = rest.find((entry) => entry.tool.review);
     if (other) {
       reviewer = { id: other.tool.id, name: other.tool.name, command: commandFor(other.tool, other.found, other.tool.review, task) };
+    } else if (installed.length === 1) {
+      notes.push(`${top.tool.name} is the only AI tool found, and this task is risky. A second tool (for example Gemini CLI, which has a free tier) can review the change.`);
     } else {
       notes.push("This task is risky. Install a second AI tool to get an independent review.");
     }
   }
-  if (installed.length === 1) {
+  if (installed.length === 1 && !reviewer && !categories.some((c) => SECOND_OPINION.has(c))) {
     notes.push(`${top.tool.name} is the only AI tool found. A second tool (for example Gemini CLI, which has a free tier) lets you get second opinions.`);
   }
   if (top.tool.id === "ollama" && !top.found.models?.length) notes.push("No Ollama models installed yet. Try: ollama pull qwen2.5-coder");

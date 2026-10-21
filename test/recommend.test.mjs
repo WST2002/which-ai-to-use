@@ -65,6 +65,11 @@ test("only one tool installed says so", () => {
   assert.match(result.notes.join(" "), /only AI tool/);
 });
 
+test("a risky task with one tool gives one note about a second tool, not two", () => {
+  const result = recommend({ ...base, categories: ["security-sensitive"], installed: [found("claude-code")] });
+  assert.deepEqual(result.notes, ["Claude Code is the only AI tool found, and this task is risky. A second tool (for example Gemini CLI, which has a free tier) can review the change."]);
+});
+
 test("sensitive files without any local tool say so instead of claiming local ranking", () => {
   const result = recommend({ ...base, sensitive: [".env"], installed: [found("claude-code")] });
   const notes = result.notes.join(" ");

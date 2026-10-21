@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
+export const HANDOFF_FILE = "HANDOFF.md";
 const DEFAULT_BRANCHES = ["main", "master"];
 const RECENT_COMMITS = 5;
 
@@ -53,6 +54,8 @@ export function collectHandoff(dir) {
       const counts = code === "?" ? { added: lineCount(path.join(root, file)), removed: 0 } : (numstat.get(file) ?? { added: 0, removed: 0 });
       return { status: STATUS[code] ?? "changed", file, ...counts };
     })
+    // A HANDOFF.md from an earlier run is our own note, not part of the task.
+    .filter((change) => change.file !== HANDOFF_FILE)
     .sort((a, b) => a.file.localeCompare(b.file));
   return { root, branch, base: base ?? null, commits, changes };
 }

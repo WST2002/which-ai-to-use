@@ -140,15 +140,23 @@ export function recommendAction({ cwd, home, task, installed, prefer = "balanced
 }
 
 const CONTINUE = "Read HANDOFF.md and continue the task.";
+const NO_OTHER_AI = [
+  "No other AI tool is installed. To carry on:",
+  "  1. Paste HANDOFF.md into ChatGPT (chatgpt.com) or Gemini (gemini.google.com) and ask it to continue.",
+  `  2. Or install Gemini CLI (free tier): npm i -g @google/gemini-cli, then run: gemini -i "${CONTINUE}"`,
+];
 
-export function handoffAction({ cwd, task = "", installed, prefer = "balanced", private: forcePrivate = false, date = new Date().toISOString().slice(0, 10) }) {
+/** `leftOut`: tools left out because their limit is over, named in the answer. */
+export function handoffAction({ cwd, task = "", installed, leftOut = [], prefer = "balanced", private: forcePrivate = false, date = new Date().toISOString().slice(0, 10) }) {
   const info = collectHandoff(cwd);
   fs.writeFileSync(path.join(info.root, "HANDOFF.md"), renderHandoff({ task, info, verify: verifyCommand(info.root), date }));
   const { sensitive } = scanProject(info.root);
-  const next = recommend({ task: CONTINUE, categories: classifyTask(task), installed, sensitive, prefer, private: forcePrivate });
+  const available = installed.filter((found) => !leftOut.includes(found.id));
+  const next = recommend({ task: CONTINUE, categories: classifyTask(task), installed: available, sensitive, prefer, private: forcePrivate });
   const lines = [`Wrote HANDOFF.md: ${info.changes.length} changed file(s), ${info.commits.length} commit(s) on ${info.branch}.`, ""];
+  if (leftOut.length) lines.push(`Left out: ${leftOut.map((id) => toolById(id).name).join(", ")} (limit over). Handing off from another AI? Add --without <tool>.`, "");
   if (next.best) lines.push(`Next:    ${next.best.name} — ${next.best.reason}`, `Run:     ${next.best.command}`);
-  else lines.push(...next.notes);
+  else lines.push(...NO_OTHER_AI);
   lines.push("", "HANDOFF.md is for the next AI only: don't commit it.");
   return { text: `${lines.join("\n")}\n`, data: { file: "HANDOFF.md", ...info, next } };
 }

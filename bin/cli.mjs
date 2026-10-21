@@ -162,7 +162,8 @@ async function main() {
   if (command === "usage") return print(usageAction(context));
   if (command === "score") return print(scoreAction(context));
   if (command === "slim") return runSlim(values, context, print);
-  if (command === "handoff") return print(handoffAction({ ...context, task: positionals.slice(1).join(" ").trim() }));
+  // Handoff is for when Claude's limit is over, so Claude Code is left out unless --without names another tool.
+  if (command === "handoff") return print(handoffAction({ ...context, task: positionals.slice(1).join(" ").trim(), leftOut: skipped.length ? [] : ["claude-code"] }));
   if (command === "sync") return runSync(values, installed);
   if (command === "fix") return runFix(values, installed);
   if (values.ai) return runAi(values, context, positionals.join(" "), print);

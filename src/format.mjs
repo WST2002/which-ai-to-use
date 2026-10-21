@@ -71,11 +71,11 @@ export function formatScore(result) {
   return `${lines.join("\n")}\n`;
 }
 
-/** "~1,510 tokens to start (CLAUDE.md ~1,000 · files ~500 · prompt ~10) + 3 add-ons". */
+/** "~1,510 tokens before any work (CLAUDE.md ~1,000 · files ~500 · prompt ~10) + 3 add-ons; the work itself uses more". */
 export function costLine(cost) {
   const parts = [cost.instructions && `${cost.instructions.file} ~${cost.instructions.tokens.toLocaleString("en-US")}`, cost.files && `files ~${cost.files.toLocaleString("en-US")}`, `prompt ~${cost.prompt.toLocaleString("en-US")}`].filter(Boolean);
   const addOns = cost.addOns ? ` + ${cost.addOns} add-on${cost.addOns === 1 ? "" : "s"}` : "";
-  return `~${cost.total.toLocaleString("en-US")} tokens to start (${parts.join(" · ")})${addOns}`;
+  return `~${cost.total.toLocaleString("en-US")} tokens before any work (${parts.join(" · ")})${addOns}; the work itself uses more`;
 }
 
 const sentence = (text) => `${text[0].toUpperCase()}${text.slice(1)}.`;
@@ -97,15 +97,18 @@ export function formatRecommendation(result) {
 
   const yours = [best, ...result.also];
   if (result.free && !yours.some((entry) => entry.id === result.free.id)) yours.push(result.free);
-  lines.push("", `② On your laptop: ${yours.map((entry) => entry.name).join(", ")}`, `${indent}Best of these: ${best.name} ★ (${best.where})`);
-  if (best.id !== overall.id) lines.push(`${indent}${sentence(best.why)}`);
-  for (const alt of yours.slice(1)) lines.push(`${indent}Also: ${alt.name} (${alt.where})${alt.why === best.why ? "" : `: ${alt.why}`}`);
+  // With one tool that is also the best anywhere, ① has already said "use it".
+  if (yours.length > 1 || best.id !== overall.id) {
+    lines.push("", `② On your laptop: ${yours.map((entry) => entry.name).join(", ")}`, `${indent}Best of these: ${best.name} ★ (${best.where})`);
+    if (best.id !== overall.id) lines.push(`${indent}${sentence(best.why)}`);
+    for (const alt of yours.slice(1)) lines.push(`${indent}Also: ${alt.name} (${alt.where})${alt.why === best.why ? "" : `: ${alt.why}`}`);
+  }
 
   lines.push("");
   if (result.files?.length) lines.push(`${pad("Files")}${result.files.join(", ")}`);
   lines.push(`${pad("Run")}${best.command}`);
   if (best.model) lines.push(`${pad("Model")}${best.model}`);
-  if (result.cost) lines.push(`${pad("Cost")}${costLine(result.cost)}`);
+  if (result.cost) lines.push(`${pad("Start")}${costLine(result.cost)}`);
   if (result.reviewer) lines.push(`${pad("Review")}${result.reviewer.command}  (second opinion from ${result.reviewer.name})`);
   if (result.notes.length) lines.push("", ...result.notes.map((note) => `Note: ${note}`));
   return `${lines.join("\n")}\n`;
