@@ -45,11 +45,9 @@ Prefer buttons? Open everything in your browser:
 npx which-ai-to-use dashboard
 ```
 
-![The which-ai-to-use dashboard: buttons for checkup, task, handoff and fix, with the answer on the right](media/dashboard.png)
+![The which-ai-to-use dashboard: a menu on the left, the AI tools, tokens at risk and setup score, and the checkup with a Fix it button](media/dashboard.png)
 
-With **Ask my AI too** switched on, the dashboard asks an AI you already have for a smarter answer, after showing what will be sent:
-
-![AI mode in the dashboard: best AI for the task, the one to use on your laptop, steps and a better prompt](media/dashboard-ai.png)
+With **Ask my AI too** switched on, the dashboard asks an AI you already have for a smarter answer, after showing what will be sent. New here? Open **How to use** in the menu.
 
 The dashboard runs only on your laptop (127.0.0.1) and needs the private link printed in the terminal. Fix shows a preview and changes nothing until you click **Apply fix**.
 
@@ -57,11 +55,15 @@ Nothing is sent anywhere: it only looks at your laptop and your project.
 
 **How good is your setup?** `npx which-ai-to-use score`. Add `--card` to open the score card image, ready to download and post:
 
-![AI setup score card: 53/100, grade D, with what costs points](media/score-card.png)
+![AI setup score card: 77 out of 100, grade B, heavy files ~92,459 tokens, and the command to check yours](media/score-card.png)
 
 ## VS Code extension
 
+<img src="media/sidebar.png" width="300" align="right" alt="The Which AI sidebar in VS Code, in the editor's own dark theme: menu, summary and checkup">
+
 The same features inside VS Code: a **Which AI** sidebar with the full dashboard (score, checkup, fix, task advice, handoff, score card), the score and tokens at risk in the status bar, and **Which AI** commands in the Command Palette. It lives in [`extension/`](extension) and is tested inside a real VS Code. Marketplace listing coming soon; until then build it with `cd extension && npm ci && npm run package` and install the `.vsix` (Extensions → … → Install from VSIX).
+
+<br clear="right">
 
 ## Install
 
