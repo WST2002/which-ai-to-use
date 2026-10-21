@@ -21,6 +21,13 @@ function repo(t) {
   return dir;
 }
 
+test("an earlier HANDOFF.md is not listed as a change", (t) => {
+  const dir = repo(t);
+  fs.writeFileSync(path.join(dir, "src", "cart.js"), "export const total = () => 1;\n");
+  fs.writeFileSync(path.join(dir, "HANDOFF.md"), "# Handoff\n");
+  assert.deepEqual(collectHandoff(dir).changes.map((c) => c.file), ["src/cart.js"]);
+});
+
 test("collects the branch, changed files with line counts, and commits on the branch", (t) => {
   const dir = repo(t);
   git(dir, "checkout", "-q", "-b", "feat/discounts");
