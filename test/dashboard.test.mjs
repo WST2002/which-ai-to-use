@@ -42,7 +42,7 @@ test("buttons run the same commands as the CLI", async (t) => {
   const checkup = await (await call("checkup")).json();
   assert.match(checkup.text, /package-lock\.json is ~10,240 tokens/);
   const task = await (await call("task", { task: "fix the login bug" })).json();
-  assert.match(task.text, /Best of these: Claude Code/);
+  assert.match(task.text, /Claude Code: .+\n\s+✓ It's on your laptop, use it\./);
   assert.match(task.text, /src\/login\.js/);
   const doctor = await (await call("doctor")).json();
   assert.match(doctor.text, /✓ Claude Code/);

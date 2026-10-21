@@ -97,9 +97,12 @@ export function formatRecommendation(result) {
 
   const yours = [best, ...result.also];
   if (result.free && !yours.some((entry) => entry.id === result.free.id)) yours.push(result.free);
-  lines.push("", `② On your laptop: ${yours.map((entry) => entry.name).join(", ")}`, `${indent}Best of these: ${best.name} ★ (${best.where})`);
-  if (best.id !== overall.id) lines.push(`${indent}${sentence(best.why)}`);
-  for (const alt of yours.slice(1)) lines.push(`${indent}Also: ${alt.name} (${alt.where})${alt.why === best.why ? "" : `: ${alt.why}`}`);
+  // With one tool that is also the best anywhere, ① has already said "use it".
+  if (yours.length > 1 || best.id !== overall.id) {
+    lines.push("", `② On your laptop: ${yours.map((entry) => entry.name).join(", ")}`, `${indent}Best of these: ${best.name} ★ (${best.where})`);
+    if (best.id !== overall.id) lines.push(`${indent}${sentence(best.why)}`);
+    for (const alt of yours.slice(1)) lines.push(`${indent}Also: ${alt.name} (${alt.where})${alt.why === best.why ? "" : `: ${alt.why}`}`);
+  }
 
   lines.push("");
   if (result.files?.length) lines.push(`${pad("Files")}${result.files.join(", ")}`);

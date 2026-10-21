@@ -284,6 +284,9 @@ test("the answer first names the best AI anywhere, then the best one on this lap
 
   const bug = machine(t, { bins: ["claude"] }).run("fix the crash in checkout");
   assert.match(bug.stdout, /① Best AI for this task \(any tool\)\n\s+Claude Code: .+\n\s+✓ It's on your laptop, use it\./);
+  assert.doesNotMatch(bug.stdout, /② On your laptop/, "one tool that is also the best anywhere is not repeated");
+  const two = machine(t, { bins: ["claude", "gemini"] }).run("fix the crash in checkout");
+  assert.match(two.stdout, /② On your laptop: Claude Code, Gemini CLI/);
 });
 
 test("the answer estimates the tokens it takes to start", (t) => {
