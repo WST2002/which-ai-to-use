@@ -4,7 +4,9 @@
 
 Use your AI coding tools better. See what wastes your tokens, pick the right AI (and model) for each task, and hand a task to another AI when Claude's limit runs out.
 
-![which-ai-to-use finds wasted tokens and hands a task to another AI when Claude hits its limit](media/which-ai-to-use-demo.gif)
+![which-ai-to-use: the checkup finds ~92,000 wasted tokens, fix raises the AI setup score from 77 to 100, and handoff passes the task to Gemini CLI when Claude hits its limit](media/which-ai-to-use-demo.gif)
+
+*Real output on a demo project: checkup, fix, score, and a handoff when Claude's limit runs out.*
 
 ## Start here
 
