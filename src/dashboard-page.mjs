@@ -44,6 +44,8 @@ const ICON_PATHS = {
   doctor: '<rect x="2.5" y="3" width="11" height="8" rx="1"/><path d="M5.5 13.5h5"/>',
   guide: '<circle cx="8" cy="8" r="6"/><path d="M6.4 6.3a1.7 1.7 0 0 1 3.2.6c0 1.1-1.6 1.4-1.6 2.4M8 11.3v.1"/>',
   lock: '<rect x="3.5" y="7" width="9" height="6.5" rx="1"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/>',
+  expand: '<path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9"/>',
+  more: '<path d="M4 8h.01M8 8h.01M12 8h.01" stroke-width="2.4"/>',
 };
 const icon = (name) => `<svg class="i" viewBox="0 0 16 16" aria-hidden="true">${ICON_PATHS[name]}</svg>`;
 const NAV = [
@@ -58,12 +60,15 @@ const NAV = [
   ["doctor", "Installed tools"],
   ["guide", "How to use"],
 ];
+// On narrow screens only these show; the rest sit behind More.
+const MAIN_VIEWS = 4;
 
 /**
  * The single dashboard page. Every value from the server is inserted with textContent, never as HTML.
- * `bridge`: "http" talks to the local server; "vscode" talks to the extension's sidebar through postMessage.
+ * `bridge`: "http" talks to the local server; "vscode" talks to the extension through postMessage.
+ * `surface`: "browser", "sidebar" (the narrow VS Code view) or "panel" (the full view in a VS Code editor tab).
  */
-export function dashboardPage({ token, project, version, bridge = "http", nonce = "" }) {
+export function dashboardPage({ token, project, version, bridge = "http", nonce = "", surface = bridge === "vscode" ? "sidebar" : "browser" }) {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -72,7 +77,7 @@ export function dashboardPage({ token, project, version, bridge = "http", nonce 
 ${bridge === "vscode" ? `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">` : ""}
 <title>which-ai-to-use — ${escapeHtml(project)}</title>
 <style>
-  :root {${bridge === "vscode" ? VSCODE : LIGHT}
+  :root {${bridge === "vscode" ? VSCODE : LIGHT}${surface === "panel" ? "\n    --bg: var(--vscode-editor-background); --panel: var(--vscode-editor-background);" : ""}
   }
 ${bridge === "vscode" ? "" : `  @media (prefers-color-scheme: dark) {
     :root {${DARK}
@@ -133,6 +138,8 @@ ${bridge === "vscode" ? "" : `  @media (prefers-color-scheme: dark) {
   .btn:disabled { opacity: .5; cursor: progress; }
 
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+  .list { display: flex; flex-direction: column; gap: 8px; max-width: 760px; }
+  .nav-group { margin: 14px 10px 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
   .card { border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 12px 14px; background: var(--panel); min-width: 0; }
   .card.best { border-color: var(--accent); grid-column: 1 / -1; }
   .card h3 { margin: 0; font-size: 14px; font-weight: 600; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
@@ -169,12 +176,29 @@ ${bridge === "vscode" ? "" : `  @media (prefers-color-scheme: dark) {
   footer { text-align: center; color: var(--muted); font-size: 12px; padding: 4px 16px 24px; }
   footer a { color: inherit; }
 
-  /* Narrow: the browser on a phone or a VS Code sidebar. The menu wraps into a grid instead of scrolling sideways. */
+  .nav-more { display: none; }
+  .sidebar-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 10px 0; }
+  .sidebar-bar .muted { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tip { display: flex; gap: 8px; align-items: flex-start; margin: 8px 10px 0; padding: 8px 10px; border-radius: var(--radius); font-size: 12px;
+    color: var(--muted); background: var(--panel-2); border: 1px solid var(--line); }
+  .tip strong { color: var(--fg); font-weight: 600; }
+  .tip button { margin-left: auto; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px; }
+  /* In the sidebar the content sits straight on the background, with no card inside a card. */
+  body.surface-sidebar .layout { padding: 10px; }
+  body.surface-sidebar .panel { border: 0; background: transparent; }
+  body.surface-sidebar .panel-head, body.surface-sidebar .panel-body { padding-left: 0; padding-right: 0; }
+
+  /* Narrow: a phone or a VS Code sidebar. Four main actions show; the rest open under More. */
   @media (max-width: 900px) {
     .layout { grid-template-columns: 1fr; gap: 12px; padding: 12px; }
-    nav { position: static; display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 4px; }
-    .nav-btn { height: 30px; padding: 0 8px; gap: 8px; border: 1px solid var(--line); background: var(--panel); }
+    nav { position: static; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+    .nav-btn, .nav-more { display: flex; align-items: center; height: 30px; padding: 0 8px; gap: 8px; border: 1px solid var(--line); background: var(--panel);
+      border-radius: var(--radius); color: var(--muted); cursor: pointer; min-width: 0; }
     .nav-btn[aria-current="true"] { border-color: var(--focus); }
+    .nav-btn.extra, .nav-group { display: none; }
+    nav.open .nav-btn.extra, .nav-btn.extra[aria-current="true"] { display: flex; }
+    .nav-more { grid-column: 1 / -1; justify-content: center; border-style: dashed; }
+    .nav-more:hover { color: var(--fg); background: var(--hover); }
     .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
     .stat { padding: 10px 12px; }
     .stat .value { font-size: 18px; }
@@ -191,15 +215,20 @@ ${bridge === "vscode" ? "" : `  @media (prefers-color-scheme: dark) {
   }
 </style>
 </head>
-<body>
-${bridge === "vscode" ? "" : `<header class="top">
+<body class="surface-${surface}">
+${surface === "sidebar" ? `<div class="sidebar-bar">
+  <span class="muted">Project: ${escapeHtml(project)}</span>
+  <button class="btn ghost small" id="open-full" title="Open the full dashboard in an editor tab">${icon("expand")}<span>Full view</span></button>
+</div>
+<p class="tip hidden" id="width-tip"><span>Looks cramped? Drag the sidebar's edge to make it wider, or click <strong>Full view</strong>.</span><button id="tip-close" aria-label="Hide this tip">×</button></p>` : `<header class="top">
   <div class="brand"><span class="mark" aria-hidden="true"></span>which-ai-to-use<span class="project">/ ${escapeHtml(project)}</span></div>
   <div class="meta">${icon("lock")}<span class="long">Runs only on this laptop</span>${version ? `<span>· v${escapeHtml(version)}</span>` : ""}</div>
 </header>`}
 
 <div class="layout">
   <nav aria-label="Actions">
-${NAV.map(([view, label]) => `    <button class="nav-btn" data-view="${view}" title="${label}">${icon(view)}<span>${label}</span></button>`).join("\n")}
+${NAV.map(([view, label], i) => `${i === MAIN_VIEWS ? '    <div class="nav-group">More tools</div>\n' : ""}    <button class="nav-btn${i < MAIN_VIEWS ? "" : " extra"}" data-view="${view}" title="${label}">${icon(view)}<span>${label}</span></button>`).join("\n")}
+    <button class="nav-more" id="nav-more" aria-expanded="false">${icon("more")}<span>More</span></button>
   </nav>
 
   <main>
@@ -411,7 +440,7 @@ ${NAV.map(([view, label]) => `    <button class="nav-btn" data-view="${view}" ti
       if (!data.issues.length) return [el("div", { class: "ok", text: "Nothing is wasting your tokens here." })];
       return [
         el("div", { class: "section-title", text: data.issues.length + (data.issues.length === 1 ? " thing is" : " things are") + " wasting your tokens" }),
-        el("div", { class: "grid" }, data.issues.map((issue, i) =>
+        el("div", { class: "list" }, data.issues.map((issue, i) =>
           el("div", { class: "card" },
             el("div", { class: "issue" },
               el("span", { class: "num", text: String(i + 1) }),
@@ -617,6 +646,25 @@ ${NAV.map(([view, label]) => `    <button class="nav-btn" data-view="${view}" ti
   }
 
   document.querySelectorAll(".nav-btn").forEach((b) => b.addEventListener("click", () => show(b.dataset.view)));
+  $("nav-more").addEventListener("click", () => {
+    const open = document.querySelector("nav").classList.toggle("open");
+    $("nav-more").setAttribute("aria-expanded", String(open));
+    $("nav-more").querySelector("span").textContent = open ? "Less" : "More";
+  });
+
+  // Sidebar only: open the full view, and a tip about widening the sidebar until it is dismissed.
+  if ($("open-full")) $("open-full").addEventListener("click", () => vscodeApi.postMessage({ type: "openFull" }));
+  const tip = $("width-tip");
+  if (tip) {
+    const dismissed = () => Boolean(vscodeApi.getState()?.tipHidden);
+    const update = () => tip.classList.toggle("hidden", dismissed() || window.innerWidth >= 380);
+    $("tip-close").addEventListener("click", () => {
+      vscodeApi.setState({ ...(vscodeApi.getState() ?? {}), tipHidden: true });
+      update();
+    });
+    window.addEventListener("resize", update);
+    update();
+  }
   $("ask").addEventListener("click", ask);
   $("slim-start").addEventListener("click", startSlim);
   $("write-handoff").addEventListener("click", () => load("handoff", { task: $("handoff-task").value, without: $("without-claude").checked ? ["claude-code"] : [] }));
