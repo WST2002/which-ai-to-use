@@ -34,7 +34,7 @@ That's it. The only other commands you need:
 | When | Run |
 |---|---|
 | Starting a task | `npx which-ai-to-use "fix the login bug"` → which AI and model, with the command to run |
-| Claude's limit ran out mid-task | `npx which-ai-to-use handoff "the task" --without claude-code` → another AI carries on |
+| Claude's limit ran out mid-task | `npx which-ai-to-use handoff "the task"` → another AI carries on |
 | Fix what the checkup found | `npx which-ai-to-use fix` → your AI tools skip heavy files (asks first) |
 
 Prefer buttons? Open everything in your browser:
@@ -154,17 +154,21 @@ Token counts are estimates (about four characters per token). `tokens` changes n
 Claude hit its limit halfway through a feature? Hand the work to another tool without starting over:
 
 ```
-npx which-ai-to-use handoff "add coupon codes to the cart" --without claude-code
+npx which-ai-to-use handoff "add coupon codes to the cart"
 ```
 
 ```
 Wrote HANDOFF.md: 3 changed file(s), 1 commit(s) on feat/coupons.
+
+Left out: Claude Code (limit over). Handing off from another AI? Add --without <tool>.
 
 Next:    Gemini CLI — terminal agent: edits many files and runs your commands; free tier
 Run:     gemini -i "Read HANDOFF.md and continue the task."
 ```
 
 `HANDOFF.md` lists the task, the commits on the branch, every uncommitted file with its line counts, and the test command to run first. The next AI reads a short note instead of re-exploring the whole project. Don't commit it.
+
+Claude Code is left out by default, since its limit is what ran out. Coming from another AI? Name that one instead, for example `--without codex`. Only Claude installed? Handoff still writes the note and tells you how to carry on: paste `HANDOFF.md` into ChatGPT or Gemini on the web, or install Gemini CLI (free tier).
 
 ## Supported tools
 
