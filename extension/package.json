@@ -25,8 +25,15 @@
       { "command": "whichAi.task", "title": "Which AI: Which AI for a task?" },
       { "command": "whichAi.fix", "title": "Which AI: Fix wasted tokens" },
       { "command": "whichAi.score", "title": "Which AI: AI setup score" },
-      { "command": "whichAi.handoff", "title": "Which AI: Claude limit over? Write a handoff" }
+      { "command": "whichAi.handoff", "title": "Which AI: Claude limit over? Write a handoff" },
+      { "command": "whichAi.openSidebar", "title": "Which AI: Open the sidebar" }
     ],
+    "viewsContainers": {
+      "activitybar": [{ "id": "whichAi", "title": "Which AI", "icon": "media/sidebar.svg" }]
+    },
+    "views": {
+      "whichAi": [{ "type": "webview", "id": "whichAi.dashboard", "name": "Dashboard" }]
+    },
     "configuration": {
       "title": "Which AI to Use",
       "properties": {

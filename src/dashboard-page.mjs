@@ -1,26 +1,38 @@
 const escapeHtml = (text) =>
   String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
-/** The single dashboard page. Every value from the server is inserted with textContent, never as HTML. */
-export function dashboardPage({ token, project, version }) {
+const LIGHT = `
+    --bg: #f4f5fb; --panel: #ffffff; --panel-2: #f8f9fd; --fg: #11131c; --muted: #5b6178; --line: #e2e5ef;
+    --accent: #4f46e5; --accent-soft: #eef0ff; --accent-fg: #ffffff; --good: #15803d; --good-soft: #e8f7ee;
+    --warn: #b45309; --warn-soft: #fff4e5; --code: #0e1120; --code-fg: #e4e7f5; --shadow: 0 1px 2px rgba(17,19,28,.04), 0 8px 24px -12px rgba(17,19,28,.12);`;
+const DARK = `
+      --bg: #0a0c13; --panel: #121623; --panel-2: #171c2c; --fg: #e9ebf5; --muted: #99a0b9; --line: #252b3e;
+      --accent: #8f88ff; --accent-soft: #1d1f3b; --accent-fg: #0a0c13; --good: #4ade80; --good-soft: #10261a;
+      --warn: #fbbf24; --warn-soft: #2a2010; --code: #070910; --code-fg: #dfe3f1; --shadow: 0 8px 28px -14px rgba(0,0,0,.6);`;
+
+/**
+ * The single dashboard page. Every value from the server is inserted with textContent, never as HTML.
+ * `bridge`: "http" talks to the local server; "vscode" talks to the extension's sidebar through postMessage.
+ */
+export function dashboardPage({ token, project, version, bridge = "http", nonce = "" }) {
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+${bridge === "vscode" ? `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">` : ""}
 <title>which-ai-to-use — ${escapeHtml(project)}</title>
 <style>
-  :root {
-    --bg: #f4f5fb; --panel: #ffffff; --panel-2: #f8f9fd; --fg: #11131c; --muted: #5b6178; --line: #e2e5ef;
-    --accent: #4f46e5; --accent-soft: #eef0ff; --accent-fg: #ffffff; --good: #15803d; --good-soft: #e8f7ee;
-    --warn: #b45309; --warn-soft: #fff4e5; --code: #0e1120; --code-fg: #e4e7f5; --shadow: 0 1px 2px rgba(17,19,28,.04), 0 8px 24px -12px rgba(17,19,28,.12);
+  :root {${LIGHT}
   }
   @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #0a0c13; --panel: #121623; --panel-2: #171c2c; --fg: #e9ebf5; --muted: #99a0b9; --line: #252b3e;
-      --accent: #8f88ff; --accent-soft: #1d1f3b; --accent-fg: #0a0c13; --good: #4ade80; --good-soft: #10261a;
-      --warn: #fbbf24; --warn-soft: #2a2010; --code: #070910; --code-fg: #dfe3f1; --shadow: 0 8px 28px -14px rgba(0,0,0,.6);
+    :root {${DARK}
     }
+  }
+  /* Inside VS Code the editor theme decides, not the system setting. */
+  body.vscode-light {${LIGHT}
+  }
+  body.vscode-dark, body.vscode-high-contrast {${DARK}
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; }
@@ -187,8 +199,37 @@ export function dashboardPage({ token, project, version }) {
 </div>
 <footer>Made by Wageesha Tripathi · github.com/WST2002/which-ai-to-use</footer>
 
-<script>
+<script${nonce ? ` nonce="${nonce}"` : ""}>
   const TOKEN = ${JSON.stringify(token)};
+  const vscodeApi = ${bridge === "vscode" ? "acquireVsCodeApi()" : "null"};
+  const pending = new Map();
+  let nextId = 0;
+  if (vscodeApi) {
+    window.addEventListener("message", ({ data: reply }) => {
+      const settle = pending.get(reply.id);
+      if (!settle) return;
+      pending.delete(reply.id);
+      settle(reply);
+    });
+  }
+
+  // One way to reach the engine, whether the page is served locally or shown in the VS Code sidebar.
+  function request(action, body) {
+    if (vscodeApi) {
+      return new Promise((resolve, reject) => {
+        const id = ++nextId;
+        pending.set(id, (reply) => (reply.error ? reject(new Error(reply.error)) : resolve(reply.data)));
+        vscodeApi.postMessage({ type: "action", id, action, body });
+      });
+    }
+    return fetch("/api/" + action, { method: "POST", headers: { "content-type": "application/json", "x-dashboard-token": TOKEN }, body: JSON.stringify(body) })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Something went wrong");
+        return data;
+      });
+  }
+  const copyText = (text) => (vscodeApi ? vscodeApi.postMessage({ type: "copy", text }) : navigator.clipboard.writeText(text));
   const VIEWS = {
     checkup: { title: "Checkup", sub: "Your AI tools and what is wasting tokens, in plain words." },
     task: { title: "Which AI for a task?", sub: "Describe the task. You get the best tool and model, the files to start with and the command to run." },
@@ -220,7 +261,7 @@ export function dashboardPage({ token, project, version }) {
   const sentence = (s) => s.charAt(0).toUpperCase() + s.slice(1) + ".";
 
   function command(text) {
-    const button = el("button", { class: "btn ghost small", text: "Copy", onclick: () => { navigator.clipboard.writeText(text); button.textContent = "Copied"; setTimeout(() => (button.textContent = "Copy"), 1500); } });
+    const button = el("button", { class: "btn ghost small", text: "Copy", onclick: () => { copyText(text); button.textContent = "Copied"; setTimeout(() => (button.textContent = "Copy"), 1500); } });
     return el("div", { class: "cmd" }, el("code", { text }), button);
   }
 
@@ -229,9 +270,7 @@ export function dashboardPage({ token, project, version }) {
     status.className = "status";
     status.textContent = "Running…";
     try {
-      const response = await fetch("/api/" + action, { method: "POST", headers: { "content-type": "application/json", "x-dashboard-token": TOKEN }, body: JSON.stringify(body) });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Something went wrong");
+      const data = await request(action, body);
       status.textContent = "Updated " + new Date().toLocaleTimeString();
       return data;
     } catch (error) {
@@ -392,8 +431,14 @@ export function dashboardPage({ token, project, version }) {
     score(data) {
       const canvas = drawScoreCard(data);
       const download = el("a", { class: "btn", text: "Download image", download: "ai-setup-score.png", href: "#" });
-      download.addEventListener("click", () => download.setAttribute("href", canvas.toDataURL("image/png")));
-      const copy = el("button", { class: "btn ghost", text: "Copy text to share", onclick: () => { navigator.clipboard.writeText(data.share); copy.textContent = "Copied"; setTimeout(() => (copy.textContent = "Copy text to share"), 1500); } });
+      download.addEventListener("click", (event) => {
+        // Webviews cannot download, so VS Code saves the image through the extension instead.
+        if (vscodeApi) {
+          event.preventDefault();
+          vscodeApi.postMessage({ type: "save", name: "ai-setup-score.png", dataUrl: canvas.toDataURL("image/png") });
+        } else download.setAttribute("href", canvas.toDataURL("image/png"));
+      });
+      const copy = el("button", { class: "btn ghost", text: "Copy text to share", onclick: () => { copyText(data.share); copy.textContent = "Copied"; setTimeout(() => (copy.textContent = "Copy text to share"), 1500); } });
       const parts = [canvas, el("div", { class: "form", style: "margin-top:14px" }, download, copy), el("p", { class: "muted", text: data.share })];
       if (data.items.length) {
         parts.push(el("div", { class: "section-title", text: "What costs points" }),
@@ -453,8 +498,11 @@ export function dashboardPage({ token, project, version }) {
 
   // After a fix the summary numbers change, so fetch the checkup again without touching the open view.
   async function refreshStats() {
-    const response = await fetch("/api/checkup", { method: "POST", headers: { "content-type": "application/json", "x-dashboard-token": TOKEN }, body: "{}" });
-    if (response.ok) updateStats((await response.json()).data);
+    try {
+      updateStats((await request("checkup", {})).data);
+    } catch {
+      // The stats stay as they were; the open view already shows the result.
+    }
   }
 
   function show(view) {
