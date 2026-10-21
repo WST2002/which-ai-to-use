@@ -1,14 +1,63 @@
 const escapeHtml = (text) =>
   String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
-const LIGHT = `
-    --bg: #f4f5fb; --panel: #ffffff; --panel-2: #f8f9fd; --fg: #11131c; --muted: #5b6178; --line: #e2e5ef;
-    --accent: #4f46e5; --accent-soft: #eef0ff; --accent-fg: #ffffff; --good: #15803d; --good-soft: #e8f7ee;
-    --warn: #b45309; --warn-soft: #fff4e5; --code: #0e1120; --code-fg: #e4e7f5; --shadow: 0 1px 2px rgba(17,19,28,.04), 0 8px 24px -12px rgba(17,19,28,.12);`;
-const DARK = `
-      --bg: #0a0c13; --panel: #121623; --panel-2: #171c2c; --fg: #e9ebf5; --muted: #99a0b9; --line: #252b3e;
-      --accent: #8f88ff; --accent-soft: #1d1f3b; --accent-fg: #0a0c13; --good: #4ade80; --good-soft: #10261a;
-      --warn: #fbbf24; --warn-soft: #2a2010; --code: #070910; --code-fg: #dfe3f1; --shadow: 0 8px 28px -14px rgba(0,0,0,.6);`;
+const SHARED = `
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+    --size: 14px; --radius: 6px; --radius-lg: 8px;`;
+const LIGHT = `${SHARED}
+    --bg: #f7f7f8; --panel: #ffffff; --panel-2: #f4f4f5; --fg: #18181b; --muted: #63636b; --line: #e4e4e7;
+    --accent: #2563eb; --accent-hover: #1d4ed8; --accent-fg: #ffffff; --link: #1d4ed8; --focus: #2563eb;
+    --good: #15803d; --good-soft: #f0fdf4; --warn: #b45309; --warn-soft: #fffbeb; --code: #f4f4f5; --code-fg: #18181b;
+    --hover: #f0f0f2; --selected-bg: #e8effd; --selected-fg: #1e40af;
+    --input-bg: #ffffff; --input-border: #d4d4d8; --input-fg: #18181b; --btn2-bg: #ffffff; --btn2-fg: #18181b;`;
+const DARK = `${SHARED}
+    --bg: #0c0c0e; --panel: #141417; --panel-2: #1c1c20; --fg: #ededef; --muted: #a0a0a8; --line: #2a2a2f;
+    --accent: #3b82f6; --accent-hover: #2563eb; --accent-fg: #ffffff; --link: #7aa7f7; --focus: #3b82f6;
+    --good: #4ade80; --good-soft: #0f1f15; --warn: #fbbf24; --warn-soft: #221a0b; --code: #1c1c20; --code-fg: #ededef;
+    --hover: #1e1e22; --selected-bg: #1a2742; --selected-fg: #c7d8fb;
+    --input-bg: #0c0c0e; --input-border: #34343a; --input-fg: #ededef; --btn2-bg: #1c1c20; --btn2-fg: #ededef;`;
+// Inside VS Code every colour, the font and the controls come from the user's theme, so the sidebar looks native.
+const VSCODE = `
+    --font: var(--vscode-font-family); --mono: var(--vscode-editor-font-family); --size: var(--vscode-font-size, 13px); --radius: 2px; --radius-lg: 4px;
+    --bg: var(--vscode-sideBar-background, var(--vscode-editor-background)); --panel: var(--vscode-sideBar-background, var(--vscode-editor-background));
+    --panel-2: var(--vscode-editorWidget-background); --fg: var(--vscode-foreground); --muted: var(--vscode-descriptionForeground);
+    --line: var(--vscode-widget-border, var(--vscode-panel-border, rgba(128, 128, 128, .35)));
+    --accent: var(--vscode-button-background); --accent-hover: var(--vscode-button-hoverBackground); --accent-fg: var(--vscode-button-foreground);
+    --link: var(--vscode-textLink-foreground); --focus: var(--vscode-focusBorder);
+    --good: var(--vscode-testing-iconPassed, #3fb950); --good-soft: color-mix(in srgb, var(--vscode-testing-iconPassed, #3fb950) 10%, transparent);
+    --warn: var(--vscode-editorWarning-foreground, #cca700); --warn-soft: color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 10%, transparent);
+    --code: var(--vscode-textCodeBlock-background); --code-fg: var(--vscode-editor-foreground);
+    --hover: var(--vscode-list-hoverBackground); --selected-bg: var(--vscode-list-activeSelectionBackground); --selected-fg: var(--vscode-list-activeSelectionForeground);
+    --input-bg: var(--vscode-input-background); --input-border: var(--vscode-input-border, var(--line)); --input-fg: var(--vscode-input-foreground);
+    --btn2-bg: var(--vscode-button-secondaryBackground); --btn2-fg: var(--vscode-button-secondaryForeground);`;
+
+// 16 px line icons (no emoji), drawn with the text colour.
+const ICON_PATHS = {
+  checkup: '<path d="M2 8.5h2.5l1.8-4.5 3 9 1.9-4.5H14"/>',
+  task: '<circle cx="8" cy="8" r="6"/><path d="M10.6 5.4 9.2 9.2 5.4 10.6 6.8 6.8z"/>',
+  handoff: '<path d="M3 5.5h9.5M10 3l2.5 2.5L10 8M13 10.5H3.5M6 8l-2.5 2.5L6 13"/>',
+  fix: '<path d="M3 8.5 6.5 12 13 4"/>',
+  tokens: '<path d="M3.5 13V9M8 13V4M12.5 13V7"/>',
+  score: '<path d="M8 2.2l1.8 3.7 4 .6-2.9 2.8.7 4L8 11.4l-3.6 1.9.7-4-2.9-2.8 4-.6z"/>',
+  usage: '<circle cx="8" cy="8" r="6"/><path d="M8 4.8V8l2.2 1.6"/>',
+  slim: '<path d="M3 4.5h10M3 8h7M3 11.5h4"/>',
+  doctor: '<rect x="2.5" y="3" width="11" height="8" rx="1"/><path d="M5.5 13.5h5"/>',
+  guide: '<circle cx="8" cy="8" r="6"/><path d="M6.4 6.3a1.7 1.7 0 0 1 3.2.6c0 1.1-1.6 1.4-1.6 2.4M8 11.3v.1"/>',
+  lock: '<rect x="3.5" y="7" width="9" height="6.5" rx="1"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/>',
+};
+const icon = (name) => `<svg class="i" viewBox="0 0 16 16" aria-hidden="true">${ICON_PATHS[name]}</svg>`;
+const NAV = [
+  ["checkup", "Checkup"],
+  ["task", "Pick an AI"],
+  ["handoff", "Limit over?"],
+  ["fix", "Fix tokens"],
+  ["usage", "Usage"],
+  ["score", "Score card"],
+  ["tokens", "Token details"],
+  ["slim", "Trim rules"],
+  ["doctor", "Installed tools"],
+  ["guide", "How to use"],
+];
 
 /**
  * The single dashboard page. Every value from the server is inserted with textContent, never as HTML.
@@ -23,150 +72,141 @@ export function dashboardPage({ token, project, version, bridge = "http", nonce 
 ${bridge === "vscode" ? `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">` : ""}
 <title>which-ai-to-use — ${escapeHtml(project)}</title>
 <style>
-  :root {${LIGHT}
+  :root {${bridge === "vscode" ? VSCODE : LIGHT}
   }
-  @media (prefers-color-scheme: dark) {
+${bridge === "vscode" ? "" : `  @media (prefers-color-scheme: dark) {
     :root {${DARK}
     }
-  }
-  /* Inside VS Code the editor theme decides, not the system setting. */
-  body.vscode-light {${LIGHT}
-  }
-  body.vscode-dark, body.vscode-high-contrast {${DARK}
-  }
+  }`}
   * { box-sizing: border-box; }
   html, body { margin: 0; }
-  body { background: var(--bg); color: var(--fg); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  button, input { font: inherit; }
+  body { background: var(--bg); color: var(--fg); font: var(--size)/1.5 var(--font); -webkit-font-smoothing: antialiased; }
+  button, input { font: inherit; color: inherit; }
+  svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 
-  .top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-    padding: 12px clamp(16px, 3vw, 40px); background: color-mix(in srgb, var(--panel) 88%, transparent);
-    backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
-  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; }
-  .mark { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; color: #fff; font-size: 15px;
-    background: linear-gradient(135deg, #6366f1, #06b6d4); }
-  .pills { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
-  .pill { font-size: 12.5px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); background: var(--panel); }
-  .pill.good { color: var(--good); border-color: color-mix(in srgb, var(--good) 40%, transparent); background: var(--good-soft); }
+  .top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; height: 52px;
+    padding: 0 clamp(16px, 3vw, 32px); background: var(--panel); border-bottom: 1px solid var(--line); }
+  .brand { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; letter-spacing: -.01em; }
+  .mark { width: 18px; height: 18px; border-radius: 5px; background: var(--accent); }
+  .brand .project { color: var(--muted); font-weight: 400; }
+  .meta { margin-left: auto; display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+  .meta svg.i { width: 14px; height: 14px; color: var(--good); }
 
-  .layout { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: clamp(16px, 2vw, 28px);
-    padding: clamp(16px, 2.5vw, 32px) clamp(16px, 3vw, 40px); max-width: 1680px; margin: 0 auto; }
+  .layout { display: grid; grid-template-columns: 232px minmax(0, 1fr); gap: 24px; padding: 24px clamp(16px, 3vw, 32px); max-width: 1400px; margin: 0 auto; }
   /* Grid items default to min-width: auto, so a long command would stretch the whole column. */
   main { min-width: 0; }
-  nav { position: sticky; top: 76px; align-self: start; display: flex; flex-direction: column; gap: 6px; }
-  .nav-btn { display: flex; gap: 12px; align-items: flex-start; text-align: left; width: 100%; padding: 12px 14px; border-radius: 12px;
-    border: 1px solid transparent; background: transparent; color: var(--fg); cursor: pointer; }
-  .nav-btn:hover { background: var(--panel); border-color: var(--line); }
-  .nav-btn[aria-current="true"] { background: var(--panel); border-color: var(--accent); box-shadow: var(--shadow); }
-  .nav-btn .icon { font-size: 18px; line-height: 1.3; }
-  .nav-btn strong { display: block; font-size: 14.5px; }
-  .nav-btn small { display: block; color: var(--muted); font-size: 12.5px; }
+  nav { position: sticky; top: 76px; align-self: start; display: flex; flex-direction: column; gap: 2px; }
+  .nav-btn { display: flex; gap: 10px; align-items: center; width: 100%; min-width: 0; height: 34px; padding: 0 10px; border-radius: var(--radius);
+    border: 0; background: transparent; color: var(--muted); text-align: left; cursor: pointer; }
+  .nav-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nav-btn:hover { background: var(--hover); color: var(--fg); }
+  .nav-btn[aria-current="true"] { background: var(--selected-bg); color: var(--selected-fg); font-weight: 500; }
+  .nav-btn:focus-visible, .btn:focus-visible, input:focus-visible { outline: 1px solid var(--focus); outline-offset: 1px; }
 
-  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
-  canvas.scorecard { width: 100%; max-width: 900px; height: auto; border-radius: 14px; border: 1px solid var(--line); display: block; }
-  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; box-shadow: var(--shadow); min-width: 0; }
-  .stat .label { color: var(--muted); font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; }
-  .stat .value { font-size: 26px; font-weight: 750; margin-top: 2px; }
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 12px 14px; min-width: 0; }
+  .stat .label { color: var(--muted); font-size: 12px; }
+  .stat .value { font-size: 22px; font-weight: 600; letter-spacing: -.02em; margin-top: 2px; font-variant-numeric: tabular-nums; }
   .stat .value.warn { color: var(--warn); }
   .stat .value.good { color: var(--good); }
-  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
-  .chip { font-size: 12.5px; padding: 2px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+  .stat .muted { font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+  .chips { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+  .chip { font-size: 12px; padding: 1px 7px; border-radius: 4px; background: var(--panel-2); border: 1px solid var(--line); color: var(--muted); }
+  canvas.scorecard { width: 100%; max-width: 760px; height: auto; border-radius: var(--radius-lg); border: 1px solid var(--line); display: block; }
 
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; }
-  .panel-head { padding: 18px 20px 6px; }
-  .panel-head h1 { font-size: 20px; margin: 0; }
-  .panel-head p { margin: 4px 0 0; color: var(--muted); }
-  .panel-body { padding: 14px 20px 20px; }
-  .form { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
-  .form input[type=text] { flex: 1 1 320px; min-width: 0; padding: 11px 13px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); color: var(--fg); }
-  .form input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .check { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 14px; }
-  .btn { border: 0; border-radius: 10px; padding: 11px 16px; font-weight: 650; cursor: pointer; background: var(--accent); color: var(--accent-fg); }
-  .btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
-  .btn.small { padding: 6px 11px; font-size: 13px; }
-  .btn:disabled { opacity: .55; cursor: progress; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); }
+  .panel-head { padding: 16px 18px 0; }
+  .panel-head h1 { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: -.01em; }
+  .panel-head p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+  .panel-body { padding: 14px 18px 18px; }
+  .form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .form input[type=text] { flex: 1 1 260px; min-width: 0; height: 32px; padding: 0 10px; border: 1px solid var(--input-border); border-radius: var(--radius);
+    background: var(--input-bg); color: var(--input-fg); }
+  .check { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 13px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid transparent;
+    border-radius: var(--radius); font-weight: 500; font-size: 13px; cursor: pointer; background: var(--accent); color: var(--accent-fg); text-decoration: none; white-space: nowrap; }
+  .btn:hover { background: var(--accent-hover); }
+  .btn.ghost { background: var(--btn2-bg); color: var(--btn2-fg); border-color: var(--line); }
+  .btn.ghost:hover { background: var(--hover); }
+  .btn.small { height: 26px; padding: 0 10px; font-size: 12px; }
+  table.points td:first-child { width: 56px; white-space: nowrap; color: var(--warn); font-variant-numeric: tabular-nums; }
+  .btn:disabled { opacity: .5; cursor: progress; }
 
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
-  .card { border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; background: var(--panel-2); min-width: 0; }
-  .card.best { border-color: var(--accent); background: var(--accent-soft); grid-column: 1 / -1; }
-  .card h3 { margin: 0; font-size: 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .card .tag { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--panel); color: var(--muted); border: 1px solid var(--line); }
-  .card .tag.star { background: var(--accent); color: var(--accent-fg); border: 0; }
-  .card .tag.yes { background: var(--good-soft); color: var(--good); border-color: color-mix(in srgb, var(--good) 40%, transparent); }
-  .card .tag.no { background: var(--warn-soft); color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
-  .card.mine { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
-  .consent { border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line)); background: var(--warn-soft); border-radius: 14px; padding: 14px 16px; margin-bottom: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+  .card { border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 12px 14px; background: var(--panel); min-width: 0; }
+  .card.best { border-color: var(--accent); grid-column: 1 / -1; }
+  .card h3 { margin: 0; font-size: 14px; font-weight: 600; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .card .tag { font-size: 11px; font-weight: 500; padding: 1px 6px; border-radius: 4px; background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); }
+  .card .tag.star { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
+  .card .tag.yes { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, transparent); background: transparent; }
+  .card .tag.no { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); background: transparent; }
+  .card.mine { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
+  .consent { border: 1px solid color-mix(in srgb, var(--warn) 50%, var(--line)); background: var(--warn-soft); border-radius: var(--radius-lg); padding: 12px 14px; margin-bottom: 14px; }
   .consent p { margin: 6px 0 12px; white-space: pre-line; }
-  ol { margin: 0; padding-left: 22px; }
-  .card p { margin: 6px 0 0; color: var(--muted); }
-  .card a { color: var(--accent); }
-  .section-title { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 20px 0 10px; }
-  .issue { display: flex; gap: 14px; align-items: flex-start; }
-  .issue .num { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 13px; background: var(--warn-soft); color: var(--warn); }
-  .issue .fix { color: var(--fg); margin-top: 4px; }
-  .ok { padding: 14px 16px; border-radius: 12px; background: var(--good-soft); color: var(--good); font-weight: 600; }
+  ol { margin: 0; padding-left: 20px; }
+  .card p { margin: 4px 0 0; color: var(--muted); }
+  .card a { color: var(--link); }
+  .section-title { font-size: 12px; font-weight: 600; color: var(--muted); margin: 18px 0 8px; }
+  .issue { display: flex; gap: 10px; align-items: flex-start; }
+  .issue .num { flex: none; width: 20px; height: 20px; border-radius: 4px; display: grid; place-items: center; font-weight: 600; font-size: 12px;
+    background: var(--warn-soft); color: var(--warn); margin-top: 1px; }
+  .issue .fix { color: var(--fg); margin-top: 4px; font-size: 13px; }
+  .ok { padding: 10px 12px; border-radius: var(--radius); background: var(--good-soft); color: var(--good); font-weight: 500;
+    border: 1px solid color-mix(in srgb, var(--good) 30%, transparent); }
 
-  .cmd { display: flex; gap: 8px; align-items: stretch; margin-top: 10px; }
-  .cmd code { flex: 1; min-width: 0; overflow-x: auto; white-space: pre; padding: 10px 12px; border-radius: 10px; background: var(--code); color: var(--code-fg); font: 13px/1.5 "Cascadia Code", Consolas, monospace; }
-  pre.raw { margin: 0; padding: 16px; border-radius: 12px; background: var(--code); color: var(--code-fg); overflow: auto; white-space: pre-wrap; font: 13.5px/1.6 "Cascadia Code", Consolas, monospace; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
-  th { color: var(--muted); font-weight: 600; font-size: 12.5px; text-transform: uppercase; letter-spacing: .05em; }
-  .status { min-height: 22px; font-size: 13.5px; color: var(--muted); margin-top: 12px; }
+  .cmd { display: flex; gap: 6px; align-items: stretch; margin-top: 8px; }
+  .cmd code { flex: 1; min-width: 0; overflow-x: auto; white-space: pre; padding: 7px 10px; border-radius: var(--radius); background: var(--code); color: var(--code-fg);
+    border: 1px solid var(--line); font: 12.5px/1.5 var(--mono); }
+  pre.raw { margin: 0; padding: 12px 14px; border-radius: var(--radius); background: var(--code); color: var(--code-fg); border: 1px solid var(--line);
+    overflow: auto; white-space: pre-wrap; font: 12.5px/1.6 var(--mono); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; }
+  .status { min-height: 20px; font-size: 12.5px; color: var(--muted); margin-top: 12px; }
   .status.error { color: var(--warn); }
   .muted { color: var(--muted); }
   .hidden { display: none !important; }
-  footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 6px 0 28px; }
+  footer { text-align: center; color: var(--muted); font-size: 12px; padding: 4px 16px 24px; }
+  footer a { color: inherit; }
 
-  @media (min-width: 1500px) { .layout { grid-template-columns: 320px minmax(0, 1fr); } .stat .value { font-size: 30px; } }
-  @media (max-width: 980px) {
-    .layout { grid-template-columns: 1fr; }
-    nav { position: sticky; top: 58px; z-index: 4; flex-direction: row; overflow-x: auto; gap: 8px; padding: 4px 2px 8px; margin: 0 -4px;
-      background: var(--bg); scrollbar-width: none; }
-    .nav-btn { flex: none; width: auto; padding: 8px 12px; border-color: var(--line); background: var(--panel); }
-    .nav-btn small { display: none; }
-    .nav-btn .icon { font-size: 15px; }
-  }
-  @media (max-width: 640px) {
+  /* Narrow: the browser on a phone or a VS Code sidebar. The menu wraps into a grid instead of scrolling sideways. */
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; gap: 12px; padding: 12px; }
+    nav { position: static; display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 4px; }
+    .nav-btn { height: 30px; padding: 0 8px; gap: 8px; border: 1px solid var(--line); background: var(--panel); }
+    .nav-btn[aria-current="true"] { border-color: var(--focus); }
     .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
-    .stat { padding: 10px; }
-    .stat .label { font-size: 10.5px; letter-spacing: .03em; }
-    .stat .value { font-size: 20px; }
+    .stat { padding: 10px 12px; }
+    .stat .value { font-size: 18px; }
     .stat .chips, .stat .muted { display: none; }
-    .pills .pill:not(.good) { display: none; }
-    .panel-head, .panel-body { padding-left: 14px; padding-right: 14px; }
+    .panel-head { padding: 12px 12px 0; }
+    .panel-body { padding: 12px; }
     .grid { grid-template-columns: 1fr; }
+    .meta .long { display: none; }
+  }
+  @media (max-width: 420px) {
+    .top { height: 44px; padding: 0 12px; }
+    .layout { padding: 10px; }
+    .form input[type=text] { flex-basis: 100%; }
   }
 </style>
 </head>
 <body>
-<header class="top">
-  <div class="brand"><span class="mark" aria-hidden="true">✦</span>which-ai-to-use</div>
-  <div class="pills">
-    <span class="pill">Project: ${escapeHtml(project)}</span>
-    ${version ? `<span class="pill">v${escapeHtml(version)}</span>` : ""}
-    <span class="pill good">🔒 Runs only on this laptop</span>
-  </div>
-</header>
+${bridge === "vscode" ? "" : `<header class="top">
+  <div class="brand"><span class="mark" aria-hidden="true"></span>which-ai-to-use<span class="project">/ ${escapeHtml(project)}</span></div>
+  <div class="meta">${icon("lock")}<span class="long">Runs only on this laptop</span>${version ? `<span>· v${escapeHtml(version)}</span>` : ""}</div>
+</header>`}
 
 <div class="layout">
   <nav aria-label="Actions">
-    <button class="nav-btn" data-view="checkup"><span class="icon">🩺</span><span><strong>Checkup</strong><small>What is wasting your tokens</small></span></button>
-    <button class="nav-btn" data-view="task"><span class="icon">🧭</span><span><strong>Which AI for a task?</strong><small>Best tool and model, with the command</small></span></button>
-    <button class="nav-btn" data-view="handoff"><span class="icon">🔁</span><span><strong>Claude limit over?</strong><small>Hand the task to another AI</small></span></button>
-    <button class="nav-btn" data-view="fix"><span class="icon">🧹</span><span><strong>Fix wasted tokens</strong><small>Make your AI skip heavy files</small></span></button>
-    <button class="nav-btn" data-view="tokens"><span class="icon">📊</span><span><strong>Token details</strong><small>Everything that is counted</small></span></button>
-    <button class="nav-btn" data-view="score"><span class="icon">🏆</span><span><strong>Score card</strong><small>Your AI setup score, ready to share</small></span></button>
-    <button class="nav-btn" data-view="usage"><span class="icon">📈</span><span><strong>Usage</strong><small>Limit reset time, tokens today and this week</small></span></button>
-    <button class="nav-btn" data-view="slim"><span class="icon">✂️</span><span><strong>Shorten CLAUDE.md</strong><small>Ask your AI for a shorter version</small></span></button>
-    <button class="nav-btn" data-view="doctor"><span class="icon">🧰</span><span><strong>Installed tools</strong><small>AI tools on this laptop</small></span></button>
+${NAV.map(([view, label]) => `    <button class="nav-btn" data-view="${view}" title="${label}">${icon(view)}<span>${label}</span></button>`).join("\n")}
   </nav>
 
   <main>
     <section class="stats" aria-label="Summary">
       <div class="stat"><div class="label">Your AI tools</div><div class="value" id="stat-tools">–</div><div class="chips" id="stat-tool-chips"></div></div>
       <div class="stat"><div class="label">Tokens at risk</div><div class="value" id="stat-tokens">–</div><div class="muted" id="stat-tokens-note"></div></div>
-      <div class="stat"><div class="label">Add-ons switched on</div><div class="value" id="stat-addons">–</div><div class="muted" id="stat-addons-note"></div></div>
+      <div class="stat"><div class="label">Add-ons on</div><div class="value" id="stat-addons">–</div><div class="muted" id="stat-addons-note"></div></div>
       <div class="stat"><div class="label">Setup score</div><div class="value" id="stat-score">–</div><div class="muted" id="stat-score-note"></div></div>
     </section>
 
@@ -175,7 +215,7 @@ ${bridge === "vscode" ? `<meta http-equiv="Content-Security-Policy" content="def
       <div class="panel-body">
         <div class="form hidden" id="form-task">
           <input type="text" id="task" placeholder="Describe the task, e.g. make the hero section look better" aria-label="Task">
-          <label class="check"><input type="checkbox" id="use-ai"> 🤖 Ask my AI too</label>
+          <label class="check"><input type="checkbox" id="use-ai"> Ask my AI too</label>
           <button class="btn" id="ask">Ask</button>
         </div>
         <div class="form hidden" id="form-slim">
@@ -240,6 +280,7 @@ ${bridge === "vscode" ? `<meta http-equiv="Content-Security-Policy" content="def
     usage: { title: "Usage", sub: "Claude Code tokens from its own logs on this laptop: numbers only, never your messages." },
     slim: { title: "Shorten CLAUDE.md", sub: "Your instructions file is sent with every message. Your AI writes a shorter copy next to it; you decide whether to use it." },
     doctor: { title: "Installed tools", sub: "Which AI tools this laptop has and which instructions files this project has." },
+    guide: { title: "How to use", sub: "Six steps: check, fix, pick an AI, hand off, watch the limit, share." },
   };
   const $ = (id) => document.getElementById(id);
   const result = $("result");
@@ -302,63 +343,65 @@ ${bridge === "vscode" ? `<meta http-equiv="Content-Security-Policy" content="def
     const canvas = el("canvas", { class: "scorecard", width: "1200", height: "630", role: "img", "aria-label": "AI setup score " + data.score + " out of 100" });
     const c = canvas.getContext("2d");
     const font = (size, weight = 600) => weight + " " + size + 'px system-ui, -apple-system, "Segoe UI", sans-serif';
-    const bg = c.createLinearGradient(0, 0, 1200, 630);
-    bg.addColorStop(0, "#0b1020");
-    bg.addColorStop(1, "#1b1446");
-    c.fillStyle = bg;
+    const mono = (size) => "500 " + size + "px ui-monospace, Consolas, monospace";
+    c.fillStyle = "#0f1115";
     c.fillRect(0, 0, 1200, 630);
-    const glow = c.createRadialGradient(950, 120, 10, 950, 120, 420);
-    glow.addColorStop(0, "rgba(99,102,241,.45)");
-    glow.addColorStop(1, "rgba(99,102,241,0)");
-    c.fillStyle = glow;
-    c.fillRect(0, 0, 1200, 630);
+    c.strokeStyle = "#24262d";
+    c.lineWidth = 2;
+    c.strokeRect(1, 1, 1198, 628);
 
-    c.fillStyle = "#a5b4fc";
-    c.font = font(26, 700);
-    c.fillText("✦ which-ai-to-use", 70, 90);
-    c.fillStyle = "#e9ebf5";
-    c.font = font(54, 800);
-    c.fillText("My AI setup score", 70, 175);
-    c.fillStyle = "#9aa1b9";
-    c.font = font(28, 500);
-    c.fillText("Project: " + data.project, 70, 222);
+    c.fillStyle = "#3b82f6";
+    c.fillRect(72, 66, 22, 22);
+    c.fillStyle = "#e4e4e7";
+    c.font = font(24, 600);
+    c.fillText("which-ai-to-use", 108, 86);
+    c.fillStyle = "#fafafa";
+    c.font = font(52, 700);
+    c.fillText("AI setup score", 72, 178);
+    c.fillStyle = "#9ca3af";
+    c.font = font(26, 400);
+    c.fillText("Project: " + data.project, 72, 222);
 
-    const good = data.score >= 75;
-    const color = good ? "#4ade80" : data.score >= 60 ? "#fbbf24" : "#f87171";
-    c.lineWidth = 22;
-    c.strokeStyle = "rgba(255,255,255,.12)";
-    c.beginPath(); c.arc(930, 330, 150, 0, Math.PI * 2); c.stroke();
-    c.strokeStyle = color;
+    const color = data.score >= 75 ? "#22c55e" : data.score >= 60 ? "#f59e0b" : "#ef4444";
+    c.lineWidth = 16;
     c.lineCap = "round";
-    c.beginPath(); c.arc(930, 330, 150, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * data.score) / 100); c.stroke();
-    c.fillStyle = "#ffffff";
+    c.strokeStyle = "#24262d";
+    c.beginPath(); c.arc(930, 300, 140, 0, Math.PI * 2); c.stroke();
+    c.strokeStyle = color;
+    c.beginPath(); c.arc(930, 300, 140, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * data.score) / 100); c.stroke();
     c.textAlign = "center";
-    c.font = font(96, 800);
-    c.fillText(String(data.score), 930, 350);
-    c.fillStyle = "#9aa1b9";
-    c.font = font(26, 600);
-    c.fillText("out of 100", 930, 395);
+    c.fillStyle = "#fafafa";
+    c.font = font(104, 700);
+    c.fillText(String(data.score), 930, 330);
+    c.fillStyle = "#9ca3af";
+    c.font = font(24, 500);
+    c.fillText("out of 100", 930, 372);
     c.fillStyle = color;
-    c.font = font(36, 800);
-    c.fillText("Grade " + data.grade, 930, 545);
+    c.font = font(28, 600);
+    c.fillText("Grade " + data.grade, 930, 482);
     c.textAlign = "left";
 
-    c.font = font(29, 600);
+    c.font = font(28, 500);
     let y = 300;
-    const lines = data.items.length ? data.items.slice(0, 5).map((i) => "✗  " + i.short) : ["✓  Lean, well-described project"];
+    const lines = data.items.length ? data.items.slice(0, 4).map((i) => i.short) : ["Lean, well-described project"];
     for (const line of lines) {
-      c.fillStyle = data.items.length ? "#fca5a5" : "#86efac";
-      c.fillText(line, 70, y);
-      y += 46;
+      c.fillStyle = data.items.length ? "#f59e0b" : "#22c55e";
+      c.beginPath(); c.arc(80, y - 9, 5, 0, Math.PI * 2); c.fill();
+      c.fillStyle = "#d4d4d8";
+      c.fillText(line, 100, y);
+      y += 44;
     }
-    if (data.saving) {
-      c.fillStyle = "#e9ebf5";
-      c.font = font(29, 700);
-      c.fillText("Fixing it saves ~" + data.saving.toLocaleString("en-US") + " tokens", 70, 545);
-    }
-    c.fillStyle = "#a5b4fc";
-    c.font = font(24, 600);
-    c.fillText("Check yours: npx which-ai-to-use score", 70, 590);
+
+    c.fillStyle = "#24262d";
+    c.fillRect(72, 500, 1056, 2);
+    c.fillStyle = "#e4e4e7";
+    c.font = font(26, 600);
+    c.fillText(data.saving ? "Fixing it saves ~" + data.saving.toLocaleString("en-US") + " tokens" : "Nothing to fix", 72, 560);
+    c.textAlign = "right";
+    c.fillStyle = "#60a5fa";
+    c.font = mono(24);
+    c.fillText("npx which-ai-to-use score", 1128, 560);
+    c.textAlign = "left";
     return canvas;
   }
 
@@ -374,7 +417,7 @@ ${bridge === "vscode" ? `<meta http-equiv="Content-Security-Policy" content="def
               el("span", { class: "num", text: String(i + 1) }),
               el("div", {},
                 el("div", { text: issue.problem }),
-                el("div", { class: "fix", text: "→ " + issue.fix.replace("npx which-ai-to-use fix", "click Fix wasted tokens") }),
+                el("div", { class: "fix", text: "→ " + issue.fix.replace("npx which-ai-to-use fix", "click Fix tokens") }),
                 issue.kind === "heavy-files" ? el("button", { class: "btn small", style: "margin-top:10px", text: "Fix it", onclick: () => show("fix") }) : null)))),
         ),
       ];
@@ -398,7 +441,7 @@ ${bridge === "vscode" ? `<meta http-equiv="Content-Security-Policy" content="def
       parts.push(
         el("div", { class: "section-title", text: "② On your laptop: " + yours.map((t) => t.name).join(", ") }),
         el("div", { class: "card mine" },
-          el("h3", {}, data.best.name, el("span", { class: "tag star", text: "★ Best of yours" }), el("span", { class: "tag", text: data.best.where })),
+          el("h3", {}, data.best.name, el("span", { class: "tag star", text: "Best of yours" }), el("span", { class: "tag", text: data.best.where })),
           data.best.id !== o.id ? el("p", { text: sentence(data.best.why) }) : null,
           command(data.best.command),
           data.best.model ? el("p", { text: "Model: " + data.best.model }) : null,
@@ -445,7 +488,7 @@ ${bridge === "vscode" ? `<meta http-equiv="Content-Security-Policy" content="def
       const parts = [canvas, el("div", { class: "form", style: "margin-top:14px" }, download, copy), el("p", { class: "muted", text: data.share })];
       if (data.items.length) {
         parts.push(el("div", { class: "section-title", text: "What costs points" }),
-          el("table", {}, data.items.map((i) => el("tr", {}, el("td", { text: String(i.points).replace("-", "−") }), el("td", {}, el("div", { text: i.label }), el("div", { class: "muted", text: "→ " + i.tip }))))));
+          el("table", { class: "points" }, data.items.map((i) => el("tr", {}, el("td", { text: String(i.points).replace("-", "−") }), el("td", {}, el("div", { text: i.label }), el("div", { class: "muted", text: "→ " + i.tip }))))));
       }
       return parts;
     },
@@ -464,7 +507,7 @@ ${bridge === "vscode" ? `<meta http-equiv="Content-Security-Policy" content="def
     ai(data) {
       if (!data.answer) return [el("div", { class: "consent" }, el("strong", { text: data.fallback + ", so here is the rules answer." }))].concat(RENDER.task(data.rules));
       const a = data.answer;
-      const parts = [el("p", { class: "muted", text: "🤖 Answer from " + data.runner.name + " (asked with no tools). Rules answer: " + data.rules.overall.name + " / " + data.rules.best.name + "." })];
+      const parts = [el("p", { class: "muted", text: "Answer from " + data.runner.name + " (asked with no tools). Rules answer: " + data.rules.overall.name + " / " + data.rules.best.name + "." })];
       parts.push(el("div", { class: "section-title", text: "① Best AI for this task (any tool)" }),
         el("div", { class: "card best" },
           el("h3", {}, a.bestAnywhereName, el("span", { class: "tag " + (a.bestAnywhereInstalled ? "yes" : "no"), text: a.bestAnywhereInstalled ? "✓ On your laptop" : "✗ Not on your laptop" })),
@@ -493,6 +536,24 @@ ${bridge === "vscode" ? `<meta http-equiv="Content-Security-Policy" content="def
       ];
     },
   };
+
+  // A short guide for first-time users. Static, so it works without asking the engine anything.
+  function guide() {
+    const inSidebar = Boolean(vscodeApi);
+    const step = (title, text, cli) => el("div", { class: "card" }, el("h3", { text: title }), el("p", { text }), inSidebar ? null : command(cli));
+    return [
+      el("p", { class: "muted", style: "margin:0 0 12px", text: "which-ai-to-use looks at this project and the AI tools on this laptop. Nothing leaves your laptop unless you allow Ask my AI too." }),
+      el("div", { class: "grid" },
+        step("1. Check your project", "Checkup lists the files and add-ons your AI reads that cost tokens, and your setup score.", "npx which-ai-to-use"),
+        step("2. Stop wasting tokens", "Fix tokens shows which heavy files your AI tools will skip. Nothing changes until you click Apply; your code is never touched.", "npx which-ai-to-use fix"),
+        step("3. Starting a task?", "Pick an AI: describe the task to get the best AI and model, the files to start with, and a command to copy.", 'npx which-ai-to-use "add a coupon field to the cart"'),
+        step("4. Claude's limit ran out?", "Limit over? writes HANDOFF.md, so Gemini CLI, Codex or a chat like ChatGPT carries on instead of starting over.", "npx which-ai-to-use handoff --copy"),
+        step("5. Know when it resets", "Usage shows when your current 5-hour Claude window resets and how much you used today.", "npx which-ai-to-use usage"),
+        step("6. Share your score", "Score card makes an image of your AI setup score to post.", "npx which-ai-to-use score --card"),
+      ),
+      el("p", { class: "muted", style: "margin:14px 0 0", text: inSidebar ? "Prefer the keyboard? Every action is also in the Command Palette: type Which AI." : "Everything here also works in the terminal, and in VS Code as the Which AI sidebar." }),
+    ];
+  }
 
   async function load(action, body = {}, applied = false) {
     const response = await call(action, body);
@@ -523,6 +584,7 @@ ${bridge === "vscode" ? `<meta http-equiv="Content-Security-Policy" content="def
     status.textContent = "";
     if (view === "task") $("task").focus();
     else if (view === "handoff") $("handoff-task").focus();
+    else if (view === "guide") result.replaceChildren(...guide());
     else if (view !== "slim") load(view);
   }
 
@@ -562,7 +624,10 @@ ${bridge === "vscode" ? `<meta http-equiv="Content-Security-Policy" content="def
   $("handoff-task").addEventListener("keydown", (e) => e.key === "Enter" && $("write-handoff").click());
   // "?view=score" (from "score --card") opens a view directly; anything unknown falls back to the checkup.
   const first = new URLSearchParams(location.search).get("view");
-  show(Object.hasOwn(VIEWS, first) && first !== "task" && first !== "handoff" ? first : "checkup");
+  const opening = Object.hasOwn(VIEWS, first) && first !== "task" && first !== "handoff" ? first : "checkup";
+  show(opening);
+  // The summary boxes come from the checkup, so fill them when another view opens first.
+  if (opening !== "checkup") refreshStats();
 </script>
 </body>
 </html>

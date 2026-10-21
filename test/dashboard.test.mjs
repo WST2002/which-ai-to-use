@@ -143,7 +143,11 @@ test("the page talks to the local server by default and to VS Code only in the s
   assert.match(sidebar, /const vscodeApi = acquireVsCodeApi\(\);/);
   assert.match(sidebar, /content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'nonce-n0nce';"/);
   assert.match(sidebar, /<script nonce="n0nce">/);
-  assert.match(sidebar, /body\.vscode-dark, body\.vscode-high-contrast \{/);
+  assert.match(sidebar, /--accent: var\(--vscode-button-background\)/, "the sidebar takes its colours from the VS Code theme");
+  assert.doesNotMatch(sidebar, /prefers-color-scheme|<header class="top">/);
+  assert.match(browser, /prefers-color-scheme: dark/);
+  assert.doesNotMatch(browser, /--vscode-/);
+  for (const page of [browser, sidebar]) assert.doesNotMatch(page, /[\u{1F300}-\u{1FAFF}]/u, "no emoji in the interface");
 });
 
 test("the usage view gets the 5-hour window line", async (t) => {
@@ -153,4 +157,13 @@ test("the usage view gets the 5-hour window line", async (t) => {
   fs.writeFileSync(path.join(dir, ".claude", "projects", "p", "s.jsonl"), `${log}\n`);
   const usage = await (await call("usage")).json();
   assert.match(usage.data.windowText, /^~1,000 tokens in 1 reply since \d\d:\d\d · resets about \d\d:\d\d/);
+});
+
+test("the menu has a How to use guide and line icons, and other views still fill the summary", async () => {
+  const { dashboardPage } = await import("../src/dashboard-page.mjs");
+  const page = dashboardPage({ token: "t", project: "shop", version: "1" });
+  assert.match(page, /data-view="guide" title="How to use"><svg class="i"/);
+  assert.equal((page.match(/<button class="nav-btn"/g) ?? []).length, 10);
+  assert.match(page, /step\("4\. Claude's limit ran out\?"/);
+  assert.match(page, /if \(opening !== "checkup"\) refreshStats\(\);/);
 });
