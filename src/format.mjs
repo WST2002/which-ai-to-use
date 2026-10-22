@@ -130,6 +130,34 @@ export function formatScore(result) {
   return `${lines.join("\n")}\n`;
 }
 
+/** 1234 → "1.2k", 3400000 → "3.4M". */
+export const shortNumber = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : String(n)).replace(".0", "");
+
+const BAR_WIDTH = 24;
+
+/** The last 7 days next to the week before: tokens per day as bars, limit hits, requests per AI and a line to share. */
+export function formatReport(report) {
+  const lines = ["Your AI week (last 7 days)", ""];
+  const used = report.tools.filter((t) => t.requests);
+  if (!report.week.replies && !used.length) {
+    return "No AI use found on this laptop in the last 7 days (Claude Code, Codex CLI and Gemini CLI logs).\n";
+  }
+  if (report.week.replies) {
+    const change = report.change === null ? "" : `  (${report.change >= 0 ? "↑" : "↓"} ${Math.abs(report.change)}% vs the week before)`;
+    lines.push(`Claude Code: ~${report.week.fresh.toLocaleString("en-US")} tokens in ${report.week.replies} replies${change}`, "");
+    const most = Math.max(...report.days.map((d) => d.fresh), 1);
+    for (const day of report.days) lines.push(`  ${day.label}  ${"█".repeat(Math.round((day.fresh / most) * BAR_WIDTH)).padEnd(BAR_WIDTH)}  ${shortNumber(day.fresh)}`);
+    lines.push("");
+    if (report.busiest) lines.push(`Busiest day:      ${report.busiest.label} (~${report.busiest.fresh.toLocaleString("en-US")} tokens)`);
+    lines.push(`Limit ran out:    ${report.limits ? `${report.limits} time${report.limits === 1 ? "" : "s"}` : "not recorded (the Claude Code plugin records it)"}`);
+    if (report.projects.length) lines.push(`Busiest projects: ${report.projects.map((p) => `${p.project} ~${shortNumber(p.fresh)}`).join(", ")}`);
+  }
+  if (used.length) lines.push(`Requests:         ${used.map((t) => `${t.name} ${t.requests} in ${t.chats} chat${t.chats === 1 ? "" : "s"}`).join(" · ")}`);
+  lines.push("", "Share it:", `  ${report.share}`, "", `Post on X:         ${report.links.x}`, `Post on LinkedIn:  ${report.links.linkedin}`);
+  lines.push("", "Read from the AIs' own logs on this laptop: only numbers, never your messages.");
+  return `${lines.join("\n")}\n`;
+}
+
 /** "~1,510 tokens before any work (CLAUDE.md ~1,000 · files ~500 · prompt ~10) + 3 add-ons; the work itself uses more". */
 export function costLine(cost) {
   const parts = [cost.instructions && `${cost.instructions.file} ~${cost.instructions.tokens.toLocaleString("en-US")}`, cost.files && `files ~${cost.files.toLocaleString("en-US")}`, `prompt ~${cost.prompt.toLocaleString("en-US")}`].filter(Boolean);

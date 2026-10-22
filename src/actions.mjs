@@ -3,9 +3,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { classifyTask } from "./classify.mjs";
 import { applyIgnoreAdvice } from "./fix.mjs";
-import { LABELS, checkupIssues, formatAiAnswer, formatCheckup, formatDoctor, formatRecommendation, formatScore, formatTokens, formatUsage, limitWarning, resetTime, stretchTips, usageTip, windowLine } from "./format.mjs";
+import { LABELS, checkupIssues, formatAiAnswer, formatCheckup, formatDoctor, formatRecommendation, formatReport, formatScore, formatTokens, formatUsage, limitWarning, resetTime, shortNumber, stretchTips, usageTip, windowLine } from "./format.mjs";
 import { setupScore } from "./score.mjs";
 import { claudeUsage } from "./usage.mjs";
+import { weeklyReport } from "./report.mjs";
 import { copyFileToClipboard } from "./clipboard.mjs";
 import { lastChat } from "./chat.mjs";
 import { collectHandoff, handoffTask, renderHandoff } from "./handoff.mjs";
@@ -154,6 +155,15 @@ export function usageAction({ home, installed, now = new Date() }) {
   const usage = claudeUsage({ home, now });
   const warning = limitWarning(usage, installed);
   return { text: formatUsage(usage, installed, now), data: { ...usage, tip: usageTip(usage, installed), windowText: windowLine(usage.window, now), warning, tips: warning ? stretchTips(installed) : [] } };
+}
+
+/** The last 7 days of AI use next to the week before, with a line to share. */
+export function reportAction({ home, now = new Date() }) {
+  const report = weeklyReport({ home, now });
+  const parts = [report.week.fresh && `~${shortNumber(report.week.fresh)} tokens with Claude Code`, ...report.tools.filter((t) => t.tool !== "claude-code" && t.requests).map((t) => `${t.requests} ${t.name} requests`)].filter(Boolean);
+  report.share = `My AI coding week: ${parts.join(", ") || "a quiet one"}. Tracked with which-ai-to-use: npx which-ai-to-use report`;
+  report.links = shareLinks(report.share);
+  return { text: formatReport(report), data: report };
 }
 
 export function doctorAction({ cwd, installed }) {

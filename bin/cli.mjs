@@ -7,7 +7,7 @@ import os from "node:os";
 import { parseArgs } from "node:util";
 import { startDashboard } from "../src/dashboard.mjs";
 import { detectTools } from "../src/detect.mjs";
-import { aiAction, checkupAction, doctorAction, fixAction, handoffAction, installChoice, newcomerAction, offerFix, recommendAction, scoreAction, slimAction, tokensAction, usageAction } from "../src/actions.mjs";
+import { aiAction, checkupAction, doctorAction, fixAction, handoffAction, installChoice, newcomerAction, offerFix, recommendAction, reportAction, scoreAction, slimAction, tokensAction, usageAction } from "../src/actions.mjs";
 import { formatSyncPlan } from "../src/format.mjs";
 import { RULES_FILES } from "../src/project.mjs";
 import { copyFileToClipboard } from "../src/clipboard.mjs";
@@ -34,6 +34,7 @@ More:
   which-ai-to-use tokens              Token details: instructions files, heavy files, add-ons (MCP servers)
   which-ai-to-use doctor              Installed AI tools and instructions files in this project
   which-ai-to-use usage               When Claude's 5-hour window resets, tokens today and this week (numbers only, from local logs)
+  which-ai-to-use report              Your AI week: tokens per day vs the week before, limit hits, requests per AI, a line to share
   which-ai-to-use slim                Ask your AI for a shorter CLAUDE.md (asks first; writes CLAUDE.slim.md, --apply to swap)
   which-ai-to-use sync                Copy AGENTS.md to every installed AI's instructions file
 
@@ -303,6 +304,7 @@ async function main() {
   if (command === "doctor") return print(doctorAction(context));
   if (command === "tokens") return print(tokensAction(context));
   if (command === "usage") return print(usageAction(context));
+  if (command === "report") return print(reportAction(context));
   if (command === "score") return values.card ? runDashboard(values, "score") : print(scoreAction(context));
   if (command === "slim") return runSlim(values, context, print);
   // Handoff is for when Claude's limit is over, so Claude Code is left out unless --without names another tool.
