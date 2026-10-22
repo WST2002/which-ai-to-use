@@ -144,7 +144,13 @@ test("handoff choices put the recommended AI first, then the others, the web and
   const { handoffChoices } = await import("../src/actions.mjs");
   const next = recommend({ ...base, task: "Read HANDOFF.md and continue the task.", installed: [found("gemini-cli"), found("codex"), viaExtension("github-copilot")] });
   const choices = handoffChoices(next);
-  assert.deepEqual(choices.map((c) => c.id), [next.best.id, ...choices.slice(1, -2).map((c) => c.id), "web", "none"]);
+  assert.deepEqual(choices.slice(-3).map((c) => c.id), ["web", "other", "none"]);
+  assert.equal(choices[0].id, next.best.id);
+  const suggested = handoffChoices(next, { id: "aider", name: "Aider", why: "a general coding assistant", command: "aider", install: "python -m pip install aider-install && aider-install" });
+  const aider = suggested.find((c) => c.id === "aider");
+  assert.deepEqual([aider.installed, aider.recommended, aider.install], [false, false, "python -m pip install aider-install && aider-install"]);
+  assert.match(aider.why, /not installed yet$/);
+  assert.equal(handoffChoices(next, { id: next.best.id, name: "x", why: "y", command: "z" }).filter((c) => c.id === next.best.id).length, 1, "an installed AI is never also suggested");
   assert.equal(choices.filter((c) => c.recommended).length, 1);
   assert.ok(choices[0].recommended);
   assert.ok(!choices.some((c) => c.id === "github-copilot"), "editor-only tools cannot be started from a terminal");
