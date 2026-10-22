@@ -1,7 +1,7 @@
 {
   "name": "which-ai-to-use",
   "displayName": "Which AI to Use",
-  "description": "See what wastes your AI tokens, your AI setup score, which AI and model to use for a task, and hand work to another AI when Claude's limit runs out. Runs locally.",
+  "description": "See what wastes your AI tokens, your AI setup score, which AI and model to use for a task, tips when Claude's limit is close, hand work to another AI when it runs out, and your AI week. Runs locally.",
   "version": "0.1.0",
   "publisher": "wst2002",
   "license": "MIT",

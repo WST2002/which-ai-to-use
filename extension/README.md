@@ -10,7 +10,8 @@ Click the **✦ Which AI** icon in the Activity Bar (left edge). The sidebar sho
 - **Checkup** and **Fix wasted tokens** (preview first, nothing changes until you click Apply)
 - **Which AI for a task?**: the best AI and model, with a Copy button for the command
 - **Claude limit over?**: writes HANDOFF.md so another AI carries on
-- **Score card** you can save as an image, token details, usage and installed tools
+- **Score card** you can save as an image, token details, usage (with tips when Claude's limit is close) and installed tools
+- **Your AI week**: tokens per day next to the week before, limit hits and requests per AI, with a line to share
 
 With **Ask my AI too**, the sidebar shows exactly what would be sent and asks before using an AI you already have.
 

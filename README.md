@@ -2,11 +2,11 @@
 
 **Not a developer?** Use the website: [wst2002.github.io/which-ai-to-use](https://wst2002.github.io/which-ai-to-use/) — type any task (an essay, a logo, slides, a song, research, studying from your notes) and get the best AI app, the free option and a ready prompt. English and हिंदी, free, no signup.
 
-Use your AI coding tools better. See what wastes your tokens, pick the right AI (and model) for each task, and hand a task to another AI when Claude's limit runs out.
+Use your AI coding tools better. See what wastes your tokens, pick the right AI (and model) for each task, make Claude's limit last, hand a task to another AI when it runs out, and see your AI week.
 
-![which-ai-to-use: the checkup finds ~92,000 wasted tokens, fix raises the AI setup score from 77 to 100, and handoff passes the task to Gemini CLI when Claude hits its limit](media/which-ai-to-use-demo.gif)
+![which-ai-to-use: the checkup finds ~102,000 wasted tokens, fix raises the AI setup score from 74 to 100, usage warns that Claude's window is at 90% with four ways to make it last, handoff reads the Claude Code chat and passes the task to Gemini CLI, and report shows the AI week as bars](media/which-ai-to-use-demo.gif)
 
-*Real output on a demo project: checkup, fix, score, and a handoff when Claude's limit runs out.*
+*Real output on a demo project: checkup, fix, score, the limit warning with tips, a handoff that reads the chat, and your AI week.*
 
 ## Start here
 
@@ -57,13 +57,17 @@ Nothing is sent anywhere: it only looks at your laptop and your project.
 
 **How good is your setup?** `npx which-ai-to-use score`. Add `--card` to open the score card image, ready to download and post:
 
-![AI setup score card: 77 out of 100, grade B, heavy files ~92,459 tokens, and the command to check yours](media/score-card.png)
+![AI setup score card: 74 out of 100, grade C, heavy files ~102,580 tokens, and the command to check yours](media/score-card.png)
+
+**How was your week?** `npx which-ai-to-use report`, or **Your AI week** in the dashboard: tokens per day next to the week before, how often the limit ran out, and requests per AI, with a line to share:
+
+![Your AI week in the dashboard: ~437,000 Claude Code tokens, up 94% on the week before, bars for each day, the limit ran out once, and requests in Claude Code and Gemini CLI](media/report.png)
 
 ## VS Code extension
 
 <img src="media/sidebar.png" width="300" align="right" alt="The Which AI sidebar in VS Code, in the editor's own dark theme: menu, summary and checkup">
 
-The same features inside VS Code: a **Which AI** sidebar with the full dashboard (score, checkup, fix, task advice, handoff, score card), the score and tokens at risk in the status bar, and **Which AI** commands in the Command Palette. It lives in [`extension/`](extension) and is tested inside a real VS Code. Install it with `npx which-ai-to-use setup`, which also sets up the terminal command.
+The same features inside VS Code: a **Which AI** sidebar with the full dashboard (score, checkup, fix, task advice, handoff, score card, your AI week), the score and tokens at risk in the status bar, and **Which AI** commands in the Command Palette. It lives in [`extension/`](extension) and is tested inside a real VS Code. Install it with `npx which-ai-to-use setup`, which also sets up the terminal command.
 
 <br clear="right">
 

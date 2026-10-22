@@ -42,7 +42,6 @@ try {
   console.error(`Extension tests failed: ${error.message ?? error}`);
   process.exitCode = 1;
 } finally {
-  fs.rmSync(project, { recursive: true, force: true });
-  fs.rmSync(bin, { recursive: true, force: true });
-  fs.rmSync(home, { recursive: true, force: true });
+  // VS Code can still be writing to these folders while it exits, so removing them is retried for a moment.
+  for (const dir of [project, bin, home]) fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 }
