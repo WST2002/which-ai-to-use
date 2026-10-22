@@ -351,3 +351,21 @@ test("score --card opens the dashboard straight on the score card", async (t) =>
     await exited;
   }
 });
+
+test("handoff with no task reads the Claude Code chat for this project", (t) => {
+  const { project, run } = gitProject(t, ["claude", "gemini"]);
+  const home = path.join(project, "..", "home");
+  const line = (type, text) => JSON.stringify({ type, cwd: project, message: { role: type, content: text } });
+  fs.mkdirSync(path.join(home, ".claude", "projects", "shop"), { recursive: true });
+  fs.writeFileSync(path.join(home, ".claude", "projects", "shop", "s.jsonl"), [
+    line("user", "Add a pricing section to the landing page, api_key=abc123secret"),
+    line("assistant", [{ type: "text", text: "Pricing cards are done; the FAQ is still empty." }]),
+  ].join("\n"));
+  const result = run("handoff");
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Read the Claude Code chat: "Add a pricing section to the landing page, api_key=\[hidden\]" \(1 request\)\./);
+  const note = fs.readFileSync(path.join(project, "HANDOFF.md"), "utf8");
+  assert.match(note, /^Task: Add a pricing section to the landing page/m);
+  assert.match(note, /Where Claude stopped: "Pricing cards are done; the FAQ is still empty\."/);
+  assert.doesNotMatch(note, /abc123secret/);
+});
