@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { classifyTask } from "./classify.mjs";
 import { applyIgnoreAdvice } from "./fix.mjs";
-import { LABELS, checkupIssues, formatAiAnswer, formatCheckup, formatDoctor, formatRecommendation, formatScore, formatTokens, formatUsage, usageTip, windowLine } from "./format.mjs";
+import { LABELS, checkupIssues, formatAiAnswer, formatCheckup, formatDoctor, formatRecommendation, formatScore, formatTokens, formatUsage, limitWarning, resetTime, usageTip, windowLine } from "./format.mjs";
 import { setupScore } from "./score.mjs";
 import { claudeUsage } from "./usage.mjs";
 import { copyFileToClipboard } from "./clipboard.mjs";
@@ -144,12 +144,48 @@ export async function slimAction({ cwd, installed, consent = false, apply = fals
 
 export function usageAction({ home, installed, now = new Date() }) {
   const usage = claudeUsage({ home, now });
-  return { text: formatUsage(usage, installed, now), data: { ...usage, tip: usageTip(usage, installed), windowText: windowLine(usage.window, now) } };
+  return { text: formatUsage(usage, installed, now), data: { ...usage, tip: usageTip(usage, installed), windowText: windowLine(usage.window, now), warning: limitWarning(usage, installed) } };
 }
 
 export function doctorAction({ cwd, installed }) {
   const project = scanProject(cwd);
   return { text: formatDoctor(installed, project), data: { installed, project } };
+}
+
+const WEBSITE = "https://wst2002.github.io/which-ai-to-use/";
+
+/**
+ * No AI tool on this laptop: from the task, the best AI to get, the best one with an install command, and a free
+ * one, each with how to install it and the command that then starts the task.
+ */
+export function newcomerAction({ cwd, task, prefer = "balanced", private: forcePrivate = false }) {
+  const clean = String(task ?? "").trim();
+  if (!clean) throw new Error('task is empty: say what you want to do, e.g. "build a landing page"');
+  const { sensitive } = scanProject(cwd);
+  const files = relevantFiles(clean, listProjectFiles(cwd));
+  const prompt = betterPrompt(clean, files, verifyCommand(cwd));
+  const categories = classifyTask(clean);
+  const rank = (tools) =>
+    recommend({ task: clean, prompt, files, categories, sensitive, prefer, private: forcePrivate, installed: tools.map((tool) => ({ id: tool.id, onPath: true, via: [tool.detect.bins.length ? `command: ${tool.detect.bins[0]}` : "extension: vscode"] })) }).best;
+  const option = (entry, label) => {
+    const tool = toolById(entry.id);
+    return { id: tool.id, name: tool.name, label, why: entry.why, free: Boolean(tool.capabilities.freeTier || tool.capabilities.local), install: tool.install ?? null, homepage: tool.homepage, command: tool.install ? entry.command : null };
+  };
+  const seen = new Set();
+  const options = [
+    [rank(TOOLS), "Best for this task"],
+    [rank(TOOLS.filter((tool) => tool.install)), "Best you can install from the terminal"],
+    [rank(TOOLS.filter((tool) => tool.capabilities.freeTier || tool.capabilities.local)), "Free option"],
+  ].filter(([entry]) => entry && !seen.has(entry.id) && seen.add(entry.id)).map(([entry, label]) => option(entry, label));
+
+  const lines = [`No AI coding tool was found on this laptop. For "${clean}"  →  ${categories.map((c) => LABELS[c] ?? c).join(", ")}:`, ""];
+  options.forEach((o, i) => {
+    lines.push(`${i + 1}. ${o.label}: ${o.name}${o.free ? " (free)" : ""}, ${o.why}.`);
+    lines.push(o.install ? `   Install: ${o.install}` : `   Get it: ${o.homepage.replace(/^https:\/\//, "")}`);
+    if (o.command) lines.push(`   Then:    ${o.command}`);
+  });
+  lines.push("", `Not into terminals? The website suggests AI apps for any task: ${WEBSITE}`);
+  return { text: `${lines.join("\n")}\n`, data: { task: clean, labels: categories.map((c) => LABELS[c] ?? c), options, website: WEBSITE } };
 }
 
 export function recommendAction({ cwd, home, task, installed, prefer = "balanced", private: forcePrivate = false }) {
@@ -180,17 +216,17 @@ export function handoffAction({ cwd, home, task = "", installed, leftOut = [], c
   const file = path.join(info.root, "HANDOFF.md");
   // The Claude Code chat says what was asked and where it stopped, so nobody has to type the task again.
   const chat = home ? lastClaudeChat({ home, cwd: info.root }) : null;
-  const note = renderHandoff({ task, info, verify: verifyCommand(info.root), date, chat });
+  // Leaving Claude because its limit is over: remember when it resets, so the work can come back to it.
+  const fromClaude = leftOut.includes("claude-code");
+  const resets = fromClaude && home ? (claudeUsage({ home }).window?.end ?? null) : null;
+  const note = renderHandoff({ task, info, verify: verifyCommand(info.root), date, chat, from: fromClaude ? "claude-code" : null, resets });
   fs.writeFileSync(file, note);
-  const { sensitive } = scanProject(info.root);
-  const available = installed.filter((found) => !leftOut.includes(found.id));
-  const next = recommend({ task: CONTINUE, categories: classifyTask(task || chat?.task || ""), installed: available, sensitive, prefer, private: forcePrivate });
+  const { next, choices } = planNext({ root: info.root, task, chat, installed, leftOut, prefer, forcePrivate });
   const lines = [];
   if (chat) lines.push(`Read the Claude Code chat: "${chat.task.length > 70 ? `${chat.task.slice(0, 69)}…` : chat.task}" (${chat.requests} request${chat.requests === 1 ? "" : "s"}).`);
   lines.push(`Wrote HANDOFF.md: ${info.changes.length} changed file(s), ${info.commits.length} commit(s) on ${info.branch}.`, "");
   if (leftOut.length) lines.push(`Left out: ${leftOut.map((id) => toolById(id).name).join(", ")} (limit over). Handing off from another AI? Add --without <tool>.`, "");
-  const categories = classifyTask(task || chat?.task || "");
-  const choices = handoffChoices(next, installSuggestion({ installed, leftOut, categories, sensitive, prefer, forcePrivate }));
+  if (resets) lines.push(`Claude's limit resets about ${resetTime(resets)}. Then hand the task back: npx which-ai-to-use handoff --back`, "");
   if (!menu) {
     if (next.best) lines.push(`Next:    ${next.best.name} — ${next.best.reason}`, `Run:     ${next.best.command}`);
     else lines.push(...NO_OTHER_AI);
@@ -200,6 +236,20 @@ export function handoffAction({ cwd, home, task = "", installed, leftOut = [], c
   } else if (!next.best && !menu) lines.push("", "Add --copy to put HANDOFF.md on your clipboard.");
   if (!menu) lines.push("", "HANDOFF.md is for the next AI only: don't commit it.");
   return { text: `${lines.join("\n")}\n`, data: { file: "HANDOFF.md", ...info, next, choices, note, chat: chat && { task: chat.task, requests: chat.requests } } };
+}
+
+function planNext({ root, task, chat, installed, leftOut, prefer, forcePrivate }) {
+  const { sensitive } = scanProject(root);
+  const categories = classifyTask(task || chat?.task || "");
+  const available = installed.filter((found) => !leftOut.includes(found.id));
+  const next = recommend({ task: CONTINUE, categories, installed: available, sensitive, prefer, private: forcePrivate });
+  return { next, choices: handoffChoices(next, installSuggestion({ installed, leftOut, categories, sensitive, prefer, forcePrivate })) };
+}
+
+/** Who can carry on, without writing a note: VS Code uses it when the Claude Code plugin has already written one. */
+export function nextChoices({ cwd, home, installed, leftOut = ["claude-code"], task = "" }) {
+  const chat = home ? lastClaudeChat({ home, cwd }) : null;
+  return planNext({ root: cwd, task, chat, installed, leftOut, prefer: "balanced", forcePrivate: false }).choices;
 }
 
 /**

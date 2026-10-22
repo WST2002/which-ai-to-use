@@ -4,6 +4,7 @@ import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { handoffMeta } from "../src/handoff.mjs";
 
 const cli = path.resolve(import.meta.dirname, "../bin/cli.mjs");
 
@@ -417,4 +418,45 @@ test("handoff to an AI that is not installed shows how to install it, and instal
 test("handoff to another AI says what to tell it", (t) => {
   const result = gitProject(t, ["claude", "gemini"]).run("handoff", "add coupons", "--to", "other");
   assert.match(result.stdout, /Start your AI in this folder and tell it: "Read HANDOFF\.md and continue the task\."/);
+});
+
+test("handing off from Claude notes when its limit resets, and --back hands the task back", (t) => {
+  const { project, run } = gitProject(t, ["claude", "gemini"]);
+  const home = path.join(project, "..", "home");
+  fs.mkdirSync(path.join(home, ".claude", "projects", "p"), { recursive: true });
+  const at = new Date(Date.now() - 30 * 60000).toISOString();
+  fs.writeFileSync(path.join(home, ".claude", "projects", "p", "s.jsonl"), JSON.stringify({ type: "assistant", timestamp: at, cwd: project, message: { id: "m1", usage: { input_tokens: 10, output_tokens: 5 } } }));
+  const away = run("handoff", "add coupons", "--to", "none");
+  assert.match(away.stdout, /Claude's limit resets about \d\d:\d\d \(in (\d h )?\d+ min\)\. Then hand the task back: npx which-ai-to-use handoff --back/);
+  const meta = handoffMeta(fs.readFileSync(path.join(project, "HANDOFF.md"), "utf8"));
+  assert.equal(meta.from, "claude-code");
+  assert.ok(meta.resets > Date.now());
+  const log = loggingStandIn(project, "claude");
+  const back = run("handoff", "--back");
+  assert.equal(back.status, 0, back.stderr);
+  assert.match(back.stdout, /Starting Claude Code: claude /);
+  assert.doesNotMatch(back.stdout, /Left out:/);
+  assert.match(fs.readFileSync(log, "utf8"), /Read HANDOFF\.md and continue the task\./);
+});
+
+test("--back without Claude Code says so", (t) => {
+  const result = gitProject(t, ["gemini"]).run("handoff", "--back");
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /--back needs Claude Code on this laptop, and it was not found/);
+});
+
+test("with no AI installed, a task gets the AI to install, a free one and the website", (t) => {
+  const result = machine(t).run("build a landing page");
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^No AI coding tool was found on this laptop\. For "build a landing page"/);
+  assert.match(result.stdout, /1\. Best for this task: Claude Code, .+\n\s+Install: npm install -g @anthropic-ai\/claude-code\n\s+Then:\s+claude "build a landing page/);
+  assert.match(result.stdout, /Free option: Gemini CLI \(free\)/);
+  assert.match(result.stdout, /https:\/\/wst2002\.github\.io\/which-ai-to-use\//);
+});
+
+test("with no AI installed, --json gives the options", (t) => {
+  const { options } = JSON.parse(machine(t).run("fix the login bug", "--json").stdout);
+  assert.ok(options.length >= 2);
+  assert.ok(options.every((o) => o.homepage.startsWith("https://")));
+  assert.ok(options.some((o) => o.free && o.install));
 });

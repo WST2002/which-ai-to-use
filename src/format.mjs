@@ -15,7 +15,8 @@ export const LABELS = {
   "security-sensitive": "risky (security, payments, data)",
 };
 
-const freeToolNames = (installed) => installed.filter((found) => TOOLS.find((tool) => tool.id === found.id)?.capabilities.freeTier || found.id === "ollama").map((found) => found.name);
+const freeToolNames = (installed) =>
+  installed.map((found) => TOOLS.find((tool) => tool.id === found.id)).filter((tool) => tool && (tool.capabilities.freeTier || tool.id === "ollama")).map((tool) => tool.name);
 
 /** A tip only when today is well above the daily average of the last 7 days. */
 export function usageTip(usage, installed) {
@@ -26,12 +27,31 @@ export function usageTip(usage, installed) {
   return `Today is ${(usage.today.fresh / average).toFixed(1)}× your daily average. Send small tasks to ${where} to save your Claude limit.`;
 }
 
+const WARN_SHARE = 0.8;
+// Below this a "busiest window" says little about the limit, so no warning is given.
+const MIN_REFERENCE = 20000;
+
+/** A heads-up when the current 5-hour window is close to where the limit ran out, or to the busiest window. */
+export function limitWarning(usage, installed) {
+  const { window, limit } = usage;
+  if (!window || !limit || limit.tokens < MIN_REFERENCE) return null;
+  const share = window.fresh / limit.tokens;
+  if (share < WARN_SHARE) return null;
+  const free = freeToolNames(installed);
+  const where = free.length ? `${free[0]} (free)` : "Claude with --model haiku";
+  const reference = limit.source === "limit" ? "what you had used when your limit ran out last time" : "your busiest 5-hour window this week";
+  return `This window is at ${Math.round(share * 100)}% of ${reference} (~${limit.tokens.toLocaleString("en-US")} tokens); it resets about ${clock(window.end)}. Send small tasks to ${where} to make it last.`;
+}
+
 const clock = (ms) => new Date(ms).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
 function duration(ms) {
   const minutes = Math.max(1, Math.round(ms / 60000));
   return minutes >= 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`;
 }
+
+/** "19:00 (in 2 h 5 min)" */
+export const resetTime = (end, now = new Date()) => `${clock(end)} (in ${duration(end - now.getTime())})`;
 
 /** "~1,200 tokens in 4 replies since 14:00 · resets about 19:00 (in 1 h 12 min)", or how a new window starts. */
 export function windowLine(window, now = new Date()) {
@@ -49,6 +69,7 @@ export function formatUsage(usage, installed, now = new Date()) {
     "",
     "5-hour limit window (estimate)",
     `  ${windowLine(usage.window, now)}`,
+    ...(limitWarning(usage, installed) ? [`  ⚠ ${limitWarning(usage, installed)}`] : []),
     "",
     line("Today:", usage.today),
     line("Last 7 days:", usage.week),

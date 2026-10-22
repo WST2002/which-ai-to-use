@@ -345,7 +345,9 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
     }
   }
 
+  let toolsFound = null;
   function updateStats(data) {
+    toolsFound = data.installed.length;
     $("stat-tools").textContent = data.installed.length;
     $("stat-tool-chips").replaceChildren(...data.installed.map((t) => el("span", { class: "chip", text: t.name })));
     const atRisk = data.issues.reduce((sum, i) => sum + i.tokens, 0);
@@ -430,6 +432,16 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
   const RENDER = {
     checkup(data) {
       updateStats(data);
+      // No AI on this laptop yet: ask what they want to do and suggest one, before anything else.
+      if (!data.installed.length) {
+        const input = el("input", { type: "text", id: "newcomer-task", placeholder: "What do you want to do? e.g. build a landing page", "aria-label": "What do you want to do?" });
+        const go = el("button", { class: "btn", text: "Suggest an AI", onclick: () => load("newcomer", { task: input.value }) });
+        input.addEventListener("keydown", (e) => e.key === "Enter" && go.click());
+        return [el("div", { class: "card best" },
+          el("h3", { text: "No AI coding tool found on this laptop" }),
+          el("p", { text: "Say what you want to do and you get the AI that suits it, a free option, and how to install each." }),
+          el("div", { class: "form", style: "margin:10px 0 0" }, input, go))];
+      }
       if (!data.issues.length) return [el("div", { class: "ok", text: "Nothing is wasting your tokens here." })];
       return [
         el("div", { class: "section-title", text: data.issues.length + (data.issues.length === 1 ? " thing is" : " things are") + " wasting your tokens" }),
@@ -475,6 +487,22 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
       }
       if (data.reviewer) parts.push(el("div", { class: "section-title", text: "Second opinion from " + data.reviewer.name }), command(data.reviewer.command));
       if (data.notes.length) parts.push(el("div", { class: "section-title", text: "Notes" }), ...data.notes.map((n) => el("p", { class: "muted", text: n })));
+      return parts;
+    },
+    newcomer(data) {
+      const parts = [el("p", { class: "muted", text: "No AI tool yet. Task type: " + data.labels.join(", ") + "." })];
+      data.options.forEach((o, i) => {
+        const card = el("div", { class: "card" + (i === 0 ? " best" : ""), style: "margin-bottom:8px" },
+          el("div", { class: "muted", text: o.label }),
+          el("h3", {}, o.name, o.free ? el("span", { class: "tag yes", text: "Free" }) : null),
+          el("p", { text: sentence(o.why) }));
+        if (o.install) {
+          card.append(el("p", { class: "muted", text: "Install it:" }), command(o.install), el("p", { class: "muted", text: "Then start the task:" }), command(o.command));
+          if (vscodeApi) card.append(el("div", { class: "form", style: "margin:8px 0 0" }, el("button", { class: "btn", text: "Install and start in terminal", onclick: () => vscodeApi.postMessage({ type: "runInTerminal", choice: o.id }) })));
+        } else card.append(el("p", {}, el("a", { href: o.homepage, target: "_blank", rel: "noopener", text: "Get " + o.name })));
+        parts.push(card);
+      });
+      parts.push(el("p", { class: "muted" }, "Not into terminals? ", el("a", { href: data.website, target: "_blank", rel: "noopener", text: "The website suggests AI apps for any task." })));
       return parts;
     },
     handoff(data) {
@@ -543,6 +571,7 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
       const stat = (label, bucket) => el("div", { class: "card" }, el("div", { class: "muted", text: label }), el("h3", { text: n(bucket.fresh) + " tokens" }), el("p", { text: bucket.replies + " replies · + " + n(bucket.cached) + " re-read from cache" }));
       const parts = [
         el("div", { class: "card best", style: "margin-bottom:14px" }, el("div", { class: "muted", text: "5-hour limit window (estimate)" }), el("p", { text: data.windowText })),
+        data.warning ? el("div", { class: "consent", style: "margin-bottom:14px" }, el("strong", { text: "Close to your limit" }), el("p", { text: data.warning })) : null,
         el("div", { class: "grid" }, stat("Today", data.today), stat("Last 7 days", data.week)),
       ];
       if (data.projects.length) parts.push(el("div", { class: "section-title", text: "Busiest projects (7 days)" }), el("table", {}, data.projects.map((p) => el("tr", {}, el("td", { text: p.project }), el("td", { text: n(p.fresh) + " tokens" })))));
@@ -646,6 +675,7 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
   let aiAllowed = false;
   async function ask() {
     const task = $("task").value;
+    if (toolsFound === 0) return load("newcomer", { task });
     if (!$("use-ai").checked) return load("task", { task });
     if (aiAllowed) return load("ai", { task, consent: true });
     const preview = await call("ai", { task });

@@ -22,7 +22,11 @@ exports.run = async () => {
 
   await check("status bar shows the score and tokens at risk", async () => {
     await api.refreshStatus();
-    assert.match(api.statusText(), /^\$\(sparkle\) AI \d+\/100 · 10k tokens at risk$/);
+    assert.match(api.statusText(), /^\$\(sparkle\) AI \d+\/100 · 10k tokens at risk · \$\(warning\) limit close$/);
+  });
+
+  await check("a window close to the busiest one warns once, from the made-up usage in the test home", async () => {
+    assert.match(api.lastWarning(), /^This window is at 90% of your busiest 5-hour window this week \(~100,000 tokens\)/);
   });
 
   await check("checkup matches the CLI", async () => {
@@ -86,6 +90,31 @@ exports.run = async () => {
     await api.handleMessage({ type: "runInTerminal", choice: "claude-code" });
     assert.equal(api.lastTerminalCommand(), recommended.command);
     assert.ok(vscode.window.terminals.some((t) => t.name === "Which AI: Claude Code"));
+  });
+
+  await check("a HANDOFF.md written after Claude's limit offers who carries on, then handing back once it resets", async () => {
+    const resets = new Date(Date.now() - 1000).toISOString();
+    fs.writeFileSync(path.join(project, "HANDOFF.md"), `# Handoff
+
+Task: add coupons
+
+<!-- which-ai-to-use: from=claude-code resets=${resets} -->
+`);
+    const wait = async (text) => {
+      for (let i = 0; i < 100 && !api.notices().includes(text); i++) await new Promise((done) => setTimeout(done, 100));
+      assert.ok(api.notices().includes(text), `notices: ${api.notices().join(" | ")}`);
+    };
+    await wait("Claude's limit was reached. HANDOFF.md is ready.");
+    await wait("Claude's limit has reset. Hand the task back to Claude?");
+    await run("whichAi.handBack");
+    assert.match(api.lastTerminalCommand(), /^claude /);
+  });
+
+  await check("with no AI installed, a suggested AI can be installed and started in a terminal", async () => {
+    const reply = await api.handleMessage({ type: "action", id: 11, action: "newcomer", body: { task: "build a landing page" } });
+    const first = reply.data.data.options.find((o) => o.install);
+    await api.handleMessage({ type: "runInTerminal", choice: first.id });
+    assert.equal(api.lastTerminalCommand(), first.command);
   });
 
   await check("handoff writes HANDOFF.md", async () => {

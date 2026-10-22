@@ -1,0 +1,14 @@
+{
+  "name": "limit-handoff",
+  "version": "0.1.0",
+  "description": "When Claude's usage limit is reached, writes HANDOFF.md with which-ai-to-use and tells you how to carry on in another AI.",
+  "author": {
+    "name": "Wageesha Tripathi",
+    "email": "tripathiwageesha2002@gmail.com",
+    "url": "https://www.linkedin.com/in/wst2002/"
+  },
+  "homepage": "https://github.com/WST2002/which-ai-to-use",
+  "repository": "https://github.com/WST2002/which-ai-to-use",
+  "license": "MIT",
+  "keywords": ["usage limit", "handoff", "claude code", "gemini", "codex"]
+}

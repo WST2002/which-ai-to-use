@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import http from "node:http";
 import path from "node:path";
-import { aiAction, checkupAction, doctorAction, fixAction, handoffAction, recommendAction, scoreAction, slimAction, tokensAction, usageAction } from "./actions.mjs";
+import { aiAction, checkupAction, doctorAction, fixAction, handoffAction, newcomerAction, recommendAction, scoreAction, slimAction, tokensAction, usageAction } from "./actions.mjs";
 import { dashboardPage } from "./dashboard-page.mjs";
 import { detectTools } from "./detect.mjs";
 import { toolById } from "./tools.mjs";
@@ -11,6 +11,7 @@ const MAX_BODY = 16 * 1024;
 const ACTIONS = {
   checkup: (context) => checkupAction(context),
   task: (context, body) => recommendAction({ ...context, task: body.task }),
+  newcomer: (context, body) => newcomerAction({ ...context, task: body.task }),
   handoff: (context, body) => handoffAction({ ...context, task: String(body.task ?? "").trim() }),
   fix: (context, body) => fixAction({ ...context, apply: body.apply === true }),
   tokens: (context) => tokensAction(context),

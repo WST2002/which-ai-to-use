@@ -12,8 +12,8 @@ let engine;
 async function load() {
   if (!engine) {
     const lib = (file) => import(pathToFileURL(path.join(__dirname, "lib", "src", file)).href);
-    const [actions, detect, dashboard, page] = await Promise.all([lib("actions.mjs"), lib("detect.mjs"), lib("dashboard.mjs"), lib("dashboard-page.mjs")]);
-    engine = { ...actions, detectTools: detect.detectTools, runAction: dashboard.runAction, dashboardPage: page.dashboardPage };
+    const [actions, detect, dashboard, page, handoff] = await Promise.all([lib("actions.mjs"), lib("detect.mjs"), lib("dashboard.mjs"), lib("dashboard-page.mjs"), lib("handoff.mjs")]);
+    engine = { ...actions, detectTools: detect.detectTools, runAction: dashboard.runAction, dashboardPage: page.dashboardPage, handoffMeta: handoff.handoffMeta };
   }
   return engine;
 }
@@ -51,18 +51,101 @@ async function refreshStatus() {
   if (!status) return;
   if (!vscode.workspace.getConfiguration("whichAi").get("statusBar") || !vscode.workspace.workspaceFolders?.length) return status.hide();
   try {
-    const { checkupAction } = await load();
+    const { checkupAction, usageAction } = await load();
     const { data } = checkupAction(await context());
+    const usage = usageAction(await context()).data;
     const atRisk = data.issues.reduce((sum, issue) => sum + issue.tokens, 0);
-    status.text = `$(sparkle) AI ${data.score.score}/100${atRisk ? ` · ${Math.round(atRisk / 1000)}k tokens at risk` : ""}`;
-    status.tooltip = data.issues.length ? `${data.issues.map((i) => `• ${i.problem}`).join("\n")}\n\nClick for options.` : "Nothing is wasting your tokens. Click for options.";
+    status.text = `$(sparkle) AI ${data.score.score}/100${atRisk ? ` · ${Math.round(atRisk / 1000)}k tokens at risk` : ""}${usage.warning ? " · $(warning) limit close" : ""}`;
+    status.backgroundColor = usage.warning ? new vscode.ThemeColor("statusBarItem.warningBackground") : undefined;
+    const reasons = data.issues.length ? data.issues.map((i) => `• ${i.problem}`).join("\n") : "Nothing is wasting your tokens.";
+    status.tooltip = `${usage.warning ? `⚠ ${usage.warning}\n\n` : ""}${reasons}\n\nClick for options.`;
     status.show();
+    warnOnce(usage);
   } catch {
     status.hide();
   }
 }
 
+// The limit warning pops up once per 5-hour window; after that it stays in the status bar.
+let warnedWindow;
+function warnOnce(usage) {
+  if (!usage.warning || warnedWindow === usage.window.start) return;
+  warnedWindow = usage.window.start;
+  lastWarning = usage.warning;
+  vscode.window.showWarningMessage(`Which AI: ${usage.warning}`, "Show usage").then((choice) => choice && COMMANDS.openFullView());
+}
+let lastWarning; // for the tests
+
 let handoffChoices = []; // from the last handoff, so "Run in terminal" can only start one of those commands
+
+/** Starts a handoff choice in a VS Code terminal (installing it first when it is not installed yet). */
+function runChoice(choice) {
+  const terminal = vscode.window.createTerminal({ name: `Which AI: ${choice.name}`, cwd: projectFolder() });
+  terminal.show();
+  if (choice.installed === false) terminal.sendText(choice.install);
+  terminal.sendText(choice.command);
+  lastTerminalCommand = choice.command;
+}
+
+const notices = []; // for the tests
+async function notice(kind, text, ...buttons) {
+  notices.push(text);
+  return kind === "warning" ? vscode.window.showWarningMessage(text, ...buttons) : vscode.window.showInformationMessage(text, ...buttons);
+}
+
+// HANDOFF.md written because Claude's limit ran out (by the Claude Code plugin or a handoff): offer who carries on now,
+// and offer to hand it back once the limit resets.
+let noticedHandoff;
+async function onHandoffWritten(uri) {
+  const { handoffMeta, nextChoices } = await load();
+  let text;
+  try {
+    text = fs.readFileSync(uri.fsPath, "utf8");
+  } catch {
+    return;
+  }
+  const meta = handoffMeta(text);
+  if (meta?.from !== "claude-code") return;
+  const key = `${uri.fsPath}:${meta.resets}`;
+  if (noticedHandoff === key) return;
+  noticedHandoff = key;
+  scheduleHandBack(uri, meta);
+  const choices = nextChoices(await context());
+  handoffChoices = choices;
+  const recommended = choices.find((c) => c.recommended && c.command);
+  const buttons = [recommended && `Continue in ${recommended.name}`, "Other choices…"].filter(Boolean);
+  const picked = await notice("warning", "Claude's limit was reached. HANDOFF.md is ready.", ...buttons);
+  if (picked === "Other choices…") {
+    const item = await vscode.window.showQuickPick(
+      choices.filter((c) => c.command || c.id === "web").map((c) => ({ label: c.name, description: c.recommended ? "recommended" : "", detail: c.why, choice: c })),
+      { placeHolder: "Who carries on?" },
+    );
+    if (item?.choice.command) runChoice(item.choice);
+    else if (item) await vscode.env.clipboard.writeText(text);
+  } else if (picked) runChoice(recommended);
+}
+
+const handBackTimers = new Map();
+function scheduleHandBack(uri, meta) {
+  if (!meta.resets) return;
+  clearTimeout(handBackTimers.get(uri.fsPath));
+  // setTimeout cannot wait longer than about 24.8 days.
+  const wait = Math.min(Math.max(meta.resets - Date.now(), 0), 2 ** 31 - 1);
+  handBackTimers.set(uri.fsPath, setTimeout(() => offerHandBack(uri, meta), wait));
+}
+
+async function offerHandBack(uri, meta) {
+  const { handoffMeta } = await load();
+  let still;
+  try {
+    still = handoffMeta(fs.readFileSync(uri.fsPath, "utf8"));
+  } catch {
+    return; // HANDOFF.md is gone: the task is done.
+  }
+  if (still?.resets !== meta.resets) return;
+  const picked = await notice("info", "Claude's limit has reset. Hand the task back to Claude?", "Hand back to Claude");
+  if (picked) await COMMANDS.handBack();
+}
 let lastTerminalCommand; // for the tests
 const PNG_DATA_URL = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/;
 
@@ -83,13 +166,7 @@ async function handleMessage(message) {
   if (message?.type === "runInTerminal") {
     // Only a command from the last handoff runs, looked up by its id; the page never sends a command line.
     const choice = handoffChoices.find((c) => c.id === message.choice && c.command);
-    if (!choice) return null;
-    const terminal = vscode.window.createTerminal({ name: `Which AI: ${choice.name}`, cwd: projectFolder() });
-    terminal.show();
-    // Not installed yet: the user clicked "Install and run", so the official install command runs first.
-    if (choice.installed === false) terminal.sendText(choice.install);
-    terminal.sendText(choice.command);
-    lastTerminalCommand = choice.command;
+    if (choice) runChoice(choice);
     return null;
   }
   if (message?.type === "openFull") {
@@ -102,6 +179,8 @@ async function handleMessage(message) {
     const data = await runAction(String(message.action), message.body ?? {}, { cwd: projectFolder(), home: os.homedir(), detect: detectTools });
     if (message.action === "fix" && message.body?.apply) await refreshStatus();
     if (message.action === "handoff") handoffChoices = data.data.choices;
+    // Nothing installed yet: "Install and start" may run one of the suggested AIs.
+    if (message.action === "newcomer") handoffChoices = data.data.options.filter((o) => o.command).map((o) => ({ ...o, installed: false }));
     return { id: message.id, data };
   } catch (error) {
     return { id: message.id, error: error.message };
@@ -174,16 +253,38 @@ const COMMANDS = {
     return { text, share: data.share };
   },
   async handoff(given, leaveOutClaude) {
-    const task = given ?? (await vscode.window.showInputBox({ prompt: "What were you working on?" }));
+    const task = given ?? (await vscode.window.showInputBox({ prompt: "What were you working on? (leave empty to read it from the Claude Code chat)" }));
     if (task === undefined) return undefined;
     const skip = leaveOutClaude ?? (await vscode.window.showQuickPick(["Yes, leave out Claude Code", "No"], { placeHolder: "Claude's limit is over: leave it out?" })) === "Yes, leave out Claude Code";
     const { handoffAction } = await load();
-    const { text } = handoffAction({ ...(await context(skip ? ["claude-code"] : [])), task });
+    const { text, data } = handoffAction({ ...(await context()), task, leftOut: skip ? ["claude-code"] : [], menu: true });
+    handoffChoices = data.choices;
     show("Handoff", text);
+    // Same choices as the terminal: the recommended AI first; picking one starts it in a VS Code terminal.
+    if (given === undefined) {
+      const item = await vscode.window.showQuickPick(
+        data.choices.filter((c) => c.id !== "none").map((c) => ({ label: c.name, description: c.recommended ? "recommended" : c.installed === false ? "not installed" : "", detail: c.why, choice: c })),
+        { placeHolder: "Who carries on?" },
+      );
+      if (item?.choice.command) runChoice(item.choice);
+      else if (item?.choice.id === "web") await vscode.env.clipboard.writeText(data.note);
+    }
     return text;
   },
   openSidebar() {
     return vscode.commands.executeCommand("workbench.view.extension.whichAi");
+  },
+  async handBack() {
+    const { handoffAction } = await load();
+    const result = handoffAction({ ...(await context()), task: "", leftOut: [] });
+    handoffChoices = result.data.choices;
+    const claude = handoffChoices.find((c) => c.id === "claude-code" && c.installed !== false);
+    if (!claude) {
+      vscode.window.showWarningMessage("Which AI: Claude Code was not found on this laptop, so the task cannot go back to it.");
+      return result.text;
+    }
+    runChoice(claude);
+    return result.text;
   },
   async openFullView() {
     if (fullView) {
@@ -204,6 +305,7 @@ const COMMANDS = {
       { label: "$(wrench) Fix wasted tokens", command: "whichAi.fix" },
       { label: "$(star) AI setup score", command: "whichAi.score" },
       { label: "$(arrow-swap) Claude limit over? Write a handoff", command: "whichAi.handoff" },
+      { label: "$(history) Claude limit reset? Hand the task back", command: "whichAi.handBack" },
     ];
     const pick = await vscode.window.showQuickPick(items, { placeHolder: "Which AI to Use" });
     if (pick) return vscode.commands.executeCommand(pick.command);
@@ -241,7 +343,24 @@ function activate(extension) {
     vscode.workspace.onDidChangeConfiguration((e) => e.affectsConfiguration("whichAi") && refreshStatus()),
   );
   refreshStatus();
-  return { refreshStatus, statusText: () => status.text, handleMessage, sidebarHtml: () => sidebar?.webview.html, sidebarAsked: () => sidebarAsked, lastTerminalCommand: () => lastTerminalCommand };
+  // HANDOFF.md in the project folder: written now (limit reached) or left from before (offer to hand back on reset).
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  if (folder) {
+    const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(folder, "HANDOFF.md"));
+    watcher.onDidCreate(onHandoffWritten);
+    watcher.onDidChange(onHandoffWritten);
+    extension.subscriptions.push(watcher, { dispose: () => handBackTimers.forEach(clearTimeout) });
+    const existing = vscode.Uri.joinPath(folder.uri, "HANDOFF.md");
+    load().then(({ handoffMeta }) => {
+      try {
+        const meta = handoffMeta(fs.readFileSync(existing.fsPath, "utf8"));
+        if (meta?.from === "claude-code") scheduleHandBack(existing, meta);
+      } catch {
+        // No HANDOFF.md: nothing to hand back.
+      }
+    });
+  }
+  return { refreshStatus, statusText: () => status.text, handleMessage, sidebarHtml: () => sidebar?.webview.html, sidebarAsked: () => sidebarAsked, lastTerminalCommand: () => lastTerminalCommand, lastWarning: () => lastWarning, notices: () => [...notices] };
 }
 
 function deactivate() {}

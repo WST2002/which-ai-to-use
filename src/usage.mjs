@@ -27,17 +27,47 @@ const empty = () => ({ fresh: 0, cached: 0, replies: 0 });
  * the exact rules, so this is an estimate: a window starts on the hour of the first reply after the previous
  * one ended. Returns the window still open at `now`, or null.
  */
-function currentWindow(replies, now) {
-  let open = null;
+function windowsOf(replies) {
+  const windows = [];
   for (const { time, fresh } of [...replies].sort((a, b) => a.time - b.time)) {
+    let open = windows.at(-1);
     if (!open || time >= open.end) {
       const start = Math.floor(time / HOUR) * HOUR;
       open = { start, end: start + WINDOW, fresh: 0, replies: 0 };
+      windows.push(open);
     }
     open.fresh += fresh;
     open.replies += 1;
   }
-  return open && open.end > now.getTime() ? open : null;
+  return windows;
+}
+
+// Times Claude's limit ran out, recorded by the which-ai-to-use Claude Code plugin (one JSON line each).
+export const LIMIT_LOG = [".which-ai-to-use", "limits.jsonl"];
+
+function limitHits(home) {
+  try {
+    return fs.readFileSync(path.join(home, ...LIMIT_LOG), "utf8").split("\n").map((line) => {
+      try {
+        return Date.parse(JSON.parse(line).at);
+      } catch {
+        return Number.NaN;
+      }
+    }).filter((time) => !Number.isNaN(time));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * What a full 5-hour window looks like for this user: the tokens used in the window where the limit last ran out
+ * (when the plugin recorded it), otherwise the busiest finished window of the week. Null when there is no history.
+ */
+function limitReference(windows, open, hits) {
+  const hitWindows = hits.map((time) => windows.find((w) => w.start <= time && time < w.end)).filter(Boolean);
+  if (hitWindows.length) return { tokens: hitWindows.at(-1).fresh, source: "limit" };
+  const finished = windows.filter((w) => w !== open);
+  return finished.length ? { tokens: Math.max(...finished.map((w) => w.fresh)), source: "busiest" } : null;
 }
 
 /**
@@ -87,5 +117,8 @@ export function claudeUsage({ home, now = new Date() }) {
   }
 
   const projects = [...byProject].map(([project, fresh]) => ({ project, fresh })).sort((a, b) => b.fresh - a.fresh).slice(0, MAX_PROJECTS);
-  return { found, today, week, projects, window: currentWindow(replies, now) };
+  const windows = windowsOf(replies);
+  const last = windows.at(-1);
+  const window = last && last.end > now.getTime() ? last : null;
+  return { found, today, week, projects, window, limit: limitReference(windows, window, limitHits(home)) };
 }

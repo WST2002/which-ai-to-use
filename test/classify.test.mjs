@@ -48,3 +48,8 @@ test("design work is recognised in everyday words", () => {
     has(text, "ui");
   }
 });
+
+test("summarising a codebase is explaining it", () => {
+  assert.ok(classifyTask("summarise this codebase").includes("explain-codebase"));
+  assert.ok(classifyTask("give me a summary of the repo").includes("explain-codebase"));
+});
