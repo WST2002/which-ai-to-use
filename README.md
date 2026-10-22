@@ -31,6 +31,8 @@ Starting a task?      npx which-ai-to-use "your task"
 Claude limit over?    npx which-ai-to-use handoff
 ```
 
+No AI coding tool on your laptop yet? The checkup asks what you want to do and suggests the AI that suits it, a free option, and how to install each; it can install one and start your task in it. The dashboard and the VS Code sidebar do the same.
+
 That's it. The only other commands you need:
 
 | When | Run |
