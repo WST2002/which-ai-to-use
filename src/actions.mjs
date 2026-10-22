@@ -44,9 +44,18 @@ export async function offerFix({ cwd, home, installed, ask }) {
   return `${applied.text.trimEnd().split("\n").at(-1)}\nAI setup score: ${before} → ${after}/100\n`;
 }
 
+const REPO_URL = "https://github.com/WST2002/which-ai-to-use";
+
+/** Links that open a post with the share line already written; the user still decides whether to post. */
+export function shareLinks(share) {
+  const text = encodeURIComponent(`${share} ${REPO_URL}`);
+  return { x: `https://x.com/intent/post?text=${text}`, linkedin: `https://www.linkedin.com/feed/?shareActive=true&text=${text}` };
+}
+
 export function scoreAction({ cwd, home, installed }) {
   const report = tokenReport({ dir: cwd, home, installedIds: ids(installed) });
-  const result = setupScore({ report, installed, verify: verifyCommand(cwd) });
+  const result = { ...setupScore({ report, installed, verify: verifyCommand(cwd) }) };
+  result.links = shareLinks(result.share);
   return { text: formatScore(result), data: { project: path.basename(cwd), ...result } };
 }
 

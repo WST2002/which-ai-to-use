@@ -89,7 +89,9 @@ export function formatScore(result) {
     for (const item of result.items) lines.push(`  ${String(item.points).replace("-", "−").padStart(4)}  ${item.label}`, `        → ${item.tip}`);
     if (result.saving) lines.push("", `Fixing these saves ~${result.saving.toLocaleString("en-US")} tokens.`);
   }
-  lines.push("", "Share it:", `  ${result.share}`, "", "Want an image to post? Run npx which-ai-to-use score --card");
+  lines.push("", "Share it:", `  ${result.share}`);
+  if (result.links) lines.push("", `Post on X:         ${result.links.x}`, `Post on LinkedIn:  ${result.links.linkedin}`);
+  lines.push("", "Want an image to post? Run npx which-ai-to-use score --card");
   return `${lines.join("\n")}\n`;
 }
 

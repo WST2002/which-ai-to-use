@@ -45,3 +45,11 @@ test("the share line is ready to post", () => {
   assert.match(result.share, /^My AI coding setup scored 95\/100 \(A\) with which-ai-to-use\./);
   assert.match(result.share, /npx which-ai-to-use score$/);
 });
+
+test("share links open a post with the score line and the repository", async () => {
+  const { shareLinks } = await import("../src/actions.mjs");
+  const links = shareLinks("My AI coding setup scored 77/100 (B) with which-ai-to-use.");
+  assert.match(links.x, /^https:\/\/x\.com\/intent\/post\?text=My%20AI%20coding%20setup%20scored%2077%2F100%20\(B\)/);
+  assert.match(decodeURIComponent(links.linkedin.split("text=")[1]), /scored 77\/100 \(B\) with which-ai-to-use\. https:\/\/github\.com\/WST2002\/which-ai-to-use$/);
+  assert.match(links.linkedin, /^https:\/\/www\.linkedin\.com\/feed\/\?shareActive=true&text=/);
+});
