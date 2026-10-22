@@ -552,7 +552,13 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
         } else download.setAttribute("href", canvas.toDataURL("image/png"));
       });
       const copy = el("button", { class: "btn ghost", text: "Copy text to share", onclick: () => { copyText(data.share); copy.textContent = "Copied"; setTimeout(() => (copy.textContent = "Copy text to share"), 1500); } });
-      const parts = [canvas, el("div", { class: "form", style: "margin-top:14px" }, download, copy), el("p", { class: "muted", text: data.share })];
+      const post = (label, href) => el("a", { class: "btn ghost", text: label, href, target: "_blank", rel: "noopener" });
+      const parts = [
+        canvas,
+        el("div", { class: "form", style: "margin-top:14px" }, download, copy, post("Post on X", data.links.x), post("Post on LinkedIn", data.links.linkedin)),
+        el("p", { class: "muted", text: data.share }),
+        el("p", { class: "muted", text: "The post opens with this line filled in. Download the image first to attach it." }),
+      ];
       if (data.items.length) {
         parts.push(el("div", { class: "section-title", text: "What costs points" }),
           el("table", { class: "points" }, data.items.map((i) => el("tr", {}, el("td", { text: String(i.points).replace("-", "−") }), el("td", {}, el("div", { text: i.label }), el("div", { class: "muted", text: "→ " + i.tip }))))));

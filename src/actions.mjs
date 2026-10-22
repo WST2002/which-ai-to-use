@@ -27,9 +27,35 @@ export function checkupAction({ cwd, home, installed }) {
   return { text: formatCheckup({ project, installed, report, score }), data: { project, installed, ...report, issues: checkupIssues(report), score } };
 }
 
+/**
+ * After a checkup: offers the fix right there instead of a second command. `ask(question)` resolves true for a yes.
+ * Returns the text to show, or "" when there is nothing the fix can do.
+ */
+export async function offerFix({ cwd, home, installed, ask }) {
+  const preview = fixAction({ cwd, home, installed });
+  const files = [...new Set(preview.data.planned.map((p) => p.file))];
+  if (!files.length) return "";
+  const before = scoreAction({ cwd, home, installed }).data.score;
+  if (!(await ask(`Fix it now? Your AI tools will skip ${files.length === 1 ? files[0] : `${files.length} heavy files`}; your code is not touched. (y/N) `))) {
+    return "Nothing changed. Fix it later with: npx which-ai-to-use fix\n";
+  }
+  const applied = fixAction({ cwd, home, installed, apply: true });
+  const after = scoreAction({ cwd, home, installed }).data.score;
+  return `${applied.text.trimEnd().split("\n").at(-1)}\nAI setup score: ${before} → ${after}/100\n`;
+}
+
+const REPO_URL = "https://github.com/WST2002/which-ai-to-use";
+
+/** Links that open a post with the share line already written; the user still decides whether to post. */
+export function shareLinks(share) {
+  const text = encodeURIComponent(`${share} ${REPO_URL}`);
+  return { x: `https://x.com/intent/post?text=${text}`, linkedin: `https://www.linkedin.com/feed/?shareActive=true&text=${text}` };
+}
+
 export function scoreAction({ cwd, home, installed }) {
   const report = tokenReport({ dir: cwd, home, installedIds: ids(installed) });
-  const result = setupScore({ report, installed, verify: verifyCommand(cwd) });
+  const result = { ...setupScore({ report, installed, verify: verifyCommand(cwd) }) };
+  result.links = shareLinks(result.share);
   return { text: formatScore(result), data: { project: path.basename(cwd), ...result } };
 }
 

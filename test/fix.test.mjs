@@ -45,3 +45,22 @@ test("a settings file that is not valid JSON is left alone and reported", (t) =>
   assert.throws(() => applyIgnoreAdvice(dir, ignoreAdvice(["package-lock.json"], ["claude-code"])), /\.claude\/settings\.json is not valid JSON/);
   assert.equal(read(dir, ".claude/settings.json"), "{ broken");
 });
+
+test("after a checkup the fix is offered, applied on a yes, and the score goes up", async (t) => {
+  const { offerFix } = await import("../src/actions.mjs");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "waitu-offer-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(dir, "package-lock.json"), "x".repeat(40 * 1024));
+  const installed = [{ id: "claude-code", onPath: true, via: ["command: claude"] }];
+  const questions = [];
+  const no = await offerFix({ cwd: dir, home: dir, installed, ask: async (q) => (questions.push(q), false) });
+  assert.match(questions[0], /^Fix it now\? Your AI tools will skip package-lock\.json; your code is not touched\. \(y\/N\) $/);
+  assert.match(no, /Nothing changed\. Fix it later with: npx which-ai-to-use fix/);
+  assert.ok(!fs.existsSync(path.join(dir, ".claude", "settings.json")));
+  const yes = await offerFix({ cwd: dir, home: dir, installed, ask: async () => true });
+  assert.match(yes, /Updated \.claude\/settings\.json/);
+  assert.match(yes, /AI setup score: \d+ → \d+\/100/);
+  const [before, after] = /(\d+) → (\d+)/.exec(yes).slice(1).map(Number);
+  assert.ok(after > before);
+  assert.equal(await offerFix({ cwd: dir, home: dir, installed, ask: async () => true }), "", "nothing left to fix");
+});
