@@ -61,7 +61,8 @@ const inside = (folder, root) => {
   return child === parent || child.startsWith(`${parent}${path.sep}`) || child.startsWith(`${parent}/`);
 };
 
-function chatFiles(home) {
+// Claude Code keeps one log per chat in ~/.claude/projects/<folder>/ (deeper folders hold sub-agent logs).
+function claudeFiles(home) {
   const root = path.join(home, ".claude", "projects");
   let dirs;
   try {
@@ -69,57 +70,13 @@ function chatFiles(home) {
   } catch {
     return [];
   }
-  return newest(dirs.flatMap((dir) => {
+  return dirs.flatMap((dir) => {
     try {
       return fs.readdirSync(path.join(root, dir.name)).filter((n) => n.endsWith(".jsonl")).map((n) => path.join(root, dir.name, n));
     } catch {
       return [];
     }
-  }));
-}
-
-/**
- * The latest Claude Code chat for this project, from Claude Code's own log on this laptop: the first request,
- * the latest requests and Claude's last reply, shortened and with secrets hidden. Null when there is none.
- */
-export function lastClaudeChat({ home, cwd }) {
-  for (const { file } of chatFiles(home)) {
-    const text = read(file);
-    if (!text) continue;
-    const entries = jsonLines(text).filter((e) => inside(e.cwd, cwd));
-    const asked = entries.filter((e) => e.type === "user" && !e.isMeta).map((e) => textOf(e.message?.content)).filter((t) => t.trim() && !NOT_A_REQUEST.test(t));
-    if (!asked.length) continue;
-    const replies = entries.filter((e) => e.type === "assistant").map((e) => textOf(e.message?.content)).filter((t) => t.trim());
-    return summary("claude-code", file, asked, replies);
-  }
-  return null;
-}
-
-const NAMES = { "claude-code": "Claude Code", codex: "Codex CLI", "gemini-cli": "Gemini CLI" };
-
-function summary(tool, file, asked, replies) {
-  return {
-    tool,
-    name: NAMES[tool],
-    file,
-    task: clip(asked[0]),
-    recent: asked.slice(1).slice(-RECENT).map(clip),
-    lastReply: replies.length ? clip(replies.at(-1)) : "",
-    requests: asked.length,
-  };
-}
-
-function newest(files) {
-  return files
-    .flatMap((file) => {
-      try {
-        return [{ file, mtime: fs.statSync(file).mtimeMs }];
-      } catch {
-        return [];
-      }
-    })
-    .sort((a, b) => b.mtime - a.mtime)
-    .slice(0, MAX_FILES);
+  });
 }
 
 function* walk(dir, match) {
@@ -134,6 +91,21 @@ function* walk(dir, match) {
     if (entry.isDirectory()) yield* walk(full, match);
     else if (match(entry.name)) yield full;
   }
+}
+
+/** Files changed since `since` (ms), newest first. A file listed a moment ago can be gone: AIs prune old chats. */
+function newest(files, { since = 0, limit = MAX_FILES } = {}) {
+  return files
+    .flatMap((file) => {
+      try {
+        return [{ file, mtime: fs.statSync(file).mtimeMs }];
+      } catch {
+        return [];
+      }
+    })
+    .filter((f) => f.mtime >= since)
+    .sort((a, b) => b.mtime - a.mtime)
+    .slice(0, limit);
 }
 
 function read(file) {
@@ -153,81 +125,117 @@ const jsonLines = (text) =>
     }
   });
 
+function parseClaude(text, root) {
+  const entries = jsonLines(text).filter((e) => !root || inside(e.cwd, root));
+  return {
+    asked: entries.filter((e) => e.type === "user" && !e.isMeta).map((e) => textOf(e.message?.content)).filter((t) => t.trim() && !NOT_A_REQUEST.test(t)),
+    replies: entries.filter((e) => e.type === "assistant").map((e) => textOf(e.message?.content)).filter((t) => t.trim()),
+  };
+}
+
 // Codex wraps each line as { type, payload }; older versions wrote the payload on its own.
 const codexText = (content) => (Array.isArray(content) ? content.filter((b) => typeof b?.text === "string").map((b) => b.text).join("\n") : typeof content === "string" ? content : "");
 // Codex adds its own context (environment, AGENTS.md) as user messages in tags.
 const CODEX_CONTEXT = /^\s*(<[\w_-]+>|# AGENTS\.md)/;
 
-/** The latest Codex CLI chat for this project, from ~/.codex/sessions on this laptop. */
-export function lastCodexChat({ home, cwd }) {
-  for (const { file } of newest([...walk(path.join(home, ".codex", "sessions"), (name) => name.endsWith(".jsonl"))])) {
-    const text = read(file);
-    if (!text) continue;
-    const items = jsonLines(text).map((e) => (e.payload && e.type ? { ...e.payload, line: e.type } : e));
-    const meta = items.find((i) => i.line === "session_meta" || (i.cwd && !i.role));
-    const folder = meta?.cwd ?? /<cwd>([^<]+)<\/cwd>/.exec(items.map((i) => codexText(i.content)).join("\n"))?.[1];
-    if (!inside(folder, cwd)) continue;
-    const messages = items.filter((i) => i.type === "message");
-    const asked = messages.filter((m) => m.role === "user").map((m) => codexText(m.content)).filter((t) => t.trim() && !CODEX_CONTEXT.test(t));
-    if (!asked.length) continue;
-    const replies = messages.filter((m) => m.role === "assistant").map((m) => codexText(m.content)).filter((t) => t.trim());
-    return summary("codex", file, asked, replies);
-  }
-  return null;
+function parseCodex(text, root) {
+  const items = jsonLines(text).map((e) => (e.payload && e.type ? { ...e.payload, line: e.type } : e));
+  const meta = items.find((i) => i.line === "session_meta" || (i.cwd && !i.role));
+  const folder = meta?.cwd ?? /<cwd>([^<]+)<\/cwd>/.exec(items.map((i) => codexText(i.content)).join("\n"))?.[1];
+  if (root && !inside(folder, root)) return null;
+  const messages = items.filter((i) => i.type === "message");
+  return {
+    asked: messages.filter((m) => m.role === "user").map((m) => codexText(m.content)).filter((t) => t.trim() && !CODEX_CONTEXT.test(t)),
+    replies: messages.filter((m) => m.role === "assistant").map((m) => codexText(m.content)).filter((t) => t.trim()),
+  };
 }
 
 const geminiText = (content) => (typeof content === "string" ? content : Array.isArray(content) ? content.map((p) => p?.text ?? "").join("\n") : "");
+const sha256 = (text) => createHash("sha256").update(text).digest("hex");
 
-/**
- * The latest Gemini CLI chat for this project, from ~/.gemini/tmp on this laptop. Gemini CLI names each project's
- * folder by the SHA-256 of the project path, and writes each chat as one JSON file.
- */
-export function lastGeminiChat({ home, cwd }) {
-  const hashes = new Set([cwd, path.resolve(cwd), (() => {
+// Gemini CLI names each project's folder by the SHA-256 of the project path, and writes each chat as one JSON file.
+function parseGemini(text, root, file) {
+  let chat;
+  try {
+    chat = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (root) {
+    let real = root;
     try {
-      return fs.realpathSync.native(cwd);
+      real = fs.realpathSync.native(root);
     } catch {
-      return cwd;
-    }
-  })()].map((p) => createHash("sha256").update(p).digest("hex")));
-  const files = [...walk(path.join(home, ".gemini", "tmp"), (name) => /^session-.*\.json$/.test(name))];
-  for (const { file } of newest(files)) {
-    const text = read(file);
-    let chat;
-    try {
-      chat = JSON.parse(text);
-    } catch {
-      continue;
+      // compared as written
     }
     const hash = chat.projectHash ?? path.basename(path.dirname(path.dirname(file)));
-    if (!hashes.has(hash)) continue;
-    const messages = Array.isArray(chat.messages) ? chat.messages : [];
-    const asked = messages.filter((m) => m.type === "user").map((m) => geminiText(m.content)).filter((t) => t.trim() && !t.trim().startsWith("/"));
-    if (!asked.length) continue;
-    const replies = messages.filter((m) => m.type === "gemini" || m.type === "model").map((m) => geminiText(m.content)).filter((t) => t.trim());
-    return summary("gemini-cli", file, asked, replies);
+    if (![root, path.resolve(root), real].some((p) => sha256(p) === hash)) return null;
+  }
+  const messages = Array.isArray(chat.messages) ? chat.messages : [];
+  return {
+    asked: messages.filter((m) => m.type === "user").map((m) => geminiText(m.content)).filter((t) => t.trim() && !t.trim().startsWith("/")),
+    replies: messages.filter((m) => m.type === "gemini" || m.type === "model").map((m) => geminiText(m.content)).filter((t) => t.trim()),
+  };
+}
+
+// Where each AI keeps its chats on this laptop, and how to read one.
+const SOURCES = {
+  "claude-code": { name: "Claude Code", files: claudeFiles, parse: parseClaude },
+  codex: { name: "Codex CLI", files: (home) => [...walk(path.join(home, ".codex", "sessions"), (n) => n.endsWith(".jsonl"))], parse: parseCodex },
+  "gemini-cli": { name: "Gemini CLI", files: (home) => [...walk(path.join(home, ".gemini", "tmp"), (n) => /^session-.*\.json$/.test(n))], parse: parseGemini },
+};
+
+/**
+ * The latest chat for this project in one AI, from that AI's own log on this laptop: the first request, the latest
+ * requests and the AI's last reply, shortened and with secrets hidden. Null when there is none.
+ */
+function latest(tool, { home, cwd }) {
+  const source = SOURCES[tool];
+  for (const { file, mtime } of newest(source.files(home))) {
+    const text = read(file);
+    const chat = text && source.parse(text, cwd, file);
+    if (!chat?.asked.length) continue;
+    return {
+      tool,
+      name: source.name,
+      file,
+      mtime,
+      task: clip(chat.asked[0]),
+      recent: chat.asked.slice(1).slice(-RECENT).map(clip),
+      lastReply: chat.replies.length ? clip(chat.replies.at(-1)) : "",
+      requests: chat.asked.length,
+    };
   }
   return null;
 }
 
-const READERS = { "claude-code": lastClaudeChat, codex: lastCodexChat, "gemini-cli": lastGeminiChat };
+export const lastClaudeChat = (where) => latest("claude-code", where);
+export const lastCodexChat = (where) => latest("codex", where);
+export const lastGeminiChat = (where) => latest("gemini-cli", where);
 
 /**
  * The chat the next AI should read: the one in the AI whose limit ran out (`from`), or else the newest chat for this
  * project in Claude Code, Codex CLI or Gemini CLI. Null when there is none.
  */
 export function lastChat({ home, cwd, from = [] }) {
-  for (const id of from) {
-    const chat = READERS[id]?.({ home, cwd });
+  for (const tool of from.filter((id) => SOURCES[id])) {
+    const chat = latest(tool, { home, cwd });
     if (chat) return chat;
   }
-  const chats = Object.values(READERS).map((reader) => reader({ home, cwd })).filter(Boolean);
-  const time = (chat) => {
-    try {
-      return fs.statSync(chat.file).mtimeMs;
-    } catch {
-      return 0;
+  return Object.keys(SOURCES).map((tool) => latest(tool, { home, cwd })).filter(Boolean).sort((a, b) => b.mtime - a.mtime)[0] ?? null;
+}
+
+/** How much each AI was used since `since` (ms), in every project: chats and requests. Only counts are kept. */
+export function chatActivity({ home, since }) {
+  return Object.entries(SOURCES).map(([tool, source]) => {
+    let chats = 0;
+    let requests = 0;
+    for (const { file } of newest(source.files(home), { since, limit: Infinity })) {
+      const text = read(file);
+      const asked = (text && source.parse(text, null, file)?.asked.length) || 0;
+      if (asked) chats += 1;
+      requests += asked;
     }
-  };
-  return chats.sort((a, b) => time(b) - time(a))[0] ?? null;
+    return { tool, name: source.name, chats, requests };
+  });
 }
