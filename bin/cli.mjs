@@ -2,6 +2,7 @@
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import fs from "node:fs";
+import path from "node:path";
 import os from "node:os";
 import { parseArgs } from "node:util";
 import { startDashboard } from "../src/dashboard.mjs";
@@ -9,6 +10,7 @@ import { detectTools } from "../src/detect.mjs";
 import { aiAction, checkupAction, doctorAction, fixAction, handoffAction, recommendAction, scoreAction, slimAction, tokensAction, usageAction } from "../src/actions.mjs";
 import { formatSyncPlan } from "../src/format.mjs";
 import { RULES_FILES } from "../src/project.mjs";
+import { copyFileToClipboard } from "../src/clipboard.mjs";
 import { findEditors, hasGlobalCommand, installExtension, installGlobal } from "../src/setup.mjs";
 import { applySync, planSync } from "../src/sync.mjs";
 import { TOOLS, toolById } from "../src/tools.mjs";
@@ -45,6 +47,7 @@ Options:
   --all                               sync: write rules files for every supported AI, not only installed ones
   --yes                               fix, sync, setup, --ai: go ahead without asking
   --copy                              handoff: also copy HANDOFF.md to the clipboard, to paste into any AI chat
+  --to <tool|web|none>                handoff: who carries on, without the menu (e.g. --to gemini-cli)
   --port <n>, --no-open               dashboard: fixed port, don't open the browser
   --version, --help
 
@@ -113,6 +116,51 @@ async function confirm(question) {
   return /^y(es)?$/i.test(answer.trim());
 }
 
+async function ask(question) {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const answer = await rl.question(question);
+  rl.close();
+  return answer.trim();
+}
+
+// Handoff writes the note, then the recommended AI (or the one picked) carries on in this terminal.
+async function runHandoff(values, options, print) {
+  const choosing = Boolean(values.to) || (process.stdin.isTTY && !values.json);
+  const result = handoffAction({ ...options, menu: choosing });
+  if (!choosing) return print(result);
+  process.stdout.write(result.text);
+  const { choices } = result.data;
+  let choice = choices.find((c) => c.id === values.to);
+  if (values.to && !choice) throw new Error(`--to must be one of: ${choices.map((c) => c.id).join(", ")}`);
+  if (!choice) {
+    const recommended = choices.findIndex((c) => c.recommended) + 1;
+    process.stdout.write("Who carries on?\n");
+    choices.forEach((c, i) => process.stdout.write(`  ${i + 1}. ${c.name}${c.recommended ? "  ★ recommended" : ""}: ${c.why}\n`));
+    const answer = await ask(`Choose [${recommended}]: `);
+    choice = answer ? choices[Number(answer) - 1] : choices[recommended - 1];
+    if (!choice) throw new Error(`choose a number from 1 to ${choices.length}`);
+  }
+  return carryOn(choice, result.data.root);
+}
+
+function carryOn(choice, root) {
+  if (choice.id === "none") return void process.stdout.write("HANDOFF.md is ready. It is for the next AI only: don't commit it.\n");
+  if (choice.id === "web") {
+    const copied = copyFileToClipboard(path.join(root, "HANDOFF.md"));
+    return void process.stdout.write(`${copied ? "Copied HANDOFF.md." : "Open HANDOFF.md and copy it."} Paste it into chatgpt.com or gemini.google.com and ask it to continue.\n`);
+  }
+  process.stdout.write(`Starting ${choice.name}: ${choice.command}\n`);
+  // The command comes from data/tools.json with a fixed prompt; the user's words are only in HANDOFF.md.
+  return new Promise((resolve) => {
+    const child = spawn(choice.command, { cwd: root, stdio: "inherit", shell: true });
+    child.on("error", (error) => {
+      process.stdout.write(`Could not start ${choice.name} (${error.message}). Run it yourself: ${choice.command}\n`);
+      resolve();
+    });
+    child.on("exit", resolve);
+  });
+}
+
 const SOURCE = { store: "from its extension store", bundled: "from the copy inside this package" };
 
 // One command for both places: the terminal command (a global npm install) and the editor sidebar.
@@ -169,6 +217,7 @@ async function main() {
       all: { type: "boolean", default: false },
       yes: { type: "boolean", default: false },
       copy: { type: "boolean", default: false },
+      to: { type: "string" },
       card: { type: "boolean", default: false },
       help: { type: "boolean", default: false },
       version: { type: "boolean", default: false },
@@ -200,7 +249,7 @@ async function main() {
   if (command === "score") return values.card ? runDashboard(values, "score") : print(scoreAction(context));
   if (command === "slim") return runSlim(values, context, print);
   // Handoff is for when Claude's limit is over, so Claude Code is left out unless --without names another tool.
-  if (command === "handoff") return print(handoffAction({ ...context, task: positionals.slice(1).join(" ").trim(), leftOut: skipped.length ? [] : ["claude-code"], copy: values.copy }));
+  if (command === "handoff") return runHandoff(values, { ...context, task: positionals.slice(1).join(" ").trim(), leftOut: skipped.length ? [] : ["claude-code"], copy: values.copy }, print);
   if (command === "sync") return runSync(values, installed);
   if (command === "fix") return runFix(values, installed);
   if (values.ai) return runAi(values, context, positionals.join(" "), print);
