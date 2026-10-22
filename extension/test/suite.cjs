@@ -92,6 +92,24 @@ exports.run = async () => {
     assert.ok(vscode.window.terminals.some((t) => t.name === "Which AI: Claude Code"));
   });
 
+  await check("a HANDOFF.md written after Claude's limit offers who carries on, then handing back once it resets", async () => {
+    const resets = new Date(Date.now() - 1000).toISOString();
+    fs.writeFileSync(path.join(project, "HANDOFF.md"), `# Handoff
+
+Task: add coupons
+
+<!-- which-ai-to-use: from=claude-code resets=${resets} -->
+`);
+    const wait = async (text) => {
+      for (let i = 0; i < 100 && !api.notices().includes(text); i++) await new Promise((done) => setTimeout(done, 100));
+      assert.ok(api.notices().includes(text), `notices: ${api.notices().join(" | ")}`);
+    };
+    await wait("Claude's limit was reached. HANDOFF.md is ready.");
+    await wait("Claude's limit has reset. Hand the task back to Claude?");
+    await run("whichAi.handBack");
+    assert.match(api.lastTerminalCommand(), /^claude /);
+  });
+
   await check("handoff writes HANDOFF.md", async () => {
     assert.match(await run("whichAi.handoff", "add coupons", true), /Wrote HANDOFF\.md/);
     assert.ok(fs.existsSync(path.join(project, "HANDOFF.md")));
