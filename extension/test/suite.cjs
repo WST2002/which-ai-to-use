@@ -22,7 +22,11 @@ exports.run = async () => {
 
   await check("status bar shows the score and tokens at risk", async () => {
     await api.refreshStatus();
-    assert.match(api.statusText(), /^\$\(sparkle\) AI \d+\/100 · 10k tokens at risk$/);
+    assert.match(api.statusText(), /^\$\(sparkle\) AI \d+\/100 · 10k tokens at risk · \$\(warning\) limit close$/);
+  });
+
+  await check("a window close to the busiest one warns once, from the made-up usage in the test home", async () => {
+    assert.match(api.lastWarning(), /^This window is at 90% of your busiest 5-hour window this week \(~100,000 tokens\)/);
   });
 
   await check("checkup matches the CLI", async () => {

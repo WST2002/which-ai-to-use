@@ -51,16 +51,30 @@ async function refreshStatus() {
   if (!status) return;
   if (!vscode.workspace.getConfiguration("whichAi").get("statusBar") || !vscode.workspace.workspaceFolders?.length) return status.hide();
   try {
-    const { checkupAction } = await load();
+    const { checkupAction, usageAction } = await load();
     const { data } = checkupAction(await context());
+    const usage = usageAction(await context()).data;
     const atRisk = data.issues.reduce((sum, issue) => sum + issue.tokens, 0);
-    status.text = `$(sparkle) AI ${data.score.score}/100${atRisk ? ` · ${Math.round(atRisk / 1000)}k tokens at risk` : ""}`;
-    status.tooltip = data.issues.length ? `${data.issues.map((i) => `• ${i.problem}`).join("\n")}\n\nClick for options.` : "Nothing is wasting your tokens. Click for options.";
+    status.text = `$(sparkle) AI ${data.score.score}/100${atRisk ? ` · ${Math.round(atRisk / 1000)}k tokens at risk` : ""}${usage.warning ? " · $(warning) limit close" : ""}`;
+    status.backgroundColor = usage.warning ? new vscode.ThemeColor("statusBarItem.warningBackground") : undefined;
+    const reasons = data.issues.length ? data.issues.map((i) => `• ${i.problem}`).join("\n") : "Nothing is wasting your tokens.";
+    status.tooltip = `${usage.warning ? `⚠ ${usage.warning}\n\n` : ""}${reasons}\n\nClick for options.`;
     status.show();
+    warnOnce(usage);
   } catch {
     status.hide();
   }
 }
+
+// The limit warning pops up once per 5-hour window; after that it stays in the status bar.
+let warnedWindow;
+function warnOnce(usage) {
+  if (!usage.warning || warnedWindow === usage.window.start) return;
+  warnedWindow = usage.window.start;
+  lastWarning = usage.warning;
+  vscode.window.showWarningMessage(`Which AI: ${usage.warning}`, "Show usage").then((choice) => choice && COMMANDS.openFullView());
+}
+let lastWarning; // for the tests
 
 let handoffChoices = []; // from the last handoff, so "Run in terminal" can only start one of those commands
 let lastTerminalCommand; // for the tests
@@ -241,7 +255,7 @@ function activate(extension) {
     vscode.workspace.onDidChangeConfiguration((e) => e.affectsConfiguration("whichAi") && refreshStatus()),
   );
   refreshStatus();
-  return { refreshStatus, statusText: () => status.text, handleMessage, sidebarHtml: () => sidebar?.webview.html, sidebarAsked: () => sidebarAsked, lastTerminalCommand: () => lastTerminalCommand };
+  return { refreshStatus, statusText: () => status.text, handleMessage, sidebarHtml: () => sidebar?.webview.html, sidebarAsked: () => sidebarAsked, lastTerminalCommand: () => lastTerminalCommand, lastWarning: () => lastWarning };
 }
 
 function deactivate() {}
