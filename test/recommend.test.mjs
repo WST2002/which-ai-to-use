@@ -1,5 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { recommend, runCommandFor } from "../src/recommend.mjs";
 
 const found = (id, extra = {}) => ({ id, onPath: true, via: [`command: ${id}`], ...extra });
@@ -155,4 +159,22 @@ test("handoff choices put the recommended AI first, then the others, the web and
   assert.ok(choices[0].recommended);
   assert.ok(!choices.some((c) => c.id === "github-copilot"), "editor-only tools cannot be started from a terminal");
   assert.ok(handoffChoices(recommend({ ...base, installed: [] })).find((c) => c.id === "web").recommended);
+});
+
+test("a task or file name can never break out of the quotes in the command", () => {
+  const task = 'fix the "Terms & Conditions" link; $(touch PWNED) `touch PWNED` %PATH% costs $5!\nnext line \\';
+  const { command } = recommend({ ...base, task, installed: [found("claude-code")] }).best;
+  assert.equal(command, `claude "fix the 'Terms & Conditions' link; (touch PWNED) 'touch PWNED' PATH costs 5 next line "`);
+});
+
+test("the quoted task reaches the program as one argument in the system shell, and runs nothing", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "waitu-quote-"));
+  const echo = path.join(dir, "echo.cjs");
+  fs.writeFileSync(echo, "process.stdout.write(JSON.stringify(process.argv.slice(2)))");
+  const task = 'add "coupons" & $(touch PWNED) `touch PWNED` %PATH%';
+  const { command } = recommend({ ...base, task, installed: [found("claude-code")] }).best;
+  const run = command.replace(/^claude /, `"${process.execPath}" "${echo}" `);
+  const result = spawnSync(run, { cwd: dir, shell: true, encoding: "utf8" });
+  assert.deepEqual(JSON.parse(result.stdout), ["add 'coupons' & (touch PWNED) 'touch PWNED' PATH"]);
+  assert.ok(!fs.existsSync(path.join(dir, "PWNED")));
 });
