@@ -249,7 +249,7 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
           <div class="form" style="margin:0"><button class="btn" id="consent-yes">Allow and ask</button><button class="btn ghost" id="consent-no">Cancel</button></div>
         </div>
         <div class="form hidden" id="form-handoff">
-          <input type="text" id="handoff-task" placeholder="What were you working on?" aria-label="Task to hand off">
+          <input type="text" id="handoff-task" placeholder="What were you working on? (optional: read from the Claude Code chat)" aria-label="Task to hand off">
           <label class="check"><input type="checkbox" id="without-claude" checked> Leave out Claude Code</label>
           <button class="btn" id="write-handoff">Write HANDOFF.md</button>
         </div>
@@ -479,6 +479,7 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
     },
     handoff(data) {
       const parts = [el("div", { class: "ok", text: "Wrote HANDOFF.md: " + data.changes.length + " changed file(s), " + data.commits.length + " commit(s) on " + data.branch + "." })];
+      if (data.chat) parts.push(el("p", { class: "muted", text: "Read from the Claude Code chat (" + data.chat.requests + " request" + (data.chat.requests === 1 ? "" : "s") + "): “" + data.chat.task + "”" }));
       if (data.next.best) parts.push(el("div", { class: "section-title", text: "Continue with " + data.next.best.name }), command(data.next.best.command));
       else parts.push(el("div", { class: "section-title", text: "No other AI tool is installed" }), el("p", { text: "Paste HANDOFF.md into ChatGPT or Gemini on the web and ask it to continue, or install Gemini CLI (free tier):" }), command("npm i -g @google/gemini-cli"));
       const copyNote = el("button", { class: "btn ghost", style: "margin-top:12px", text: "Copy HANDOFF.md", onclick: () => { copyText(data.note); copyNote.textContent = "Copied"; setTimeout(() => (copyNote.textContent = "Copy HANDOFF.md"), 1500); } });
