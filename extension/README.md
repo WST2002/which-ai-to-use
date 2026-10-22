@@ -1,6 +1,6 @@
 # Which AI to Use
 
-See what wastes your AI tokens, your AI setup score, which AI (and model) to use for a task, and hand work to another AI when Claude's limit runs out. Everything runs on your machine.
+See what wastes your AI tokens, your AI setup score, which AI (and model) to use for a task, tips when Claude's limit is close, hand work to another AI when it runs out, and see your AI week. Everything runs on your machine.
 
 ## In the sidebar
 
@@ -12,6 +12,10 @@ Click the **✦ Which AI** icon in the Activity Bar (left edge). The sidebar sho
 - **Claude limit over?**: writes HANDOFF.md so another AI carries on
 - **Score card** you can save as an image, token details, usage (with tips when Claude's limit is close) and installed tools
 - **Your AI week**: tokens per day next to the week before, limit hits and requests per AI, with a line to share
+
+<img src="https://raw.githubusercontent.com/WST2002/which-ai-to-use/main/media/sidebar.png" width="300" alt="The Which AI sidebar in VS Code's dark theme: the menu, the summary and the checkup">
+
+![Your AI week in the dashboard: Claude Code tokens per day as bars, up 94% on the week before, the limit ran out once, and requests per AI](https://raw.githubusercontent.com/WST2002/which-ai-to-use/main/media/report.png)
 
 With **Ask my AI too**, the sidebar shows exactly what would be sent and asks before using an AI you already have.
 
@@ -30,7 +34,10 @@ Prefer the keyboard? Open the Command Palette (Ctrl+Shift+P / Cmd+Shift+P) and t
 | **Fix wasted tokens** | Shows which heavy files your AI tools will skip and applies it only after you click Apply |
 | **AI setup score** | Your score out of 100, what costs points, and a line to share |
 | **Claude limit over? Write a handoff** | Writes HANDOFF.md so another AI carries on instead of starting over |
+| **Claude's limit reset? Hand the task back** | Writes HANDOFF.md again and starts Claude Code with it in a terminal |
 | **Open the sidebar** | Shows the Which AI sidebar |
+| **Open the full dashboard** | Opens the dashboard in an editor tab |
+| **Open menu** | All of the above in one list; also a click on the status bar |
 
 Works with Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, Windsurf, Cline, Aider and Ollama. Nothing is sent anywhere unless you allow Ask my AI too.
 
