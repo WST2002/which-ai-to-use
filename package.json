@@ -10,10 +10,12 @@
     "bin",
     "src",
     "data",
-    "skills"
+    "skills",
+    "vscode"
   ],
   "scripts": {
-    "test": "node --test \"test/*.test.mjs\""
+    "test": "node --test \"test/*.test.mjs\"",
+    "prepack": "node scripts/bundle-vsix.mjs"
   },
   "engines": {
     "node": ">=18"
