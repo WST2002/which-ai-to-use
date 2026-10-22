@@ -7,7 +7,7 @@ import os from "node:os";
 import { parseArgs } from "node:util";
 import { startDashboard } from "../src/dashboard.mjs";
 import { detectTools } from "../src/detect.mjs";
-import { aiAction, checkupAction, doctorAction, fixAction, handoffAction, recommendAction, scoreAction, slimAction, tokensAction, usageAction } from "../src/actions.mjs";
+import { aiAction, checkupAction, doctorAction, fixAction, handoffAction, offerFix, recommendAction, scoreAction, slimAction, tokensAction, usageAction } from "../src/actions.mjs";
 import { formatSyncPlan } from "../src/format.mjs";
 import { RULES_FILES } from "../src/project.mjs";
 import { copyFileToClipboard } from "../src/clipboard.mjs";
@@ -257,7 +257,12 @@ async function main() {
   const [command] = positionals;
   const context = { cwd: process.cwd(), home: os.homedir(), installed, prefer: values.prefer, private: values.private };
   const print = ({ text, data }) => process.stdout.write(values.json ? `${JSON.stringify(data, null, 2)}\n` : text);
-  if (!command) return print(checkupAction(context));
+  if (!command) {
+    print(checkupAction(context));
+    // In a terminal, offer the fix right away so nobody has to run a second command.
+    if (values.json || !process.stdin.isTTY) return undefined;
+    return void process.stdout.write(await offerFix({ ...context, ask: (question) => confirm(question) }));
+  }
   if (command === "dashboard") return runDashboard(values);
   if (command === "setup") return runSetup(values);
   if (command === "doctor") return print(doctorAction(context));
