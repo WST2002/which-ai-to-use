@@ -42,7 +42,7 @@ test("sums today and the last 7 days from Claude Code's local logs, once per mes
 
 test("no logs means no usage, not an error", (t) => {
   const dir = home(t, {});
-  assert.deepEqual(claudeUsage({ home: dir, now: NOW }), { found: false, today: { fresh: 0, cached: 0, replies: 0 }, week: { fresh: 0, cached: 0, replies: 0 }, projects: [], window: null });
+  assert.deepEqual(claudeUsage({ home: dir, now: NOW }), { found: false, today: { fresh: 0, cached: 0, replies: 0 }, week: { fresh: 0, cached: 0, replies: 0 }, projects: [], window: null, limit: null });
 });
 
 const u = (input, output) => ({ input_tokens: input, output_tokens: output });
@@ -75,4 +75,29 @@ test("the window line gives the reset time and what is left, or how a new window
   assert.match(windowLine(window, new Date("2026-10-20T12:48:00Z")), /^~1,200 tokens in 4 replies since \d\d:\d\d · resets about \d\d:\d\d \(in 1 h 12 min\)$/);
   assert.match(windowLine(window, new Date("2026-10-20T13:59:40Z")), /\(in 1 min\)$/);
   assert.equal(windowLine(null), "No 5-hour window is open: your next Claude message starts a fresh one.");
+});
+
+// Replies spread over a window: `tokens` in total, starting at `at`.
+const burst = (prefix, at, tokens, count = 4) =>
+  Array.from({ length: count }, (_, i) => line(`${prefix}${i}`, new Date(Date.parse(at) + i * 10 * 60000).toISOString(), "C:\p", u(tokens / count, 0)));
+
+test("warns when this window nears the busiest window of the week", async (t) => {
+  const { limitWarning } = await import("../src/format.mjs");
+  const dir = home(t, { "p/a.jsonl": [...burst("old", "2026-10-18T09:00:00Z", 100000), ...burst("now", "2026-10-20T10:00:00Z", 85000)] });
+  const usage = claudeUsage({ home: dir, now: NOW });
+  assert.deepEqual(usage.limit, { tokens: 100000, source: "busiest" });
+  assert.match(limitWarning(usage, []), /^This window is at 85% of your busiest 5-hour window this week \(~100,000 tokens\); it resets about \d\d:\d\d\. Send small tasks to Claude with --model haiku/);
+  assert.match(limitWarning(usage, [{ id: "gemini-cli" }]), /Send small tasks to Gemini CLI \(free\)/);
+});
+
+test("a recorded limit hit is the better reference, and low use gives no warning", async (t) => {
+  const { limitWarning } = await import("../src/format.mjs");
+  const dir = home(t, { "p/a.jsonl": [...burst("old", "2026-10-18T09:00:00Z", 200000), ...burst("hit", "2026-10-19T09:00:00Z", 90000), ...burst("now", "2026-10-20T10:00:00Z", 80000)] });
+  fs.mkdirSync(path.join(dir, ".which-ai-to-use"));
+  fs.writeFileSync(path.join(dir, ".which-ai-to-use", "limits.jsonl"), `${JSON.stringify({ at: "2026-10-19T09:35:00Z" })}\n`);
+  const usage = claudeUsage({ home: dir, now: NOW });
+  assert.deepEqual(usage.limit, { tokens: 90000, source: "limit" });
+  assert.match(limitWarning(usage, []), /89% of what you had used when your limit ran out last time \(~90,000 tokens\)/);
+  const quiet = home(t, { "p/a.jsonl": [...burst("old", "2026-10-18T09:00:00Z", 100000), ...burst("now", "2026-10-20T10:00:00Z", 30000)] });
+  assert.equal(limitWarning(claudeUsage({ home: quiet, now: NOW }), []), null);
 });

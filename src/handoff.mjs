@@ -61,7 +61,7 @@ export function collectHandoff(dir) {
 }
 
 /** `chat`: the summary from lastClaudeChat, if the work was done in Claude Code. */
-export function renderHandoff({ task, info, verify, date, chat = null }) {
+export function renderHandoff({ task, info, verify, date, chat = null, from = null, resets = null }) {
   const lines = [
     "# Handoff",
     "",
@@ -98,5 +98,14 @@ export function renderHandoff({ task, info, verify, date, chat = null }) {
     `Written by which-ai-to-use on ${date}.`,
     "",
   );
+  if (from) lines.push(`<!-- which-ai-to-use: from=${from}${resets ? ` resets=${new Date(resets).toISOString()}` : ""} -->`, "");
   return lines.join("\n");
+}
+
+const META = /<!-- which-ai-to-use: from=([\w-]+)(?: resets=(\S+))? -->/;
+
+/** Which AI the note was handed off from, and when its limit resets (ms), from a HANDOFF.md text. */
+export function handoffMeta(text) {
+  const match = META.exec(text ?? "");
+  return match ? { from: match[1], resets: match[2] ? Date.parse(match[2]) : null } : null;
 }

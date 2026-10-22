@@ -31,6 +31,8 @@ Starting a task?      npx which-ai-to-use "your task"
 Claude limit over?    npx which-ai-to-use handoff
 ```
 
+No AI coding tool on your laptop yet? The checkup asks what you want to do and suggests the AI that suits it, a free option, and how to install each; it can install one and start your task in it. The dashboard and the VS Code sidebar do the same.
+
 That's it. The only other commands you need:
 
 | When | Run |
@@ -96,7 +98,7 @@ You don't have to install anything. Pick the way that suits you:
 | **Recommend** | First the best AI for the task among every supported tool (and whether it is on your laptop), then the best of the ones you have, with a reason for that kind of task and the command to run |
 | **AI mode** | `--ai`: with your permission, asks an AI you already have (Ollama first, then Claude Code, Gemini CLI, Codex) for a smarter answer and a better prompt. It runs with no tools, gets the task and file **names** only, and the rules answer is shown alongside |
 | **Cost to start** | Rough tokens the first message will take: the tool's instructions file, the files the prompt points at, the prompt |
-| **Usage** | `usage`: when your current 5-hour Claude limit window resets (an estimate) and the tokens used in it, Claude Code tokens today and in the last 7 days, busiest projects, and a tip when today is far above average. Read from Claude Code's own logs: numbers only, never your messages |
+| **Usage** | `usage`: when your current 5-hour Claude limit window resets (an estimate) and the tokens used in it, a warning when the window nears your busiest one this week (or where your limit ran out before, once the Claude Code plugin has recorded it), also in the VS Code status bar, Claude Code tokens today and in the last 7 days, busiest projects, and a tip when today is far above average. Read from Claude Code's own logs: numbers only, never your messages |
 | **Slim** | `slim`: your AI writes a shorter copy of a long `CLAUDE.md` next to it (it sends the file, so it asks first); `slim --apply` swaps it in and keeps a backup |
 | **Better prompt** | Names the files that match the task and asks the agent to run your tests and report the result |
 | **Model choice** | For Claude Code: `--model haiku` for small edits (uses far less of your limit), `--model opus` for risky or large work |
@@ -156,6 +158,17 @@ Add-ons (MCP servers) switched on: each one is sent with every message
 ```
 
 Token counts are estimates (about four characters per token). `tokens` changes nothing; `npx which-ai-to-use fix` applies the skip rules after asking.
+
+## Claude Code plugin: hand off the moment the limit hits
+
+Install it once inside Claude Code:
+
+```
+/plugin marketplace add WST2002/which-ai-to-use
+/plugin install limit-handoff@which-ai-to-use
+```
+
+When a turn ends because Claude's usage limit was reached, the plugin writes `HANDOFF.md` (copied to your clipboard) and shows a desktop notification, so you can carry on in another AI right away. It also records the time, which makes the limit warning in `usage` more accurate. With the VS Code extension, a notification offers **Continue in** the recommended AI, and once the limit resets, **Hand back to Claude**. From a terminal: `npx which-ai-to-use handoff --back`.
 
 ## Switch AI mid-task
 
