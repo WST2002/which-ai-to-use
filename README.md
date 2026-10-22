@@ -172,7 +172,9 @@ Install it once inside Claude Code:
 
 When a turn ends because Claude's usage limit was reached, the plugin writes `HANDOFF.md` (copied to your clipboard) and shows a desktop notification, so you can carry on in another AI right away. It writes the note once per limit window, not on every message you send while the limit is over. It also records the time, which makes the limit warning in `usage` more accurate and counts in `report`.
 
-See the limit coming? Type `/handoff` (optionally with the task) in Claude Code. Claude writes `HANDOFF.md` with the tool and then adds a short **Notes from Claude** section: what is done, the next steps, decisions and what to watch out for. The next AI then knows what only Claude knew. With the VS Code extension, a notification offers **Continue in** the recommended AI, and once the limit resets, **Hand back to Claude**. From a terminal: `npx which-ai-to-use handoff --back`.
+With the VS Code extension, a notification offers **Continue in** the recommended AI, and once the limit resets, **Hand back to Claude**. From a terminal: `npx which-ai-to-use handoff --back`.
+
+See the limit coming? Type `/limit-handoff:handoff` in Claude Code, optionally followed by the task. Claude writes `HANDOFF.md` with the tool and then adds a short **Notes from Claude** section: what is done, the next steps, decisions and what to watch out for. The next AI then knows what only Claude knew.
 
 ## Switch AI mid-task
 
