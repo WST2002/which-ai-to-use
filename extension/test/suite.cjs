@@ -98,7 +98,7 @@ exports.run = async () => {
 
 Task: add coupons
 
-<!-- which-ai-to-use: from=claude-code resets=${resets} -->
+<!-- which-ai-to-use: from=claude-code by=hook resets=${resets} -->
 `);
     const wait = async (text) => {
       for (let i = 0; i < 100 && !api.notices().includes(text); i++) await new Promise((done) => setTimeout(done, 100));
@@ -117,9 +117,12 @@ Task: add coupons
     assert.equal(api.lastTerminalCommand(), first.command);
   });
 
-  await check("handoff writes HANDOFF.md", async () => {
+  await check("handoff writes HANDOFF.md, and the user's own handoff does not ask again who carries on", async () => {
+    const before = api.notices().length;
     assert.match(await run("whichAi.handoff", "add coupons", true), /Wrote HANDOFF\.md/);
     assert.ok(fs.existsSync(path.join(project, "HANDOFF.md")));
+    await new Promise((done) => setTimeout(done, 2000));
+    assert.deepEqual(api.notices().slice(before).filter((n) => n.startsWith("Claude's limit was reached")), []);
   });
 
   await check("fix applies only when asked, then the status bar updates", async () => {
