@@ -176,6 +176,8 @@ Run:     gemini -i "Read HANDOFF.md and continue the task."
 
 `HANDOFF.md` lists the task, the commits on the branch, every uncommitted file with its line counts, and the test command to run first. The next AI reads a short note instead of re-exploring the whole project. Don't commit it.
 
+In a terminal, handoff then asks who carries on: the recommended AI first (with the reason), the other AIs you have, a chat on the web (the note is copied for you), or nothing for now. Press Enter for the recommended one and it starts right there with the note. Skip the question with `--to gemini-cli`, `--to web` or `--to none`. In the dashboard and the VS Code sidebar the same choices are buttons; in VS Code, **Run in terminal** starts the AI in a VS Code terminal.
+
 No need to type the task when you worked in Claude Code: handoff reads the latest Claude Code chat for this project (from Claude Code's own log on your laptop) and adds the first request, the latest requests and where Claude stopped. Passwords, API keys and tokens in the chat are replaced with `[hidden]`, and the note stays on your laptop until you hand it to the next AI.
 
 Claude Code is left out by default, since its limit is what ran out. Coming from another AI? Name that one instead, for example `--without codex`. Only Claude installed? Handoff still writes the note and tells you how to carry on: paste `HANDOFF.md` into ChatGPT or Gemini on the web, or install Gemini CLI (free tier). Add `--copy` to put the note straight on your clipboard; the dashboard and the VS Code sidebar have a **Copy HANDOFF.md** button.
