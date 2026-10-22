@@ -62,6 +62,57 @@ test("passwords, API keys and tokens are hidden", () => {
   assert.match(out, /password=\[hidden\]/);
 });
 
+test("keys from Stripe, Google, npm and GitLab, bearer tokens, URL passwords and private keys are hidden", () => {
+  // Built from parts so the made-up keys never look like real ones in this file.
+  const fake = (prefix, length) => prefix + "a1B2c3D4".repeat(8).slice(0, length);
+  const secrets = [
+    fake("sk_" + "live_", 24),
+    fake("rk_" + "test_", 24),
+    fake("AI" + "za", 35),
+    fake("npm" + "_", 36),
+    fake("glpat" + "-", 20),
+    fake("github" + "_pat_", 40),
+    "S3cretPass",
+    "hunter2",
+    fake("eyJhbGciOi", 30).replace(/\./g, ""),
+    "MIIEvQIBADANBgkqhkiG9w0",
+  ];
+  const text = [
+    `stripe ${secrets[0]} and ${secrets[1]}`,
+    `google ${secrets[2]}, npm ${secrets[3]}, gitlab ${secrets[4]}, github ${secrets[5]}`,
+    `DATABASE_URL=postgres://admin:${secrets[6]}@db.example.com:5432/shop`,
+    `my password is ${secrets[7]}`,
+    `Authorization: Bearer ${secrets[8]}`,
+    `-----BEGIN PRIVATE KEY-----\n${secrets[9]}\n-----END PRIVATE KEY-----`,
+  ].join("\n");
+  const out = redact(text);
+  for (const secret of secrets) assert.ok(!out.includes(secret), secret);
+  assert.match(out, /postgres:\/\/admin:\[hidden\]@db\.example\.com/);
+  assert.match(out, /my password is \[hidden\]/);
+  assert.match(out, /Bearer \[hidden\]/);
+});
+
+test("a chat log that disappears while it is read, or cannot be read, is skipped", (t) => {
+  const dir = home(t);
+  session(dir, "shop", project, [["user", "Fix the cart total"]], 30);
+  // A dangling link: listed by readdir, gone by the time it is opened (Claude Code prunes old chats).
+  const dangling = path.join(dir, ".claude", "projects", "shop", "gone.jsonl");
+  try {
+    fs.symlinkSync(path.join(dir, "missing.jsonl"), dangling);
+  } catch {
+    t.skip("this system cannot create symlinks");
+    return;
+  }
+  assert.equal(lastClaudeChat({ home: dir, cwd: project }).task, "Fix the cart total");
+});
+
+test("a chat started in a subfolder of the project counts for the project", (t) => {
+  const dir = home(t);
+  session(dir, "web", path.join(project, "packages", "web"), [["user", "Fix the header on mobile"]]);
+  assert.equal(lastClaudeChat({ home: dir, cwd: project }).task, "Fix the header on mobile");
+  assert.equal(lastClaudeChat({ home: dir, cwd: path.join(project, "packages", "api") }), null);
+});
+
 test("long messages are shortened to one line", (t) => {
   const dir = home(t);
   session(dir, "shop", project, [["user", `Build the page\n\n${"x".repeat(2000)}`]]);

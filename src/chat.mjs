@@ -7,8 +7,16 @@ const MAX_FILES = 20;
 // Lines Claude Code writes as user turns that are not things the user asked for.
 const NOT_A_REQUEST = /^\s*(<(command-|local-command|system-reminder|bash-)|Caveat: |\[Request interrupted)/;
 const SECRETS = [
+  [/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY-----|$)/g, "[hidden]"],
   [/((?:password|passwd|secret|token|api[_-]?key|access[_-]?key)["']?\s*[:=]\s*["']?)[^\s"',]+/gi, "$1[hidden]"],
-  [/\b(?:sk|pk|rk)-[A-Za-z0-9_-]{16,}/g, "[hidden]"],
+  [/\b((?:password|passwd|pwd|passcode|pin)\s+(?:is|was)\s+)\S+/gi, "$1[hidden]"],
+  [/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{8,}/g, "$1 [hidden]"],
+  [/(\/\/[^:/\s@]+:)[^@\s/]+@/g, "$1[hidden]@"],
+  [/\b(?:sk|pk|rk)[-_](?:live_|test_)?[A-Za-z0-9_-]{16,}/g, "[hidden]"],
+  [/\bAIza[0-9A-Za-z_-]{30,}/g, "[hidden]"],
+  [/\bnpm_[A-Za-z0-9]{30,}/g, "[hidden]"],
+  [/\bglpat-[A-Za-z0-9_-]{20,}/g, "[hidden]"],
+  [/\bgithub_pat_[A-Za-z0-9_]{30,}/g, "[hidden]"],
   [/\bgh[pousr]_[A-Za-z0-9]{20,}/g, "[hidden]"],
   [/\bxox[abpr]-[A-Za-z0-9-]{10,}/g, "[hidden]"],
   [/\bAKIA[0-9A-Z]{16}\b/g, "[hidden]"],
@@ -45,7 +53,12 @@ function realPath(p) {
   return realPaths.get(p);
 }
 
-const samePath = (a, b) => typeof a === "string" && realPath(a) === realPath(b);
+// A chat started in a subfolder of the project (packages/web) is still about the project.
+const inside = (folder, root) => {
+  if (typeof folder !== "string") return false;
+  const [child, parent] = [realPath(folder), realPath(root)];
+  return child === parent || child.startsWith(`${parent}${path.sep}`) || child.startsWith(`${parent}/`);
+};
 
 function chatFiles(home) {
   const root = path.join(home, ".claude", "projects");
@@ -63,7 +76,14 @@ function chatFiles(home) {
         return [];
       }
     })
-    .map((file) => ({ file, mtime: fs.statSync(file).mtimeMs }))
+    // Claude Code prunes old chats, so a file listed a moment ago can be gone.
+    .flatMap((file) => {
+      try {
+        return [{ file, mtime: fs.statSync(file).mtimeMs }];
+      } catch {
+        return [];
+      }
+    })
     .sort((a, b) => b.mtime - a.mtime)
     .slice(0, MAX_FILES);
 }
@@ -80,7 +100,7 @@ export function lastClaudeChat({ home, cwd }) {
       } catch {
         return [];
       }
-    }).filter((e) => samePath(e.cwd, cwd));
+    }).filter((e) => inside(e.cwd, cwd));
     const asked = entries.filter((e) => e.type === "user" && !e.isMeta).map((e) => textOf(e.message?.content)).filter((t) => t.trim() && !NOT_A_REQUEST.test(t));
     if (!asked.length) continue;
     const replies = entries.filter((e) => e.type === "assistant").map((e) => textOf(e.message?.content)).filter((t) => t.trim());
