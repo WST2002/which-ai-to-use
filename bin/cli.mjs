@@ -9,6 +9,7 @@ import { detectTools } from "../src/detect.mjs";
 import { aiAction, checkupAction, doctorAction, fixAction, handoffAction, recommendAction, scoreAction, slimAction, tokensAction, usageAction } from "../src/actions.mjs";
 import { formatSyncPlan } from "../src/format.mjs";
 import { RULES_FILES } from "../src/project.mjs";
+import { findEditors, hasGlobalCommand, installExtension, installGlobal } from "../src/setup.mjs";
 import { applySync, planSync } from "../src/sync.mjs";
 import { TOOLS, toolById } from "../src/tools.mjs";
 
@@ -25,6 +26,7 @@ Start here:
   which-ai-to-use score               Your AI setup score out of 100, what costs points, a line to share
                                       (--card opens the score card image to download and post)
   which-ai-to-use dashboard           Open all of this as buttons in your browser (localhost only)
+  which-ai-to-use setup               Install it for the terminal and add the sidebar to VS Code, Cursor or Windsurf (asks first)
 
 More:
   which-ai-to-use tokens              Token details: instructions files, heavy files, add-ons (MCP servers)
@@ -41,7 +43,7 @@ Options:
   --json                              Machine-readable output
   --from <file>                       sync: source rules file (default: AGENTS.md or the first one found)
   --all                               sync: write rules files for every supported AI, not only installed ones
-  --yes                               fix, sync, --ai: go ahead without asking
+  --yes                               fix, sync, setup, --ai: go ahead without asking
   --copy                              handoff: also copy HANDOFF.md to the clipboard, to paste into any AI chat
   --port <n>, --no-open               dashboard: fixed port, don't open the browser
   --version, --help
@@ -111,6 +113,35 @@ async function confirm(question) {
   return /^y(es)?$/i.test(answer.trim());
 }
 
+const SOURCE = { store: "from its extension store", bundled: "from the copy inside this package" };
+
+// One command for both places: the terminal command (a global npm install) and the editor sidebar.
+async function runSetup(values) {
+  const say = (line) => process.stdout.write(`${line}\n`);
+  const ask = (question) => (values.yes ? Promise.resolve(true) : confirm(`${question} (y/N) `));
+  let skipped = false;
+
+  if (hasGlobalCommand()) say("✓ Terminal: which-ai-to-use is already installed.");
+  else if (await ask("Install which-ai-to-use for the terminal (npm install -g), so it works in any project without npx?")) {
+    say(installGlobal(version) ? "✓ Terminal: installed. Run which-ai-to-use in any project." : "✗ Terminal: npm install -g failed. Try it yourself: npm i -g which-ai-to-use");
+  } else skipped = true;
+
+  const editors = findEditors();
+  if (!editors.length) {
+    say("No VS Code, Cursor or Windsurf command found. In VS Code: Ctrl+Shift+P → \"Shell Command: Install 'code' command in PATH\" (macOS),");
+    say("or search \"Which AI to Use\" in the Extensions view.");
+  }
+  for (const editor of editors) {
+    if (!(await ask(`Add the Which AI sidebar to ${editor.name}?`))) {
+      skipped = true;
+      continue;
+    }
+    const source = installExtension(editor);
+    say(source ? `✓ ${editor.name}: installed ${SOURCE[source]}. Click the ✦ Which AI icon on the left.` : `✗ ${editor.name}: could not install the extension. Search "Which AI to Use" in its Extensions view.`);
+  }
+  if (skipped && !process.stdin.isTTY) say("Nothing was installed without a yes. Run with --yes to install without asking.");
+}
+
 async function runSync(values, installed) {
   const cwd = process.cwd();
   const installedRules = installed.map((found) => toolById(found.id).rulesFile).filter(Boolean);
@@ -162,6 +193,7 @@ async function main() {
   const print = ({ text, data }) => process.stdout.write(values.json ? `${JSON.stringify(data, null, 2)}\n` : text);
   if (!command) return print(checkupAction(context));
   if (command === "dashboard") return runDashboard(values);
+  if (command === "setup") return runSetup(values);
   if (command === "doctor") return print(doctorAction(context));
   if (command === "tokens") return print(tokensAction(context));
   if (command === "usage") return print(usageAction(context));

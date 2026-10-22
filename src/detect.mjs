@@ -31,7 +31,7 @@ const listDir = (dir) => {
   }
 };
 
-function onPath(bin, pathDirs, platform) {
+export function onPath(bin, pathDirs, platform) {
   const suffixes = platform === "win32" ? WINDOWS_EXTENSIONS : [""];
   return pathDirs.some((dir) => suffixes.some((suffix) => isFile(path.join(dir, bin + suffix))));
 }

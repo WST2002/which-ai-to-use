@@ -61,7 +61,7 @@ Nothing is sent anywhere: it only looks at your laptop and your project.
 
 <img src="media/sidebar.png" width="300" align="right" alt="The Which AI sidebar in VS Code, in the editor's own dark theme: menu, summary and checkup">
 
-The same features inside VS Code: a **Which AI** sidebar with the full dashboard (score, checkup, fix, task advice, handoff, score card), the score and tokens at risk in the status bar, and **Which AI** commands in the Command Palette. It lives in [`extension/`](extension) and is tested inside a real VS Code. Marketplace listing coming soon; until then build it with `cd extension && npm ci && npm run package` and install the `.vsix` (Extensions → … → Install from VSIX).
+The same features inside VS Code: a **Which AI** sidebar with the full dashboard (score, checkup, fix, task advice, handoff, score card), the score and tokens at risk in the status bar, and **Which AI** commands in the Command Palette. It lives in [`extension/`](extension) and is tested inside a real VS Code. Install it with `npx which-ai-to-use setup`, which also sets up the terminal command.
 
 <br clear="right">
 
@@ -71,18 +71,22 @@ You don't have to install anything. Pick the way that suits you:
 
 | | Command | When to use it |
 |---|---|---|
-| **1. Run with npx** (recommended) | `npx which-ai-to-use` | Now and then. Nothing is installed and you always get the latest version. |
-| **2. Install globally** | `npm i -g which-ai-to-use` | Every day. Afterwards `which-ai-to-use` and `which-ai-to-use dashboard` work in any folder without npx. |
-| **3. Install in a project** | `npm i which-ai-to-use` | Not recommended: it adds a dependency to your app's `package.json` for a tool your app never uses. |
+| **1. Run with npx** (recommended to try it) | `npx which-ai-to-use` | Now and then. Nothing is installed and you always get the latest version. |
+| **2. Terminal and editor in one go** | `npx which-ai-to-use setup` | Every day. Installs the `which-ai-to-use` command and adds the **Which AI** sidebar to VS Code, Cursor or Windsurf. It asks before each step; add `--yes` to skip the questions. |
+| **3. Install globally** | `npm i -g which-ai-to-use` | Terminal only. Afterwards `which-ai-to-use` and `which-ai-to-use dashboard` work in any folder without npx. |
+| **4. Install in a project** | `npm i which-ai-to-use` | Not recommended: it adds a dependency to your app's `package.json` for a tool your app never uses. |
+
+`setup` installs the editor extension from the editor's own extension store when it is listed there, and otherwise from a copy inside the npm package, so it works offline and in editors with another store. It needs the editor's command on your PATH (`code`, `cursor` or `windsurf`); VS Code on Windows and Linux adds it during installation, and on macOS you add it from the Command Palette with **Shell Command: Install 'code' command in PATH**.
 
 **Update**
 
 - npx: nothing to do, it fetches the latest version. If an old one is cached, run `npx which-ai-to-use@latest`.
-- Global install: `npm i -g which-ai-to-use@latest`. Check your version with `which-ai-to-use --version`.
+- Global install and the editor sidebar: run `npx which-ai-to-use@latest setup` again. Check your version with `which-ai-to-use --version`.
 
 **Uninstall**
 
 - Global install: `npm uninstall -g which-ai-to-use`.
+- Editor sidebar: `code --uninstall-extension wst2002.which-ai-to-use` (or `cursor` / `windsurf`), or uninstall it from the Extensions view.
 - npx leaves nothing in your project. To clear its download cache: `npm cache clean --force`.
 
 ## Everything it does
