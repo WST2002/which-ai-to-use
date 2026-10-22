@@ -4,6 +4,7 @@
     "name": "Wageesha Tripathi",
     "email": "tripathiwageesha2002@gmail.com"
   },
+  "description": "Claude Code plugins from which-ai-to-use: carry on in another AI when Claude's usage limit is reached.",
   "plugins": [
     {
       "name": "limit-handoff",
