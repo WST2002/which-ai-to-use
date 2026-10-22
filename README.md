@@ -157,6 +157,17 @@ Add-ons (MCP servers) switched on: each one is sent with every message
 
 Token counts are estimates (about four characters per token). `tokens` changes nothing; `npx which-ai-to-use fix` applies the skip rules after asking.
 
+## Claude Code plugin: hand off the moment the limit hits
+
+Install it once inside Claude Code:
+
+```
+/plugin marketplace add WST2002/which-ai-to-use
+/plugin install limit-handoff@which-ai-to-use
+```
+
+When a turn ends because Claude's usage limit was reached, the plugin writes `HANDOFF.md` (copied to your clipboard) and shows a desktop notification, so you can carry on in another AI right away. It also records the time, which makes the limit warning in `usage` more accurate. With the VS Code extension, a notification offers **Continue in** the recommended AI, and once the limit resets, **Hand back to Claude**. From a terminal: `npx which-ai-to-use handoff --back`.
+
 ## Switch AI mid-task
 
 Claude hit its limit halfway through a feature? Hand the work to another tool without starting over:
