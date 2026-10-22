@@ -486,3 +486,18 @@ test("writing the note again, for example on hand back, keeps the task the user 
   assert.equal(back.status, 0, back.stderr);
   assert.match(fs.readFileSync(path.join(project, "HANDOFF.md"), "utf8"), /^Task: add coupons to checkout$/m);
 });
+
+test("--json prints only JSON for handoff --to and fix, and never starts an AI", (t) => {
+  const { project, run } = gitProject(t, ["claude", "gemini"]);
+  const log = loggingStandIn(project, "gemini");
+  const handoff = run("handoff", "add coupons", "--to", "gemini-cli", "--json");
+  assert.equal(handoff.status, 0, handoff.stderr);
+  assert.ok(JSON.parse(handoff.stdout).choices.some((c) => c.id === "gemini-cli"));
+  assert.ok(!fs.existsSync(log), "--json does not start the AI");
+  fs.writeFileSync(path.join(project, "package-lock.json"), "x".repeat(200000));
+  const preview = JSON.parse(run("fix", "--json").stdout);
+  assert.ok(preview.planned.length > 0);
+  assert.deepEqual(preview.changes, []);
+  const applied = JSON.parse(run("fix", "--json", "--yes").stdout);
+  assert.ok(applied.changes.length > 0);
+});

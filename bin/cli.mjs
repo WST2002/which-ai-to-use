@@ -74,32 +74,36 @@ async function runDashboard(values, view = "") {
 
 async function runAi(values, context, task, print) {
   const preview = await aiAction({ ...context, task });
+  // --json prints only JSON: the preview (needsConsent) unless --yes allows sending.
+  if (values.json && !values.yes) return print(preview);
   let consent = values.yes;
   if (!consent) {
     process.stdout.write(preview.text);
     consent = await confirm(`Ask ${preview.data.runner.name} now? (y/N) `);
     if (!consent) return void process.stdout.write("Nothing was sent. Run with --ai --yes to allow it.\n");
   }
-  process.stdout.write(`Asking ${preview.data.runner.name}…\n`);
+  if (!values.json) process.stdout.write(`Asking ${preview.data.runner.name}…\n`);
   return print(await aiAction({ ...context, task, consent: true }));
 }
 
 async function runSlim(values, context, print) {
   if (values.apply) return print(await slimAction({ ...context, apply: true }));
   const preview = await slimAction(context);
-  if (!preview.data.needsConsent) return print(preview);
+  if (!preview.data.needsConsent || (values.json && !values.yes)) return print(preview);
   let consent = values.yes;
   if (!consent) {
     process.stdout.write(preview.text);
     consent = await confirm(`Send it to ${preview.data.runner.name} now? (y/N) `);
     if (!consent) return void process.stdout.write("Nothing was sent. Run slim --yes to allow it.\n");
   }
-  process.stdout.write(`Asking ${preview.data.runner.name} to shorten ${preview.data.target.file}…\n`);
+  if (!values.json) process.stdout.write(`Asking ${preview.data.runner.name} to shorten ${preview.data.target.file}…\n`);
   return print(await slimAction({ ...context, consent: true }));
 }
 
-async function runFix(values, installed) {
+async function runFix(values, installed, print) {
   const context = { cwd: process.cwd(), home: os.homedir(), installed };
+  // --json prints what would change, or with --yes what changed.
+  if (values.json) return print(fixAction({ ...context, apply: values.yes }));
   const preview = fixAction(context);
   process.stdout.write(preview.text);
   if (!preview.data.planned.length) return;
@@ -128,7 +132,9 @@ async function ask(question) {
 async function runHandoff(values, options, print) {
   // --back: Claude's limit has reset, so the work goes back to Claude Code.
   const to = values.back ? "claude-code" : values.to;
-  const choosing = Boolean(to) || (process.stdin.isTTY && !values.json);
+  // --json only writes the note and prints it with the choices; it never starts an AI.
+  if (values.json) return print(handoffAction(options));
+  const choosing = Boolean(to) || process.stdin.isTTY;
   const result = handoffAction({ ...options, menu: choosing });
   if (!choosing) return print(result);
   process.stdout.write(result.text);
@@ -302,7 +308,7 @@ async function main() {
   // Handoff is for when Claude's limit is over, so Claude Code is left out unless --without names another tool.
   if (command === "handoff") return runHandoff(values, { ...context, task: positionals.slice(1).join(" ").trim(), leftOut: skipped.length || values.back ? [] : ["claude-code"], copy: values.copy, by: process.env.WHICH_AI_TO_USE_BY === "hook" ? "hook" : null }, print);
   if (command === "sync") return runSync(values, installed);
-  if (command === "fix") return runFix(values, installed);
+  if (command === "fix") return runFix(values, installed, print);
   if (values.ai) return runAi(values, context, positionals.join(" "), print);
   if (noAiFound) return runNewcomer(values, context, positionals.join(" "), print);
   return print(recommendAction({ ...context, task: positionals.join(" ") }));
