@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { classifyTask } from "./classify.mjs";
 import { applyIgnoreAdvice } from "./fix.mjs";
-import { LABELS, checkupIssues, formatAiAnswer, formatCheckup, formatDoctor, formatRecommendation, formatScore, formatTokens, formatUsage, limitWarning, resetTime, usageTip, windowLine } from "./format.mjs";
+import { LABELS, checkupIssues, formatAiAnswer, formatCheckup, formatDoctor, formatRecommendation, formatScore, formatTokens, formatUsage, limitWarning, resetTime, stretchTips, usageTip, windowLine } from "./format.mjs";
 import { setupScore } from "./score.mjs";
 import { claudeUsage } from "./usage.mjs";
 import { copyFileToClipboard } from "./clipboard.mjs";
@@ -152,7 +152,8 @@ export async function slimAction({ cwd, installed, consent = false, apply = fals
 
 export function usageAction({ home, installed, now = new Date() }) {
   const usage = claudeUsage({ home, now });
-  return { text: formatUsage(usage, installed, now), data: { ...usage, tip: usageTip(usage, installed), windowText: windowLine(usage.window, now), warning: limitWarning(usage, installed) } };
+  const warning = limitWarning(usage, installed);
+  return { text: formatUsage(usage, installed, now), data: { ...usage, tip: usageTip(usage, installed), windowText: windowLine(usage.window, now), warning, tips: warning ? stretchTips(installed) : [] } };
 }
 
 export function doctorAction({ cwd, installed }) {

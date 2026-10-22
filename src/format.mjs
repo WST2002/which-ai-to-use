@@ -43,6 +43,20 @@ export function limitWarning(usage, installed) {
   return `This window is at ${Math.round(share * 100)}% of ${reference} (~${limit.tokens.toLocaleString("en-US")} tokens); it resets about ${clock(window.end)}. Send small tasks to ${where} to make it last.`;
 }
 
+/** What to do when the limit is close, so the rest of the window lasts longer; each tip with the command to run. */
+export function stretchTips(installed) {
+  const has = (id) => installed.some((found) => found.id === id);
+  const free = freeToolNames(installed);
+  const tips = [{ text: "Shrink the conversation, so every message costs less", command: "/compact (in Claude Code)" }];
+  if (has("claude-code")) tips.push({ text: "Use the small model for small edits", command: 'claude --model haiku "your task"' });
+  tips.push({
+    text: free.length ? `Send the next task to another AI, like ${free[0]} (free)` : "Send the next task to another AI you have",
+    command: 'npx which-ai-to-use "your task" --without claude-code',
+  });
+  tips.push({ text: "Save where you are before the limit hits, so any AI can carry on", command: "npx which-ai-to-use handoff --to none" });
+  return tips;
+}
+
 const clock = (ms) => new Date(ms).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
 function duration(ms) {
@@ -69,7 +83,7 @@ export function formatUsage(usage, installed, now = new Date()) {
     "",
     "5-hour limit window (estimate)",
     `  ${windowLine(usage.window, now)}`,
-    ...(limitWarning(usage, installed) ? [`  ⚠ ${limitWarning(usage, installed)}`] : []),
+    ...(limitWarning(usage, installed) ? [`  ⚠ ${limitWarning(usage, installed)}`, "", "To make it last:", ...stretchTips(installed).map((tip) => `  • ${tip.text}: ${tip.command}`)] : []),
     "",
     line("Today:", usage.today),
     line("Last 7 days:", usage.week),
