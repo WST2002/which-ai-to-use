@@ -396,5 +396,22 @@ test("handoff --to none only writes the note; an unknown choice lists the valid 
   assert.ok(fs.existsSync(path.join(project, "HANDOFF.md")));
   const bad = run("handoff", "add coupons", "--to", "chatgpt");
   assert.equal(bad.status, 1);
-  assert.match(bad.stderr, /--to must be one of: gemini-cli, web, none/);
+  assert.match(bad.stderr, /--to must be one of: gemini-cli, codex, web, other, none/);
+});
+
+test("handoff to an AI that is not installed shows how to install it, and installs it only with a yes", (t) => {
+  const { project, run } = gitProject(t, ["claude", "gemini"]);
+  const npmLog = loggingStandIn(project, "npm");
+  const ask = run("handoff", "add coupons", "--to", "codex");
+  assert.equal(ask.status, 0, ask.stderr);
+  assert.match(ask.stdout, /Install Codex CLI with: npm install -g @openai\/codex\nThen run: codex /);
+  assert.ok(!fs.existsSync(npmLog), "nothing installed without a yes");
+  const yes = run("handoff", "add coupons", "--to", "codex", "--yes");
+  assert.match(fs.readFileSync(npmLog, "utf8"), /install -g @openai\/codex/);
+  assert.match(yes.stdout, /Starting Codex CLI: codex /);
+});
+
+test("handoff to another AI says what to tell it", (t) => {
+  const result = gitProject(t, ["claude", "gemini"]).run("handoff", "add coupons", "--to", "other");
+  assert.match(result.stdout, /Start your AI in this folder and tell it: "Read HANDOFF\.md and continue the task\."/);
 });
