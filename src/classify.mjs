@@ -4,7 +4,7 @@ const RULES = [
   ["tests", /\b(test|tests|testing|unit tests?|e2e|coverage|spec|specs|playwright|jest|vitest|pytest)\b/i],
   ["refactor", /\b(refactor|refactoring|restructure|clean ?up|split|modernize|migrate to|rewrite)\b/i],
   ["code-review", /\b(review|pull request|pr|diff|check my changes|code review)\b/i],
-  ["explain-codebase", /\b(explain|understand|how does|how do|walk me through|onboard|overview|samjhao|samjha|samajh)\b/i],
+  ["explain-codebase", /\b(explain|understand|how does|how do|walk me through|onboard|overview|summari[sz]e|summary of|samjhao|samjha|samajh)\b/i],
   ["docs", /\b(readme|docs|documentation|document|comments|changelog|jsdoc|docstring)\b/i],
   ["ui", /\b(ui|ux|css|layout|responsive|design|navbar|button|page style|tailwind|figma|component|mobile view|dark mode|look better|looks? (nice|good|modern)|styling|style|theme|colou?rs?|fonts?|spacing|animations?|hero|banner|sundar|beautiful)\b/i],
   ["quick-edit", /\b(rename|typo|one line|single line|small change|tweak|change the text|update the copy)\b/i],
