@@ -60,7 +60,7 @@ export function collectHandoff(dir) {
   return { root, branch, base: base ?? null, commits, changes };
 }
 
-/** `chat`: the summary from lastClaudeChat, if the work was done in Claude Code. */
+/** `chat`: the summary from lastChat, if the work was done in Claude Code, Codex CLI or Gemini CLI. */
 export function renderHandoff({ task, info, verify, date, chat = null, from = null, resets = null, by = null }) {
   const lines = [
     "# Handoff",
@@ -70,10 +70,10 @@ export function renderHandoff({ task, info, verify, date, chat = null, from = nu
     "",
   ];
   if (chat) {
-    lines.push("## From the Claude Code chat", "", `First request: "${chat.task}"`);
+    lines.push(`## From the ${chat.name} chat`, "", `First request: "${chat.task}"`);
     if (chat.recent.length) lines.push("", "Latest requests:", ...chat.recent.map((r) => `- "${r}"`));
-    if (chat.lastReply) lines.push("", `Where Claude stopped: "${chat.lastReply}"`);
-    lines.push("", "(Read from Claude Code's chat log on this laptop; passwords and keys are hidden.)", "");
+    if (chat.lastReply) lines.push("", `Where ${chat.tool === "claude-code" ? "Claude" : chat.name} stopped: "${chat.lastReply}"`);
+    lines.push("", `(Read from ${chat.name}'s chat log on this laptop; passwords and keys are hidden.)`, "");
   }
   lines.push(
     "## Commits for this task",

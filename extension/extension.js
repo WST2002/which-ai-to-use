@@ -273,7 +273,7 @@ const COMMANDS = {
     return { text, share: data.share };
   },
   async handoff(given, leaveOutClaude) {
-    const task = given ?? (await vscode.window.showInputBox({ prompt: "What were you working on? (leave empty to read it from the Claude Code chat)" }));
+    const task = given ?? (await vscode.window.showInputBox({ prompt: "What were you working on? (leave empty to read it from your AI's chat)" }));
     if (task === undefined) return undefined;
     const skip = leaveOutClaude ?? (await vscode.window.showQuickPick(["Yes, leave out Claude Code", "No"], { placeHolder: "Claude's limit is over: leave it out?" })) === "Yes, leave out Claude Code";
     const { handoffAction } = await load();

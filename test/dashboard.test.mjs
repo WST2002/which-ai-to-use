@@ -164,7 +164,7 @@ test("the menu has a How to use guide and line icons, and other views still fill
   const { dashboardPage } = await import("../src/dashboard-page.mjs");
   const page = dashboardPage({ token: "t", project: "shop", version: "1" });
   assert.match(page, /data-view="guide"><svg class="i"[^>]*>.*<\/svg><span><strong>How to use<\/strong><small>Six steps to get started<\/small>/);
-  assert.equal((page.match(/<button class="nav-btn"/g) ?? []).length, 10);
+  assert.equal((page.match(/<button class="nav-btn"/g) ?? []).length, 11);
   assert.doesNotMatch(page, /nav-more|More tools/);
   assert.match(page, /step\("4\. Claude's limit ran out\?"/);
   assert.match(page, /if \(opening !== "checkup"\) refreshStats\(\);/);

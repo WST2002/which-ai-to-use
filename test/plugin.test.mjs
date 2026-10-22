@@ -111,4 +111,17 @@ test("the plugin and the marketplace describe the same plugin", () => {
   assert.equal(entry.source, "./claude-plugin");
   const hooks = read("claude-plugin/hooks/hooks.json").hooks;
   assert.deepEqual(Object.keys(hooks), ["StopFailure"]);
+  assert.equal(entry.description, plugin.description);
+});
+
+test("/handoff writes the note with the tool, then has Claude add its own notes, with only those tools allowed", () => {
+  const text = fs.readFileSync(path.join(root, "claude-plugin", "commands", "handoff.md"), "utf8");
+  const [, front, body] = /^---\n([\s\S]+?)\n---\n([\s\S]+)$/.exec(text.replace(/\r\n/g, "\n"));
+  assert.match(front, /^description: .+$/m);
+  assert.match(front, /^argument-hint: /m);
+  assert.equal(/^allowed-tools: (.+)$/m.exec(front)[1], "Bash(which-ai-to-use handoff:*), Bash(npx -y which-ai-to-use@latest handoff:*), Read, Edit");
+  assert.match(body, /handoff --to none/);
+  assert.match(body, /\$ARGUMENTS/);
+  assert.match(body, /## Notes from Claude/);
+  assert.match(body, /Never put passwords, keys or tokens in it\./);
 });

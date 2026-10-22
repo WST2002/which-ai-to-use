@@ -98,7 +98,8 @@ You don't have to install anything. Pick the way that suits you:
 | **Recommend** | First the best AI for the task among every supported tool (and whether it is on your laptop), then the best of the ones you have, with a reason for that kind of task and the command to run |
 | **AI mode** | `--ai`: with your permission, asks an AI you already have (Ollama first, then Claude Code, Gemini CLI, Codex) for a smarter answer and a better prompt. It runs with no tools, gets the task and file **names** only, and the rules answer is shown alongside |
 | **Cost to start** | Rough tokens the first message will take: the tool's instructions file, the files the prompt points at, the prompt |
-| **Usage** | `usage`: when your current 5-hour Claude limit window resets (an estimate) and the tokens used in it, a warning when the window nears your busiest one this week (or where your limit ran out before, once the Claude Code plugin has recorded it), also in the VS Code status bar, Claude Code tokens today and in the last 7 days, busiest projects, and a tip when today is far above average. Read from Claude Code's own logs: numbers only, never your messages |
+| **Usage** | `usage`: when your current 5-hour Claude limit window resets (an estimate) and the tokens used in it, a warning when the window nears your busiest one this week (or where your limit ran out before, once the Claude Code plugin has recorded it), also in the VS Code status bar, Claude Code tokens today and in the last 7 days, busiest projects, and a tip when today is far above average. Read from Claude Code's own logs: numbers only, never your messages, and when the window is close, four ways to make it last (each with its command) |
+| **Your AI week** | `report`: Claude Code tokens per day for the last 7 days next to the week before, the busiest day and projects, how often the limit ran out, requests in Claude Code, Codex CLI and Gemini CLI, and a line to share with links to post. Numbers only, never your messages; also in the dashboard |
 | **Slim** | `slim`: your AI writes a shorter copy of a long `CLAUDE.md` next to it (it sends the file, so it asks first); `slim --apply` swaps it in and keeps a backup |
 | **Better prompt** | Names the files that match the task and asks the agent to run your tests and report the result |
 | **Model choice** | For Claude Code: `--model haiku` for small edits (uses far less of your limit), `--model opus` for risky or large work |
@@ -106,6 +107,7 @@ You don't have to install anything. Pick the way that suits you:
 | **Score** | `score`: your AI setup out of 100 with a grade, what costs points (each with a fix), the tokens a fix saves, and a line to share, with links that open a post on X or LinkedIn already filled in. The dashboard draws it as an image to post |
 | **Checkup** | `npx which-ai-to-use`: your AI tools and, in plain words, what wastes tokens with one fix each. In a terminal it then offers to fix it right away (y/N) and shows the new score |
 | **Fix** | `fix`: makes each installed AI skip heavy files (Claude Code deny rules, `.cursorignore`, `.geminiignore`, `.aiderignore`), after asking |
+| **Team** | `team`: writes the project's heavy files to `.which-ai.json` after asking. Commit it, and every teammate's `fix` skips the same files. The file can also set the ranking (`"prefer": "free"`) and tools to leave out (`"without": ["codex"]`); flags still win |
 | **Token details** | `tokens`: instructions files sent with every message (and their biggest sections), heavy files, add-ons (MCP servers) |
 | **Handoff** | Hit a usage limit mid-task? `handoff` writes `HANDOFF.md` (task, commits, changed files, how to verify) so the next AI continues instead of starting over |
 | **Limit reached** | `--without claude-code` recommends the next best tool |
@@ -168,7 +170,9 @@ Install it once inside Claude Code:
 /plugin install limit-handoff@which-ai-to-use
 ```
 
-When a turn ends because Claude's usage limit was reached, the plugin writes `HANDOFF.md` (copied to your clipboard) and shows a desktop notification, so you can carry on in another AI right away. It also records the time, which makes the limit warning in `usage` more accurate. With the VS Code extension, a notification offers **Continue in** the recommended AI, and once the limit resets, **Hand back to Claude**. From a terminal: `npx which-ai-to-use handoff --back`.
+When a turn ends because Claude's usage limit was reached, the plugin writes `HANDOFF.md` (copied to your clipboard) and shows a desktop notification, so you can carry on in another AI right away. It writes the note once per limit window, not on every message you send while the limit is over. It also records the time, which makes the limit warning in `usage` more accurate and counts in `report`.
+
+See the limit coming? Type `/handoff` (optionally with the task) in Claude Code. Claude writes `HANDOFF.md` with the tool and then adds a short **Notes from Claude** section: what is done, the next steps, decisions and what to watch out for. The next AI then knows what only Claude knew. With the VS Code extension, a notification offers **Continue in** the recommended AI, and once the limit resets, **Hand back to Claude**. From a terminal: `npx which-ai-to-use handoff --back`.
 
 ## Switch AI mid-task
 
@@ -191,7 +195,7 @@ Run:     gemini -i "Read HANDOFF.md and continue the task."
 
 In a terminal, handoff then asks who carries on: the recommended AI first (with the reason), the other AIs you have, a chat on the web (the note is copied for you), any other AI you name, or nothing for now. Handoff only lists AIs it finds on your laptop; if a better one is not installed, it shows it too, with its official install command, and installs it only if you say yes. Press Enter for the recommended one and it starts right there with the note. Skip the question with `--to gemini-cli`, `--to web` or `--to none`. In the dashboard and the VS Code sidebar the same choices are buttons; in VS Code, **Run in terminal** starts the AI in a VS Code terminal.
 
-No need to type the task when you worked in Claude Code: handoff reads the latest Claude Code chat for this project (from Claude Code's own log on your laptop) and adds the first request, the latest requests and where Claude stopped. Passwords, API keys and tokens in the chat are replaced with `[hidden]`, and the note stays on your laptop until you hand it to the next AI.
+No need to type the task when you worked in Claude Code, Codex CLI or Gemini CLI: handoff reads the chat for this project from that AI's own log on your laptop (the AI whose limit ran out, or else the newest chat) and adds the first request, the latest requests and where the AI stopped. Passwords, API keys and tokens in the chat are replaced with `[hidden]`, and the note stays on your laptop until you hand it to the next AI.
 
 Claude Code is left out by default, since its limit is what ran out. Coming from another AI? Name that one instead, for example `--without codex`. Only Claude installed? Handoff still writes the note and tells you how to carry on: paste `HANDOFF.md` into ChatGPT or Gemini on the web, or install Gemini CLI (free tier). Add `--copy` to put the note straight on your clipboard; the dashboard and the VS Code sidebar have a **Copy HANDOFF.md** button.
 

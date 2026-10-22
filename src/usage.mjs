@@ -45,7 +45,8 @@ function windowsOf(replies) {
 // Times Claude's limit ran out, recorded by the which-ai-to-use Claude Code plugin (one JSON line each).
 export const LIMIT_LOG = [".which-ai-to-use", "limits.jsonl"];
 
-function limitHits(home) {
+/** Times (ms) the plugin recorded Claude's limit running out. */
+export function limitHits(home) {
   try {
     return fs.readFileSync(path.join(home, ...LIMIT_LOG), "utf8").split("\n").map((line) => {
       try {
@@ -71,21 +72,14 @@ function limitReference(windows, open, hits) {
 }
 
 /**
- * Token use from Claude Code's local session logs (~/.claude/projects/**.jsonl). Only the usage numbers,
- * timestamp and folder name of each reply are read; message text is never kept or shown.
+ * Every Claude Code reply since `since` (ms), from its local session logs (~/.claude/projects/**.jsonl): only the
+ * usage numbers, time and folder name are read; message text is never kept or shown.
  * "fresh" = input + output + cache writes; "cached" = cache reads, which are much cheaper.
  */
-export function claudeUsage({ home, now = new Date() }) {
-  const startOfToday = new Date(now);
-  startOfToday.setHours(0, 0, 0, 0);
-  const weekStart = now.getTime() - 7 * DAY;
-  const today = empty();
-  const week = empty();
-  const byProject = new Map();
+export function claudeReplies({ home, since }) {
   const seen = new Set();
   const replies = [];
   let found = false;
-
   for (const file of logFiles(path.join(home, ".claude", "projects"))) {
     found = true;
     let text;
@@ -104,27 +98,48 @@ export function claudeUsage({ home, now = new Date() }) {
       }
       const usage = entry.message?.usage;
       const time = Date.parse(entry.timestamp);
-      if (!usage || Number.isNaN(time) || time < weekStart) continue;
+      if (!usage || Number.isNaN(time) || time < since) continue;
       // Claude Code writes one line per content block of a reply, each with the same id and usage.
       const id = entry.message.id ?? `${file}:${entry.timestamp}`;
       if (seen.has(id)) continue;
       seen.add(id);
-      const fresh = (usage.input_tokens ?? 0) + (usage.output_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0);
-      const cached = usage.cache_read_input_tokens ?? 0;
-      replies.push({ time, fresh });
-      for (const bucket of time >= startOfToday.getTime() ? [today, week] : [week]) {
-        bucket.fresh += fresh;
-        bucket.cached += cached;
-        bucket.replies += 1;
-      }
-      const project = path.basename(String(entry.cwd ?? "unknown").replace(/[\\/]+$/, "").replace(/\\/g, "/"));
-      byProject.set(project, (byProject.get(project) ?? 0) + fresh);
+      replies.push({
+        time,
+        fresh: (usage.input_tokens ?? 0) + (usage.output_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0),
+        cached: usage.cache_read_input_tokens ?? 0,
+        project: path.basename(String(entry.cwd ?? "unknown").replace(/[\\/]+$/, "").replace(/\\/g, "/")),
+      });
     }
   }
+  return { found, replies };
+}
 
-  const projects = [...byProject].map(([project, fresh]) => ({ project, fresh })).sort((a, b) => b.fresh - a.fresh).slice(0, MAX_PROJECTS);
+/** Adds up replies: tokens, cache re-reads and reply count. */
+export function total(replies) {
+  return replies.reduce((sum, r) => ({ fresh: sum.fresh + r.fresh, cached: sum.cached + r.cached, replies: sum.replies + 1 }), empty());
+}
+
+/** The projects that used the most tokens, busiest first. */
+export function busiestProjects(replies, count = MAX_PROJECTS) {
+  const byProject = new Map();
+  for (const r of replies) byProject.set(r.project, (byProject.get(r.project) ?? 0) + r.fresh);
+  return [...byProject].map(([project, fresh]) => ({ project, fresh })).sort((a, b) => b.fresh - a.fresh).slice(0, count);
+}
+
+/** Claude Code usage today and over the last 7 days, the open 5-hour window and what a full window looks like. */
+export function claudeUsage({ home, now = new Date() }) {
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const { found, replies } = claudeReplies({ home, since: now.getTime() - 7 * DAY });
   const windows = windowsOf(replies);
   const last = windows.at(-1);
   const window = last && last.end > now.getTime() ? last : null;
-  return { found, today, week, projects, window, limit: limitReference(windows, window, limitHits(home)) };
+  return {
+    found,
+    today: total(replies.filter((r) => r.time >= startOfToday.getTime())),
+    week: total(replies),
+    projects: busiestProjects(replies),
+    window,
+    limit: limitReference(windows, window, limitHits(home)),
+  };
 }

@@ -43,6 +43,20 @@ export function limitWarning(usage, installed) {
   return `This window is at ${Math.round(share * 100)}% of ${reference} (~${limit.tokens.toLocaleString("en-US")} tokens); it resets about ${clock(window.end)}. Send small tasks to ${where} to make it last.`;
 }
 
+/** What to do when the limit is close, so the rest of the window lasts longer; each tip with the command to run. */
+export function stretchTips(installed) {
+  const has = (id) => installed.some((found) => found.id === id);
+  const free = freeToolNames(installed);
+  const tips = [{ text: "Shrink the conversation, so every message costs less", command: "/compact (in Claude Code)" }];
+  if (has("claude-code")) tips.push({ text: "Use the small model for small edits", command: 'claude --model haiku "your task"' });
+  tips.push({
+    text: free.length ? `Send the next task to another AI, like ${free[0]} (free)` : "Send the next task to another AI you have",
+    command: 'npx which-ai-to-use "your task" --without claude-code',
+  });
+  tips.push({ text: "Save where you are before the limit hits, so any AI can carry on", command: "/handoff (with the Claude Code plugin) or npx which-ai-to-use handoff --to none" });
+  return tips;
+}
+
 const clock = (ms) => new Date(ms).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
 function duration(ms) {
@@ -69,7 +83,7 @@ export function formatUsage(usage, installed, now = new Date()) {
     "",
     "5-hour limit window (estimate)",
     `  ${windowLine(usage.window, now)}`,
-    ...(limitWarning(usage, installed) ? [`  ⚠ ${limitWarning(usage, installed)}`] : []),
+    ...(limitWarning(usage, installed) ? [`  ⚠ ${limitWarning(usage, installed)}`, "", "To make it last:", ...stretchTips(installed).map((tip) => `  • ${tip.text}: ${tip.command}`)] : []),
     "",
     line("Today:", usage.today),
     line("Last 7 days:", usage.week),
@@ -113,6 +127,34 @@ export function formatScore(result) {
   lines.push("", "Share it:", `  ${result.share}`);
   if (result.links) lines.push("", `Post on X:         ${result.links.x}`, `Post on LinkedIn:  ${result.links.linkedin}`);
   lines.push("", "Want an image to post? Run npx which-ai-to-use score --card");
+  return `${lines.join("\n")}\n`;
+}
+
+/** 1234 → "1.2k", 3400000 → "3.4M". */
+export const shortNumber = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : String(n)).replace(".0", "");
+
+const BAR_WIDTH = 24;
+
+/** The last 7 days next to the week before: tokens per day as bars, limit hits, requests per AI and a line to share. */
+export function formatReport(report) {
+  const lines = ["Your AI week (last 7 days)", ""];
+  const used = report.tools.filter((t) => t.requests);
+  if (!report.week.replies && !used.length) {
+    return "No AI use found on this laptop in the last 7 days (Claude Code, Codex CLI and Gemini CLI logs).\n";
+  }
+  if (report.week.replies) {
+    const change = report.change === null ? "" : `  (${report.change >= 0 ? "↑" : "↓"} ${Math.abs(report.change)}% vs the week before)`;
+    lines.push(`Claude Code: ~${report.week.fresh.toLocaleString("en-US")} tokens in ${report.week.replies} replies${change}`, "");
+    const most = Math.max(...report.days.map((d) => d.fresh), 1);
+    for (const day of report.days) lines.push(`  ${day.label}  ${"█".repeat(Math.round((day.fresh / most) * BAR_WIDTH)).padEnd(BAR_WIDTH)}  ${shortNumber(day.fresh)}`);
+    lines.push("");
+    if (report.busiest) lines.push(`Busiest day:      ${report.busiest.label} (~${report.busiest.fresh.toLocaleString("en-US")} tokens)`);
+    lines.push(`Limit ran out:    ${report.limits ? `${report.limits} time${report.limits === 1 ? "" : "s"}` : "not recorded (the Claude Code plugin records it)"}`);
+    if (report.projects.length) lines.push(`Busiest projects: ${report.projects.map((p) => `${p.project} ~${shortNumber(p.fresh)}`).join(", ")}`);
+  }
+  if (used.length) lines.push(`Requests:         ${used.map((t) => `${t.name} ${t.requests} in ${t.chats} chat${t.chats === 1 ? "" : "s"}`).join(" · ")}`);
+  lines.push("", "Share it:", `  ${report.share}`, "", `Post on X:         ${report.links.x}`, `Post on LinkedIn:  ${report.links.linkedin}`);
+  lines.push("", "Read from the AIs' own logs on this laptop: only numbers, never your messages.");
   return `${lines.join("\n")}\n`;
 }
 
@@ -202,7 +244,7 @@ export function formatTokens(report) {
   } else {
     const total = report.heavy.reduce((sum, file) => sum + file.tokens, 0);
     lines.push(`Heavy files an agent may read (${count(total)} in total)`);
-    for (const file of report.heavy) lines.push(`  ${file.file.padEnd(34)}  ${count(file.tokens)}`);
+    for (const file of report.heavy) lines.push(`  ${file.file.padEnd(34)}  ${count(file.tokens)}${file.team ? "  (team list)" : ""}`);
     if (report.ignore.length) {
       lines.push("", "  Tell your AI tools to skip them:");
       for (const advice of report.ignore) lines.push(`  ${toolName(advice.id)} → ${advice.file}`, indent(advice.snippet, 6));

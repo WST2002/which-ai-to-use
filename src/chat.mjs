@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -60,7 +61,8 @@ const inside = (folder, root) => {
   return child === parent || child.startsWith(`${parent}${path.sep}`) || child.startsWith(`${parent}/`);
 };
 
-function chatFiles(home) {
+// Claude Code keeps one log per chat in ~/.claude/projects/<folder>/ (deeper folders hold sub-agent logs).
+function claudeFiles(home) {
   const root = path.join(home, ".claude", "projects");
   let dirs;
   try {
@@ -68,15 +70,32 @@ function chatFiles(home) {
   } catch {
     return [];
   }
-  return dirs
-    .flatMap((dir) => {
-      try {
-        return fs.readdirSync(path.join(root, dir.name)).filter((n) => n.endsWith(".jsonl")).map((n) => path.join(root, dir.name, n));
-      } catch {
-        return [];
-      }
-    })
-    // Claude Code prunes old chats, so a file listed a moment ago can be gone.
+  return dirs.flatMap((dir) => {
+    try {
+      return fs.readdirSync(path.join(root, dir.name)).filter((n) => n.endsWith(".jsonl")).map((n) => path.join(root, dir.name, n));
+    } catch {
+      return [];
+    }
+  });
+}
+
+function* walk(dir, match) {
+  let entries;
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) yield* walk(full, match);
+    else if (match(entry.name)) yield full;
+  }
+}
+
+/** Files changed since `since` (ms), newest first. A file listed a moment ago can be gone: AIs prune old chats. */
+function newest(files, { since = 0, limit = MAX_FILES } = {}) {
+  return files
     .flatMap((file) => {
       try {
         return [{ file, mtime: fs.statSync(file).mtimeMs }];
@@ -84,39 +103,139 @@ function chatFiles(home) {
         return [];
       }
     })
+    .filter((f) => f.mtime >= since)
     .sort((a, b) => b.mtime - a.mtime)
-    .slice(0, MAX_FILES);
+    .slice(0, limit);
 }
 
-/**
- * The latest Claude Code chat for this project, from Claude Code's own log on this laptop: the first request,
- * the latest requests and Claude's last reply, shortened and with secrets hidden. Null when there is none.
- */
-export function lastClaudeChat({ home, cwd }) {
-  for (const { file } of chatFiles(home)) {
-    let text;
+function read(file) {
+  try {
+    return fs.readFileSync(file, "utf8");
+  } catch {
+    return null;
+  }
+}
+
+const jsonLines = (text) =>
+  text.split("\n").flatMap((line) => {
     try {
-      text = fs.readFileSync(file, "utf8");
+      return line.trim() ? [JSON.parse(line)] : [];
     } catch {
-      continue;
+      return [];
     }
-    const entries = text.split("\n").flatMap((line) => {
-      try {
-        return line.trim() ? [JSON.parse(line)] : [];
-      } catch {
-        return [];
-      }
-    }).filter((e) => inside(e.cwd, cwd));
-    const asked = entries.filter((e) => e.type === "user" && !e.isMeta).map((e) => textOf(e.message?.content)).filter((t) => t.trim() && !NOT_A_REQUEST.test(t));
-    if (!asked.length) continue;
-    const replies = entries.filter((e) => e.type === "assistant").map((e) => textOf(e.message?.content)).filter((t) => t.trim());
+  });
+
+function parseClaude(text, root) {
+  const entries = jsonLines(text).filter((e) => !root || inside(e.cwd, root));
+  return {
+    asked: entries.filter((e) => e.type === "user" && !e.isMeta).map((e) => textOf(e.message?.content)).filter((t) => t.trim() && !NOT_A_REQUEST.test(t)),
+    replies: entries.filter((e) => e.type === "assistant").map((e) => textOf(e.message?.content)).filter((t) => t.trim()),
+  };
+}
+
+// Codex wraps each line as { type, payload }; older versions wrote the payload on its own.
+const codexText = (content) => (Array.isArray(content) ? content.filter((b) => typeof b?.text === "string").map((b) => b.text).join("\n") : typeof content === "string" ? content : "");
+// Codex adds its own context (environment, AGENTS.md) as user messages in tags.
+const CODEX_CONTEXT = /^\s*(<[\w_-]+>|# AGENTS\.md)/;
+
+function parseCodex(text, root) {
+  const items = jsonLines(text).map((e) => (e.payload && e.type ? { ...e.payload, line: e.type } : e));
+  const meta = items.find((i) => i.line === "session_meta" || (i.cwd && !i.role));
+  const folder = meta?.cwd ?? /<cwd>([^<]+)<\/cwd>/.exec(items.map((i) => codexText(i.content)).join("\n"))?.[1];
+  if (root && !inside(folder, root)) return null;
+  const messages = items.filter((i) => i.type === "message");
+  return {
+    asked: messages.filter((m) => m.role === "user").map((m) => codexText(m.content)).filter((t) => t.trim() && !CODEX_CONTEXT.test(t)),
+    replies: messages.filter((m) => m.role === "assistant").map((m) => codexText(m.content)).filter((t) => t.trim()),
+  };
+}
+
+const geminiText = (content) => (typeof content === "string" ? content : Array.isArray(content) ? content.map((p) => p?.text ?? "").join("\n") : "");
+const sha256 = (text) => createHash("sha256").update(text).digest("hex");
+
+// Gemini CLI names each project's folder by the SHA-256 of the project path, and writes each chat as one JSON file.
+function parseGemini(text, root, file) {
+  let chat;
+  try {
+    chat = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (root) {
+    let real = root;
+    try {
+      real = fs.realpathSync.native(root);
+    } catch {
+      // compared as written
+    }
+    const hash = chat.projectHash ?? path.basename(path.dirname(path.dirname(file)));
+    if (![root, path.resolve(root), real].some((p) => sha256(p) === hash)) return null;
+  }
+  const messages = Array.isArray(chat.messages) ? chat.messages : [];
+  return {
+    asked: messages.filter((m) => m.type === "user").map((m) => geminiText(m.content)).filter((t) => t.trim() && !t.trim().startsWith("/")),
+    replies: messages.filter((m) => m.type === "gemini" || m.type === "model").map((m) => geminiText(m.content)).filter((t) => t.trim()),
+  };
+}
+
+// Where each AI keeps its chats on this laptop, and how to read one.
+const SOURCES = {
+  "claude-code": { name: "Claude Code", files: claudeFiles, parse: parseClaude },
+  codex: { name: "Codex CLI", files: (home) => [...walk(path.join(home, ".codex", "sessions"), (n) => n.endsWith(".jsonl"))], parse: parseCodex },
+  "gemini-cli": { name: "Gemini CLI", files: (home) => [...walk(path.join(home, ".gemini", "tmp"), (n) => /^session-.*\.json$/.test(n))], parse: parseGemini },
+};
+
+/**
+ * The latest chat for this project in one AI, from that AI's own log on this laptop: the first request, the latest
+ * requests and the AI's last reply, shortened and with secrets hidden. Null when there is none.
+ */
+function latest(tool, { home, cwd }) {
+  const source = SOURCES[tool];
+  for (const { file, mtime } of newest(source.files(home))) {
+    const text = read(file);
+    const chat = text && source.parse(text, cwd, file);
+    if (!chat?.asked.length) continue;
     return {
+      tool,
+      name: source.name,
       file,
-      task: clip(asked[0]),
-      recent: asked.slice(1).slice(-RECENT).map(clip),
-      lastReply: replies.length ? clip(replies.at(-1)) : "",
-      requests: asked.length,
+      mtime,
+      task: clip(chat.asked[0]),
+      recent: chat.asked.slice(1).slice(-RECENT).map(clip),
+      lastReply: chat.replies.length ? clip(chat.replies.at(-1)) : "",
+      requests: chat.asked.length,
     };
   }
   return null;
+}
+
+export const lastClaudeChat = (where) => latest("claude-code", where);
+export const lastCodexChat = (where) => latest("codex", where);
+export const lastGeminiChat = (where) => latest("gemini-cli", where);
+
+/**
+ * The chat the next AI should read: the one in the AI whose limit ran out (`from`), or else the newest chat for this
+ * project in Claude Code, Codex CLI or Gemini CLI. Null when there is none.
+ */
+export function lastChat({ home, cwd, from = [] }) {
+  for (const tool of from.filter((id) => SOURCES[id])) {
+    const chat = latest(tool, { home, cwd });
+    if (chat) return chat;
+  }
+  return Object.keys(SOURCES).map((tool) => latest(tool, { home, cwd })).filter(Boolean).sort((a, b) => b.mtime - a.mtime)[0] ?? null;
+}
+
+/** How much each AI was used since `since` (ms), in every project: chats and requests. Only counts are kept. */
+export function chatActivity({ home, since }) {
+  return Object.entries(SOURCES).map(([tool, source]) => {
+    let chats = 0;
+    let requests = 0;
+    for (const { file } of newest(source.files(home), { since, limit: Infinity })) {
+      const text = read(file);
+      const asked = (text && source.parse(text, null, file)?.asked.length) || 0;
+      if (asked) chats += 1;
+      requests += asked;
+    }
+    return { tool, name: source.name, chats, requests };
+  });
 }
