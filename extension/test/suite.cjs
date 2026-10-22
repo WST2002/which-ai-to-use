@@ -76,6 +76,13 @@ exports.run = async () => {
     assert.deepEqual(failed, { id: 8, error: "unknown action nope" });
   });
 
+  await check("your AI week comes from the made-up usage in the test home, with a line to share", async () => {
+    const reply = await api.handleMessage({ type: "action", id: 12, action: "report", body: {} });
+    assert.ok(reply.data.data.week.fresh > 0);
+    assert.equal(reply.data.data.days.length, 7);
+    assert.match(reply.data.data.share, /^My AI coding week: ~[\d.]+k tokens with Claude Code\./);
+  });
+
   await check("the sidebar's copy button uses the VS Code clipboard", async () => {
     await api.handleMessage({ type: "copy", text: "npx which-ai-to-use score" });
     assert.equal(await vscode.env.clipboard.readText(), "npx which-ai-to-use score");
