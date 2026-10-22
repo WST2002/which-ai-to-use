@@ -159,16 +159,12 @@ export function handoffAction({ cwd, home, task = "", installed, leftOut = [], c
   const resets = fromClaude && home ? (claudeUsage({ home }).window?.end ?? null) : null;
   const note = renderHandoff({ task, info, verify: verifyCommand(info.root), date, chat, from: fromClaude ? "claude-code" : null, resets });
   fs.writeFileSync(file, note);
-  const { sensitive } = scanProject(info.root);
-  const available = installed.filter((found) => !leftOut.includes(found.id));
-  const next = recommend({ task: CONTINUE, categories: classifyTask(task || chat?.task || ""), installed: available, sensitive, prefer, private: forcePrivate });
+  const { next, choices } = planNext({ root: info.root, task, chat, installed, leftOut, prefer, forcePrivate });
   const lines = [];
   if (chat) lines.push(`Read the Claude Code chat: "${chat.task.length > 70 ? `${chat.task.slice(0, 69)}…` : chat.task}" (${chat.requests} request${chat.requests === 1 ? "" : "s"}).`);
   lines.push(`Wrote HANDOFF.md: ${info.changes.length} changed file(s), ${info.commits.length} commit(s) on ${info.branch}.`, "");
   if (leftOut.length) lines.push(`Left out: ${leftOut.map((id) => toolById(id).name).join(", ")} (limit over). Handing off from another AI? Add --without <tool>.`, "");
   if (resets) lines.push(`Claude's limit resets about ${resetTime(resets)}. Then hand the task back: npx which-ai-to-use handoff --back`, "");
-  const categories = classifyTask(task || chat?.task || "");
-  const choices = handoffChoices(next, installSuggestion({ installed, leftOut, categories, sensitive, prefer, forcePrivate }));
   if (!menu) {
     if (next.best) lines.push(`Next:    ${next.best.name} — ${next.best.reason}`, `Run:     ${next.best.command}`);
     else lines.push(...NO_OTHER_AI);
@@ -178,6 +174,20 @@ export function handoffAction({ cwd, home, task = "", installed, leftOut = [], c
   } else if (!next.best && !menu) lines.push("", "Add --copy to put HANDOFF.md on your clipboard.");
   if (!menu) lines.push("", "HANDOFF.md is for the next AI only: don't commit it.");
   return { text: `${lines.join("\n")}\n`, data: { file: "HANDOFF.md", ...info, next, choices, note, chat: chat && { task: chat.task, requests: chat.requests } } };
+}
+
+function planNext({ root, task, chat, installed, leftOut, prefer, forcePrivate }) {
+  const { sensitive } = scanProject(root);
+  const categories = classifyTask(task || chat?.task || "");
+  const available = installed.filter((found) => !leftOut.includes(found.id));
+  const next = recommend({ task: CONTINUE, categories, installed: available, sensitive, prefer, private: forcePrivate });
+  return { next, choices: handoffChoices(next, installSuggestion({ installed, leftOut, categories, sensitive, prefer, forcePrivate })) };
+}
+
+/** Who can carry on, without writing a note: VS Code uses it when the Claude Code plugin has already written one. */
+export function nextChoices({ cwd, home, installed, leftOut = ["claude-code"], task = "" }) {
+  const chat = home ? lastClaudeChat({ home, cwd }) : null;
+  return planNext({ root: cwd, task, chat, installed, leftOut, prefer: "balanced", forcePrivate: false }).choices;
 }
 
 /**
