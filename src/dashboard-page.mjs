@@ -594,7 +594,7 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
         const change = data.change === null ? "" : (data.change >= 0 ? "↑ " : "↓ ") + Math.abs(data.change) + "% vs the week before";
         const most = Math.max(...data.days.map((d) => d.fresh), 1);
         parts.push(el("div", { class: "card best", style: "margin-bottom:14px" }, el("div", { class: "muted", text: "Claude Code, last 7 days" }), el("h3", { text: n(data.week.fresh) + " tokens" }), el("p", { text: data.week.replies + " replies" + (change ? " · " + change : "") })),
-          el("div", { class: "bars", role: "img", "aria-label": "Tokens per day" }, ...data.days.flatMap((d) => [el("span", { text: d.label }), el("div", { class: "bar", style: "width:" + Math.round((d.fresh / most) * 100) + "%" }), el("span", { class: "num", text: n(d.fresh) })])),
+          el("div", { class: "bars", role: "img", "aria-label": "Tokens per day" }, ...data.days.flatMap((d) => [el("span", { text: d.label }), el("div", { class: "bar", style: "width:" + Math.round((d.fresh / most) * 100) + "%" }), el("span", { class: "num", text: d.fresh ? n(d.fresh) : "0" })])),
           el("table", {},
             data.busiest ? el("tr", {}, el("td", { text: "Busiest day" }), el("td", { text: data.busiest.label + " (" + n(data.busiest.fresh) + " tokens)" })) : null,
             el("tr", {}, el("td", { text: "Limit ran out" }), el("td", { text: data.limits ? data.limits + (data.limits === 1 ? " time" : " times") : "not recorded (the Claude Code plugin records it)" })),
