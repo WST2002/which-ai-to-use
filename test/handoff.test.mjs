@@ -5,6 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { collectHandoff, renderHandoff } from "../src/handoff.mjs";
+import { nextChoices } from "../src/actions.mjs";
 
 const git = (dir, ...args) => spawnSync("git", args, { cwd: dir, encoding: "utf8" });
 
@@ -72,4 +73,13 @@ test("without a task or tests the note still reads well", () => {
   assert.match(note, /Task: not given/);
   assert.match(note, /No uncommitted changes/);
   assert.doesNotMatch(note, /Run `/);
+});
+
+test("every installed AI that runs in a terminal is a choice, however many editor tools are installed too", (t) => {
+  const dir = repo(t);
+  const cli = (id, bin) => ({ id, onPath: true, via: [`command: ${bin}`] });
+  const editor = (id) => ({ id, onPath: true, via: ["extension: vscode"] });
+  const installed = [editor("github-copilot"), editor("cursor"), editor("cline"), editor("windsurf"), cli("codex", "codex"), cli("gemini-cli", "gemini"), cli("aider", "aider"), cli("claude-code", "claude")];
+  const ids = nextChoices({ cwd: dir, home: dir, installed, leftOut: [], task: "fix the login bug" }).filter((c) => c.installed).map((c) => c.id);
+  assert.deepEqual(ids.sort(), ["aider", "claude-code", "codex", "gemini-cli"]);
 });

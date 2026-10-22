@@ -242,7 +242,8 @@ function planNext({ root, task, chat, installed, leftOut, prefer, forcePrivate }
   const { sensitive } = scanProject(root);
   const categories = classifyTask(task || chat?.task || "");
   const available = installed.filter((found) => !leftOut.includes(found.id));
-  const next = recommend({ task: CONTINUE, categories, installed: available, sensitive, prefer, private: forcePrivate });
+  // Every installed AI that can be started in a terminal is a choice, not only the top few.
+  const next = recommend({ task: CONTINUE, categories, installed: available, sensitive, prefer, private: forcePrivate, alsoCount: Infinity });
   return { next, choices: handoffChoices(next, installSuggestion({ installed, leftOut, categories, sensitive, prefer, forcePrivate })) };
 }
 
@@ -272,6 +273,22 @@ export function handoffChoices(next, suggestion = null) {
     { id: "other", name: "Another AI", why: `start any AI here and tell it: ${CONTINUE}`, command: null, recommended: false },
     { id: "none", name: "Nothing now", why: "keep HANDOFF.md and decide later", command: null, recommended: false },
   ];
+}
+
+/**
+ * A choice for an AI the user named that is not among the choices: an installed one left out (it carries on anyway,
+ * the user asked for it), or one that can be installed (its install command, then the command that carries on).
+ */
+export function installChoice(id, installed = []) {
+  const found = installed.find((f) => f.id === id);
+  if (found) {
+    const command = runCommandFor(found, CONTINUE);
+    return command && !command.startsWith("Open ") ? { id, name: toolById(id).name, why: "installed", command, installed: true, recommended: false } : null;
+  }
+  const tool = TOOLS.find((t) => t.id === id && t.install);
+  if (!tool) return null;
+  const command = runCommandFor({ id: tool.id, onPath: true, via: [`command: ${tool.detect.bins[0]}`] }, CONTINUE);
+  return { id: tool.id, name: tool.name, why: "not installed yet", command, install: tool.install, installed: false, recommended: false };
 }
 
 /** The best AI with an install command that is not installed (or left out), ranked for continuing the task. */

@@ -400,7 +400,7 @@ test("handoff --to none only writes the note; an unknown choice lists the valid 
   assert.ok(fs.existsSync(path.join(project, "HANDOFF.md")));
   const bad = run("handoff", "add coupons", "--to", "chatgpt");
   assert.equal(bad.status, 1);
-  assert.match(bad.stderr, /--to must be one of: gemini-cli, codex, web, other, none/);
+  assert.match(bad.stderr, /--to must be one of: gemini-cli, codex, web, other, none, claude-code, aider/);
 });
 
 test("handoff to an AI that is not installed shows how to install it, and installs it only with a yes", (t) => {
@@ -459,4 +459,21 @@ test("with no AI installed, --json gives the options", (t) => {
   assert.ok(options.length >= 2);
   assert.ok(options.every((o) => o.homepage.startsWith("https://")));
   assert.ok(options.some((o) => o.free && o.install));
+});
+
+test("handoff --to any AI that can be installed offers to install it, even when it is not the suggestion", (t) => {
+  const { project, run } = gitProject(t, ["claude", "gemini"]);
+  const result = run("handoff", "add coupons", "--to", "aider");
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Install Aider with: .+\nThen run: aider --message "Read HANDOFF\.md and continue the task\."/);
+  assert.ok(fs.existsSync(path.join(project, "HANDOFF.md")));
+});
+
+test("handoff --to an installed AI that was left out starts it, since the user asked for it", (t) => {
+  const { project, run } = gitProject(t, ["claude", "gemini"]);
+  const log = loggingStandIn(project, "claude");
+  const result = run("handoff", "add coupons", "--to", "claude-code");
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Starting Claude Code: claude "Read HANDOFF\.md and continue the task\."/);
+  assert.ok(fs.existsSync(log));
 });

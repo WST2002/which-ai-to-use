@@ -7,7 +7,7 @@ import os from "node:os";
 import { parseArgs } from "node:util";
 import { startDashboard } from "../src/dashboard.mjs";
 import { detectTools } from "../src/detect.mjs";
-import { aiAction, checkupAction, doctorAction, fixAction, handoffAction, newcomerAction, offerFix, recommendAction, scoreAction, slimAction, tokensAction, usageAction } from "../src/actions.mjs";
+import { aiAction, checkupAction, doctorAction, fixAction, handoffAction, installChoice, newcomerAction, offerFix, recommendAction, scoreAction, slimAction, tokensAction, usageAction } from "../src/actions.mjs";
 import { formatSyncPlan } from "../src/format.mjs";
 import { RULES_FILES } from "../src/project.mjs";
 import { copyFileToClipboard } from "../src/clipboard.mjs";
@@ -135,8 +135,8 @@ async function runHandoff(values, options, print) {
   const { choices } = result.data;
   let choice = choices.find((c) => c.id === to && c.installed !== false);
   if (values.back && !choice) throw new Error("--back needs Claude Code on this laptop, and it was not found");
-  if (to && !choice) choice = choices.find((c) => c.id === to);
-  if (to && !choice) throw new Error(`--to must be one of: ${choices.map((c) => c.id).join(", ")}`);
+  if (to && !choice) choice = choices.find((c) => c.id === to) ?? installChoice(to, options.installed);
+  if (to && !choice) throw new Error(`--to must be one of: ${[...new Set([...choices.map((c) => c.id), ...TOOLS.filter((t) => t.install).map((t) => t.id)])].join(", ")}`);
   if (!choice) {
     const recommended = choices.findIndex((c) => c.recommended) + 1;
     process.stdout.write("Who carries on?\n");

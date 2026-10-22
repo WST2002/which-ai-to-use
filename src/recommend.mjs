@@ -136,7 +136,8 @@ function describe(found, categories, privacy, task) {
   return entry;
 }
 
-export function recommend({ task, prompt = task, files = [], categories, installed, sensitive = [], prefer = "balanced", private: forcePrivate = false }) {
+/** `alsoCount`: how many other installed tools to describe after the best one. */
+export function recommend({ task, prompt = task, files = [], categories, installed, sensitive = [], prefer = "balanced", private: forcePrivate = false, alsoCount = 3 }) {
   const privacy = forcePrivate || sensitive.length > 0;
   const notes = [];
   if (privacy && sensitive.length) {
@@ -161,7 +162,7 @@ export function recommend({ task, prompt = task, files = [], categories, install
 
   const [top, ...rest] = ranked;
   const best = describe(top.found, categories, privacy, prompt);
-  const also = rest.slice(0, 3).map((entry) => describe(entry.found, categories, privacy, prompt));
+  const also = rest.slice(0, alsoCount).map((entry) => describe(entry.found, categories, privacy, prompt));
   const installedIds = new Set(installed.map((found) => found.id));
   // The best fit among every supported tool, by features. On a tie an installed tool wins, so we never
   // push an install that would not help.
