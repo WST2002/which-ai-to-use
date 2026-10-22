@@ -375,7 +375,10 @@ function loggingStandIn(project, name) {
   const bin = path.join(project, "..", "bin");
   const log = path.join(project, "..", `${name}.log`);
   if (process.platform === "win32") fs.writeFileSync(path.join(bin, `${name}.cmd`), `@echo off\r\necho %*>>"${log}"\r\n`);
-  else fs.writeFileSync(path.join(bin, name), `#!/bin/sh\necho "$@" >> "${log}"\n`);
+  else {
+    fs.writeFileSync(path.join(bin, name), `#!/bin/sh\necho "$@" >> "${log}"\n`);
+    fs.chmodSync(path.join(bin, name), 0o755);
+  }
   return log;
 }
 
