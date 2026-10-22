@@ -16,10 +16,13 @@ const EDITORS = [
 // npx puts the package's own bin folder on PATH while it runs; that is not a real install.
 const TEMPORARY_BIN = /[\\/](_npx|\.npm[\\/]_npx)[\\/]|[\\/]node_modules[\\/]\.bin$/;
 
-// .cmd shims on Windows need a shell. Every argument here comes from this file or the package path, never from the user.
+// .cmd shims on Windows need a shell. Every argument here comes from this file or the package path, never from the user,
+// and each is quoted, so a folder like C:\Users\R&D\ stays one argument.
 function run(bin, args, env) {
-  const quoted = process.platform === "win32" ? args.map((a) => (/\s/.test(a) ? `"${a}"` : a)) : args;
-  const result = spawnSync(bin, quoted, { shell: process.platform === "win32", env, encoding: "utf8", timeout: 180000 });
+  const options = { env, encoding: "utf8", timeout: 180000 };
+  const result = process.platform === "win32"
+    ? spawnSync([bin, ...args].map((a) => `"${a}"`).join(" "), { ...options, shell: true })
+    : spawnSync(bin, args, options);
   return result.status === 0;
 }
 

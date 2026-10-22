@@ -61,11 +61,11 @@ export function collectHandoff(dir) {
 }
 
 /** `chat`: the summary from lastClaudeChat, if the work was done in Claude Code. */
-export function renderHandoff({ task, info, verify, date, chat = null, from = null, resets = null }) {
+export function renderHandoff({ task, info, verify, date, chat = null, from = null, resets = null, by = null }) {
   const lines = [
     "# Handoff",
     "",
-    `Task: ${task || chat?.task || "not given (ask the user)"}`,
+    `Task: ${task || chat?.task || NO_TASK}`,
     `Branch: ${info.branch}`,
     "",
   ];
@@ -98,14 +98,24 @@ export function renderHandoff({ task, info, verify, date, chat = null, from = nu
     `Written by which-ai-to-use on ${date}.`,
     "",
   );
-  if (from) lines.push(`<!-- which-ai-to-use: from=${from}${resets ? ` resets=${new Date(resets).toISOString()}` : ""} -->`, "");
+  if (from) lines.push(`<!-- which-ai-to-use: from=${from}${by ? ` by=${by}` : ""}${resets ? ` resets=${new Date(resets).toISOString()}` : ""} -->`, "");
   return lines.join("\n");
 }
 
-const META = /<!-- which-ai-to-use: from=([\w-]+)(?: resets=(\S+))? -->/;
+const NO_TASK = "not given (ask the user)";
+const META = /<!-- which-ai-to-use: from=([\w-]+)(?: by=([\w-]+))?(?: resets=(\S+))? -->/;
 
-/** Which AI the note was handed off from, and when its limit resets (ms), from a HANDOFF.md text. */
+/**
+ * From a HANDOFF.md text: which AI the note was handed off from, who wrote it ("hook" when the Claude Code plugin
+ * did, after the limit was reached) and when the limit resets (ms).
+ */
 export function handoffMeta(text) {
   const match = META.exec(text ?? "");
-  return match ? { from: match[1], resets: match[2] ? Date.parse(match[2]) : null } : null;
+  return match ? { from: match[1], by: match[2] ?? null, resets: match[3] ? Date.parse(match[3]) : null } : null;
+}
+
+/** The task written in an earlier HANDOFF.md, so writing the note again (hand back, another limit hit) keeps it. */
+export function handoffTask(text) {
+  const task = /^Task: (.+)$/m.exec(text ?? "")?.[1]?.trim();
+  return task && task !== NO_TASK ? task : "";
 }

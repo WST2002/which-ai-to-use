@@ -1,6 +1,7 @@
 // VS Code extension for which-ai-to-use. It loads the CLI's engine from lib/ (see scripts/sync.mjs),
 // so every answer matches `npx which-ai-to-use`. Commands return their text, which the tests use.
 const vscode = require("vscode");
+const { spawnSync } = require("node:child_process");
 const { randomBytes } = require("node:crypto");
 const fs = require("node:fs");
 const os = require("node:os");
@@ -22,6 +23,13 @@ function projectFolder() {
   const folder = vscode.workspace.workspaceFolders?.[0];
   if (!folder) throw new Error("Open a project folder first.");
   return folder.uri.fsPath;
+}
+
+// HANDOFF.md is written at the top of the git repository, which may be above the folder open in VS Code.
+function repoRoot() {
+  const folder = projectFolder();
+  const result = spawnSync("git", ["rev-parse", "--show-toplevel"], { cwd: folder, encoding: "utf8" });
+  return result.status === 0 && result.stdout.trim() ? path.resolve(result.stdout.trim()) : folder;
 }
 
 async function context(without = []) {
@@ -80,7 +88,7 @@ let handoffChoices = []; // from the last handoff, so "Run in terminal" can only
 
 /** Starts a handoff choice in a VS Code terminal (installing it first when it is not installed yet). */
 function runChoice(choice) {
-  const terminal = vscode.window.createTerminal({ name: `Which AI: ${choice.name}`, cwd: projectFolder() });
+  const terminal = vscode.window.createTerminal({ name: `Which AI: ${choice.name}`, cwd: repoRoot() });
   terminal.show();
   if (choice.installed === false) terminal.sendText(choice.install);
   terminal.sendText(choice.command);
@@ -93,8 +101,8 @@ async function notice(kind, text, ...buttons) {
   return kind === "warning" ? vscode.window.showWarningMessage(text, ...buttons) : vscode.window.showInformationMessage(text, ...buttons);
 }
 
-// HANDOFF.md written because Claude's limit ran out (by the Claude Code plugin or a handoff): offer who carries on now,
-// and offer to hand it back once the limit resets.
+// HANDOFF.md written because Claude's limit ran out: offer to hand it back once the limit resets. When the Claude Code
+// plugin wrote it (by=hook), nobody has picked who carries on yet, so offer that too; a handoff the user ran already asked.
 let noticedHandoff;
 async function onHandoffWritten(uri) {
   const { handoffMeta, nextChoices } = await load();
@@ -106,10 +114,11 @@ async function onHandoffWritten(uri) {
   }
   const meta = handoffMeta(text);
   if (meta?.from !== "claude-code") return;
+  scheduleHandBack(uri, meta);
+  if (meta.by !== "hook") return;
   const key = `${uri.fsPath}:${meta.resets}`;
   if (noticedHandoff === key) return;
   noticedHandoff = key;
-  scheduleHandBack(uri, meta);
   const choices = nextChoices(await context());
   handoffChoices = choices;
   const recommended = choices.find((c) => c.recommended && c.command);
@@ -125,13 +134,23 @@ async function onHandoffWritten(uri) {
   } else if (picked) runChoice(recommended);
 }
 
-const handBackTimers = new Map();
+// Notes waiting for Claude's limit to reset, checked against the clock every minute: a single long timer would
+// fire late after the laptop sleeps, since timers do not count time asleep.
+const handBacks = new Map();
+const STALE = 12 * 60 * 60 * 1000;
+let state; // workspaceState: hand-back offers already answered
 function scheduleHandBack(uri, meta) {
-  if (!meta.resets) return;
-  clearTimeout(handBackTimers.get(uri.fsPath));
-  // setTimeout cannot wait longer than about 24.8 days.
-  const wait = Math.min(Math.max(meta.resets - Date.now(), 0), 2 ** 31 - 1);
-  handBackTimers.set(uri.fsPath, setTimeout(() => offerHandBack(uri, meta), wait));
+  if (!meta.resets || state?.get(`handBack:${meta.resets}`)) return;
+  handBacks.set(uri.fsPath, { uri, meta });
+  checkHandBacks();
+}
+
+function checkHandBacks() {
+  for (const [file, { uri, meta }] of handBacks) {
+    if (meta.resets > Date.now()) continue;
+    handBacks.delete(file);
+    offerHandBack(uri, meta);
+  }
 }
 
 async function offerHandBack(uri, meta) {
@@ -143,6 +162,7 @@ async function offerHandBack(uri, meta) {
     return; // HANDOFF.md is gone: the task is done.
   }
   if (still?.resets !== meta.resets) return;
+  await state?.update(`handBack:${meta.resets}`, true);
   const picked = await notice("info", "Claude's limit has reset. Hand the task back to Claude?", "Hand back to Claude");
   if (picked) await COMMANDS.handBack();
 }
@@ -314,6 +334,7 @@ const COMMANDS = {
 };
 
 function activate(extension) {
+  state = extension.workspaceState;
   status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   status.command = "whichAi.menu";
   for (const [name, run] of Object.entries(COMMANDS)) {
@@ -343,18 +364,20 @@ function activate(extension) {
     vscode.workspace.onDidChangeConfiguration((e) => e.affectsConfiguration("whichAi") && refreshStatus()),
   );
   refreshStatus();
-  // HANDOFF.md in the project folder: written now (limit reached) or left from before (offer to hand back on reset).
-  const folder = vscode.workspace.workspaceFolders?.[0];
-  if (folder) {
-    const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(folder, "HANDOFF.md"));
+  // HANDOFF.md at the top of the repository: written now (limit reached) or left from before (offer to hand back on reset).
+  if (vscode.workspace.workspaceFolders?.length) {
+    const root = vscode.Uri.file(repoRoot());
+    const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(root, "HANDOFF.md"));
     watcher.onDidCreate(onHandoffWritten);
     watcher.onDidChange(onHandoffWritten);
-    extension.subscriptions.push(watcher, { dispose: () => handBackTimers.forEach(clearTimeout) });
-    const existing = vscode.Uri.joinPath(folder.uri, "HANDOFF.md");
+    const clock = setInterval(checkHandBacks, 60 * 1000);
+    extension.subscriptions.push(watcher, { dispose: () => clearInterval(clock) }, vscode.window.onDidChangeWindowState((w) => w.focused && checkHandBacks()));
+    const existing = vscode.Uri.joinPath(root, "HANDOFF.md");
     load().then(({ handoffMeta }) => {
       try {
         const meta = handoffMeta(fs.readFileSync(existing.fsPath, "utf8"));
-        if (meta?.from === "claude-code") scheduleHandBack(existing, meta);
+        // A note whose limit reset long ago is from an old session: no offer on every start.
+        if (meta?.from === "claude-code" && meta.resets > Date.now() - STALE) scheduleHandBack(existing, meta);
       } catch {
         // No HANDOFF.md: nothing to hand back.
       }

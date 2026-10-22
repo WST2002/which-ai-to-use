@@ -55,12 +55,25 @@ export function runCommandFor(found, task, model = "") {
   return tool.id === "claude-code" && hasCommand(found) && alias ? command.replace(/^claude /, `claude --model ${alias} `) : command;
 }
 
+/**
+ * The task goes inside "double quotes" in a command line that may run in bash, zsh, PowerShell or cmd. Characters
+ * any of them would still read there (quotes, $, `, %, !, a trailing \ and line breaks) are taken out or swapped,
+ * so a task or a file name can never end the quotes or run something.
+ */
+export function quotedText(text) {
+  return String(text)
+    .replace(/[\r\n]+/g, " ")
+    .replace(/["`]/g, "'")
+    .replace(/[$%!]/g, "")
+    .replace(/\\+$/, "");
+}
+
 function commandFor(tool, found, template, task) {
   if (!template) return null;
   const onlyExtension = isCliTool(tool) && !hasCommand(found);
   if (onlyExtension) return `Open ${tool.editorName ?? tool.name} in VS Code and ask: ${template === tool.review ? "Review my uncommitted changes for bugs" : task}`;
   const model = found.models?.[0] ?? "<model>";
-  return template.replaceAll("{task}", task).replaceAll("<model>", model);
+  return template.replaceAll("{task}", quotedText(task)).replaceAll("<model>", model);
 }
 
 const HARD = new Set(["refactor", "security-sensitive", "explain-codebase"]);
@@ -123,7 +136,8 @@ function describe(found, categories, privacy, task) {
   return entry;
 }
 
-export function recommend({ task, prompt = task, files = [], categories, installed, sensitive = [], prefer = "balanced", private: forcePrivate = false }) {
+/** `alsoCount`: how many other installed tools to describe after the best one. */
+export function recommend({ task, prompt = task, files = [], categories, installed, sensitive = [], prefer = "balanced", private: forcePrivate = false, alsoCount = 3 }) {
   const privacy = forcePrivate || sensitive.length > 0;
   const notes = [];
   if (privacy && sensitive.length) {
@@ -148,7 +162,7 @@ export function recommend({ task, prompt = task, files = [], categories, install
 
   const [top, ...rest] = ranked;
   const best = describe(top.found, categories, privacy, prompt);
-  const also = rest.slice(0, 3).map((entry) => describe(entry.found, categories, privacy, prompt));
+  const also = rest.slice(0, alsoCount).map((entry) => describe(entry.found, categories, privacy, prompt));
   const installedIds = new Set(installed.map((found) => found.id));
   // The best fit among every supported tool, by features. On a tie an installed tool wins, so we never
   // push an install that would not help.

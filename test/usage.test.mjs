@@ -101,3 +101,14 @@ test("a recorded limit hit is the better reference, and low use gives no warning
   const quiet = home(t, { "p/a.jsonl": [...burst("old", "2026-10-18T09:00:00Z", 100000), ...burst("now", "2026-10-20T10:00:00Z", 30000)] });
   assert.equal(limitWarning(claudeUsage({ home: quiet, now: NOW }), []), null);
 });
+
+test("a log that cannot be read is skipped, not an error", (t) => {
+  const dir = home(t, { "shop/a.jsonl": [line("m1", "2026-10-20T10:00:00Z", "/shop", u(100, 20))] });
+  try {
+    fs.symlinkSync(path.join(dir, "missing.jsonl"), path.join(dir, ".claude", "projects", "shop", "gone.jsonl"));
+  } catch {
+    t.skip("this system cannot create symlinks");
+    return;
+  }
+  assert.equal(claudeUsage({ home: dir, now: NOW }).today.fresh, 120);
+});

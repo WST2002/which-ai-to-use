@@ -88,7 +88,13 @@ export function claudeUsage({ home, now = new Date() }) {
 
   for (const file of logFiles(path.join(home, ".claude", "projects"))) {
     found = true;
-    for (const raw of fs.readFileSync(file, "utf8").split("\n")) {
+    let text;
+    try {
+      text = fs.readFileSync(file, "utf8");
+    } catch {
+      continue; // pruned by Claude Code since it was listed
+    }
+    for (const raw of text.split("\n")) {
       if (!raw.includes('"usage"')) continue;
       let entry;
       try {
