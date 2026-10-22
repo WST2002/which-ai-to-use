@@ -77,6 +77,17 @@ exports.run = async () => {
     assert.equal(await vscode.env.clipboard.readText(), "npx which-ai-to-use score");
   });
 
+  await check("handoff choices can be started in a VS Code terminal, only by their id", async () => {
+    const reply = await api.handleMessage({ type: "action", id: 9, action: "handoff", body: { task: "add coupons" } });
+    const recommended = reply.data.data.choices.find((c) => c.recommended);
+    assert.equal(recommended.id, "claude-code");
+    await api.handleMessage({ type: "runInTerminal", choice: "rm -rf /" });
+    assert.equal(api.lastTerminalCommand(), undefined, "an unknown choice runs nothing");
+    await api.handleMessage({ type: "runInTerminal", choice: "claude-code" });
+    assert.equal(api.lastTerminalCommand(), recommended.command);
+    assert.ok(vscode.window.terminals.some((t) => t.name === "Which AI: Claude Code"));
+  });
+
   await check("handoff writes HANDOFF.md", async () => {
     assert.match(await run("whichAi.handoff", "add coupons", true), /Wrote HANDOFF\.md/);
     assert.ok(fs.existsSync(path.join(project, "HANDOFF.md")));

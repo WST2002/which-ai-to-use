@@ -480,10 +480,23 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
     handoff(data) {
       const parts = [el("div", { class: "ok", text: "Wrote HANDOFF.md: " + data.changes.length + " changed file(s), " + data.commits.length + " commit(s) on " + data.branch + "." })];
       if (data.chat) parts.push(el("p", { class: "muted", text: "Read from the Claude Code chat (" + data.chat.requests + " request" + (data.chat.requests === 1 ? "" : "s") + "): “" + data.chat.task + "”" }));
-      if (data.next.best) parts.push(el("div", { class: "section-title", text: "Continue with " + data.next.best.name }), command(data.next.best.command));
-      else parts.push(el("div", { class: "section-title", text: "No other AI tool is installed" }), el("p", { text: "Paste HANDOFF.md into ChatGPT or Gemini on the web and ask it to continue, or install Gemini CLI (free tier):" }), command("npm i -g @google/gemini-cli"));
-      const copyNote = el("button", { class: "btn ghost", style: "margin-top:12px", text: "Copy HANDOFF.md", onclick: () => { copyText(data.note); copyNote.textContent = "Copied"; setTimeout(() => (copyNote.textContent = "Copy HANDOFF.md"), 1500); } });
-      parts.push(copyNote);
+      // The recommended AI first, then the others, then a chat on the web: the same choices as the terminal menu.
+      parts.push(el("div", { class: "section-title", text: "Who carries on?" }));
+      const copyNote = (label) => {
+        const button = el("button", { class: "btn ghost", text: label, onclick: () => { copyText(data.note); button.textContent = "Copied"; setTimeout(() => (button.textContent = label), 1500); } });
+        return button;
+      };
+      for (const choice of data.choices.filter((c) => c.id !== "none")) {
+        const card = el("div", { class: "card" + (choice.recommended ? " best" : ""), style: "margin-bottom:8px" },
+          el("h3", {}, choice.name, choice.recommended ? el("span", { class: "tag star", text: "Recommended" }) : null),
+          el("p", { text: sentence(choice.why) }));
+        if (choice.command) {
+          card.append(command(choice.command));
+          if (vscodeApi) card.append(el("div", { class: "form", style: "margin:8px 0 0" }, el("button", { class: "btn", text: "Run in terminal", onclick: () => vscodeApi.postMessage({ type: "runInTerminal", choice: choice.id }) })));
+        } else card.append(el("div", { class: "form", style: "margin:8px 0 0" }, copyNote("Copy HANDOFF.md")));
+        parts.push(card);
+      }
+      if (!data.next.best) parts.push(el("p", { class: "muted", text: "No other AI tool is installed. Gemini CLI has a free tier:" }), command("npm i -g @google/gemini-cli"));
       if (data.changes.length) parts.push(el("div", { class: "section-title", text: "Changed files in the note" }), el("table", {}, el("tr", {}, el("th", { text: "File" }), el("th", { text: "Change" })), data.changes.map((c) => el("tr", {}, el("td", { text: c.file }), el("td", { text: c.status + " (+" + c.added + " −" + c.removed + ")" })))));
       parts.push(el("p", { class: "muted", text: "HANDOFF.md is for the next AI only: don't commit it." }));
       return parts;

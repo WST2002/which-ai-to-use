@@ -62,6 +62,8 @@ async function refreshStatus() {
   }
 }
 
+let handoffChoices = []; // from the last handoff, so "Run in terminal" can only start one of those commands
+let lastTerminalCommand; // for the tests
 const PNG_DATA_URL = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/;
 
 /** Messages from the sidebar page: run an action, copy text, or save the score card. */
@@ -78,6 +80,16 @@ async function handleMessage(message) {
     if (target) fs.writeFileSync(target.fsPath, Buffer.from(image[1], "base64"));
     return null;
   }
+  if (message?.type === "runInTerminal") {
+    // Only a command from the last handoff runs, looked up by its id; the page never sends a command line.
+    const choice = handoffChoices.find((c) => c.id === message.choice && c.command);
+    if (!choice) return null;
+    const terminal = vscode.window.createTerminal({ name: `Which AI: ${choice.name}`, cwd: projectFolder() });
+    terminal.show();
+    terminal.sendText(choice.command);
+    lastTerminalCommand = choice.command;
+    return null;
+  }
   if (message?.type === "openFull") {
     await COMMANDS.openFullView();
     return null;
@@ -87,6 +99,7 @@ async function handleMessage(message) {
     const { runAction, detectTools } = await load();
     const data = await runAction(String(message.action), message.body ?? {}, { cwd: projectFolder(), home: os.homedir(), detect: detectTools });
     if (message.action === "fix" && message.body?.apply) await refreshStatus();
+    if (message.action === "handoff") handoffChoices = data.data.choices;
     return { id: message.id, data };
   } catch (error) {
     return { id: message.id, error: error.message };
@@ -226,7 +239,7 @@ function activate(extension) {
     vscode.workspace.onDidChangeConfiguration((e) => e.affectsConfiguration("whichAi") && refreshStatus()),
   );
   refreshStatus();
-  return { refreshStatus, statusText: () => status.text, handleMessage, sidebarHtml: () => sidebar?.webview.html, sidebarAsked: () => sidebarAsked };
+  return { refreshStatus, statusText: () => status.text, handleMessage, sidebarHtml: () => sidebar?.webview.html, sidebarAsked: () => sidebarAsked, lastTerminalCommand: () => lastTerminalCommand };
 }
 
 function deactivate() {}
