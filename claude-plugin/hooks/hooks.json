@@ -1,0 +1,10 @@
+{
+  "description": "When Claude's usage limit ends a turn, write HANDOFF.md and tell the user how to carry on in another AI.",
+  "hooks": {
+    "StopFailure": [
+      {
+        "hooks": [{ "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/on-limit.mjs"], "timeout": 180 }]
+      }
+    ]
+  }
+}

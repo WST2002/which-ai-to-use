@@ -1,0 +1,16 @@
+{
+  "name": "which-ai-to-use",
+  "owner": {
+    "name": "Wageesha Tripathi",
+    "email": "tripathiwageesha2002@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "limit-handoff",
+      "source": "./claude-plugin",
+      "description": "When Claude's usage limit is reached, writes HANDOFF.md with which-ai-to-use and tells you how to carry on in another AI.",
+      "version": "0.1.0",
+      "category": "productivity"
+    }
+  ]
+}
