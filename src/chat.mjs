@@ -94,7 +94,13 @@ function chatFiles(home) {
  */
 export function lastClaudeChat({ home, cwd }) {
   for (const { file } of chatFiles(home)) {
-    const entries = fs.readFileSync(file, "utf8").split("\n").flatMap((line) => {
+    let text;
+    try {
+      text = fs.readFileSync(file, "utf8");
+    } catch {
+      continue;
+    }
+    const entries = text.split("\n").flatMap((line) => {
       try {
         return line.trim() ? [JSON.parse(line)] : [];
       } catch {

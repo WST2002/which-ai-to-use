@@ -106,6 +106,14 @@ test("a chat log that disappears while it is read, or cannot be read, is skipped
   assert.equal(lastClaudeChat({ home: dir, cwd: project }).task, "Fix the cart total");
 });
 
+test("a chat log that cannot be opened is skipped", (t) => {
+  const dir = home(t);
+  session(dir, "shop", project, [["user", "Fix the cart total"]], 30);
+  // A folder with a log's name: listed and stat-ed like a log, but reading it fails.
+  fs.mkdirSync(path.join(dir, ".claude", "projects", "shop", "newer.jsonl"));
+  assert.equal(lastClaudeChat({ home: dir, cwd: project }).task, "Fix the cart total");
+});
+
 test("a chat started in a subfolder of the project counts for the project", (t) => {
   const dir = home(t);
   session(dir, "web", path.join(project, "packages", "web"), [["user", "Fix the header on mobile"]]);
