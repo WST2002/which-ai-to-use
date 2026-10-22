@@ -16,7 +16,8 @@ import { betterPrompt, relevantFiles, verifyCommand } from "./prompt.mjs";
 import { recommend, runCommandFor } from "./recommend.mjs";
 import { aiRunner, askAi, buildAiPrompt, parseAiAnswer } from "./ai.mjs";
 import { startCost } from "./cost.mjs";
-import { estimateTokens, listProjectFiles, mcpServers, rulesCost, tokenReport } from "./tokens.mjs";
+import { estimateTokens, heavyFiles, listProjectFiles, mcpServers, rulesCost, tokenReport } from "./tokens.mjs";
+import { TEAM_FILE, readTeam, writeTeam } from "./team.mjs";
 import { TOOLS, toolById } from "./tools.mjs";
 
 const ids = (installed) => installed.map((found) => found.id);
@@ -322,6 +323,28 @@ function installSuggestion({ installed, leftOut, categories, sensitive, prefer, 
   if (!candidates.length) return null;
   const best = recommend({ task: CONTINUE, categories, installed: candidates, sensitive, prefer, private: forcePrivate }).best;
   return best && { ...best, install: toolById(best.id).install };
+}
+
+/**
+ * Shares this project's heavy files with the team in .which-ai.json (committed with the code), so every teammate's
+ * `fix` makes their AI tools skip the same files. `apply` writes it.
+ */
+export function teamAction({ cwd, apply = false }) {
+  const team = readTeam(cwd);
+  const listed = new Set(team?.skip ?? []);
+  const adding = heavyFiles(cwd, listProjectFiles(cwd)).map((h) => h.file).filter((file) => !listed.has(file));
+  const lines = [];
+  if (team) lines.push(`${TEAM_FILE}: ${team.skip.length} file(s) to skip, ranking "${team.prefer}"${team.without.length ? `, leaves out ${team.without.join(", ")}` : ""}.`);
+  const result = (data) => ({ text: `${lines.join("\n")}\n`, data: { file: TEAM_FILE, team, adding, written: false, ...data } });
+  if (!adding.length) {
+    lines.push(team ? "Every heavy file is already on the team list." : "No heavy files to share: nothing to write.");
+    return result();
+  }
+  lines.push(`Add to the team list in ${TEAM_FILE}:`, ...adding.map((file) => `  ${file}`));
+  if (!apply) return result();
+  const written = writeTeam(cwd, { skip: adding });
+  lines.push(`Wrote ${TEAM_FILE}. Commit it: when teammates run npx which-ai-to-use fix, their AI tools skip the same files.`);
+  return result({ team: written, written: true });
 }
 
 /** What fix would change; `apply` writes it. */

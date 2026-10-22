@@ -7,15 +7,15 @@ import os from "node:os";
 import { parseArgs } from "node:util";
 import { startDashboard } from "../src/dashboard.mjs";
 import { detectTools } from "../src/detect.mjs";
-import { aiAction, checkupAction, doctorAction, fixAction, handoffAction, installChoice, newcomerAction, offerFix, recommendAction, reportAction, scoreAction, slimAction, tokensAction, usageAction } from "../src/actions.mjs";
+import { aiAction, checkupAction, doctorAction, fixAction, handoffAction, installChoice, newcomerAction, offerFix, recommendAction, reportAction, scoreAction, slimAction, teamAction, tokensAction, usageAction } from "../src/actions.mjs";
 import { formatSyncPlan } from "../src/format.mjs";
 import { RULES_FILES } from "../src/project.mjs";
 import { copyFileToClipboard } from "../src/clipboard.mjs";
 import { findEditors, hasGlobalCommand, installExtension, installGlobal } from "../src/setup.mjs";
+import { PREFERENCES, readTeam } from "../src/team.mjs";
 import { applySync, planSync } from "../src/sync.mjs";
 import { TOOLS, toolById } from "../src/tools.mjs";
 
-const PREFERENCES = ["balanced", "free", "quality"];
 const version = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
 const HELP = `which-ai-to-use ${version} — use your AI coding tools better
@@ -37,6 +37,7 @@ More:
   which-ai-to-use report              Your AI week: tokens per day vs the week before, limit hits, requests per AI, a line to share
   which-ai-to-use slim                Ask your AI for a shorter CLAUDE.md (asks first; writes CLAUDE.slim.md, --apply to swap)
   which-ai-to-use sync                Copy AGENTS.md to every installed AI's instructions file
+  which-ai-to-use team                Share the files to skip with your team in .which-ai.json (asks first; commit it)
 
 Options:
   --prefer balanced|free|quality      Rank free/local tools or the most capable agents first
@@ -112,6 +113,18 @@ async function runFix(values, installed, print) {
   if (!approved) return void process.stdout.write("Nothing changed. Run again with --yes to apply.\n");
   const result = fixAction({ ...context, apply: true });
   process.stdout.write(`${result.text.trimEnd().split("\n").at(-1)}\n`);
+}
+
+// Shares the heavy files with the team in .which-ai.json; writes only after a yes.
+async function runTeam(values, print) {
+  const cwd = process.cwd();
+  if (values.json) return print(teamAction({ cwd, apply: values.yes }));
+  const preview = teamAction({ cwd });
+  process.stdout.write(preview.text);
+  if (!preview.data.adding.length) return undefined;
+  if (!(values.yes || (await confirm(`Write ${preview.data.file}? (y/N) `)))) return void process.stdout.write("Nothing changed. Run again with --yes to write it.\n");
+  const result = teamAction({ cwd, apply: true });
+  return void process.stdout.write(`${result.text.trimEnd().split("\n").at(-1)}\n`);
 }
 
 async function confirm(question) {
@@ -256,7 +269,7 @@ async function main() {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
     options: {
-      prefer: { type: "string", default: "balanced" },
+      prefer: { type: "string" },
       private: { type: "boolean", default: false },
       json: { type: "boolean", default: false },
       from: { type: "string" },
@@ -277,13 +290,16 @@ async function main() {
   });
   if (values.version) return void process.stdout.write(`${version}\n`);
   if (values.help) return void process.stdout.write(HELP);
+  // The team's shared settings in .which-ai.json are the defaults; flags still win.
+  const team = readTeam(process.cwd());
+  values.prefer ??= team?.prefer ?? "balanced";
   if (!PREFERENCES.includes(values.prefer)) throw new Error(`--prefer must be one of: ${PREFERENCES.join(", ")}`);
 
   const skipped = values.without.flatMap((value) => value.split(",")).map((id) => id.trim()).filter(Boolean);
   for (const id of skipped) {
     if (!toolById(id)) throw new Error(`unknown tool "${id}" for --without. Use one of: ${TOOLS.map((tool) => tool.id).join(", ")}`);
   }
-  const installed = detectTools().filter((found) => !skipped.includes(found.id));
+  const installed = detectTools().filter((found) => !skipped.includes(found.id) && !team?.without.includes(found.id));
   const [command] = positionals;
   const context = { cwd: process.cwd(), home: os.homedir(), installed, prefer: values.prefer, private: values.private };
   const print = ({ text, data }) => process.stdout.write(values.json ? `${JSON.stringify(data, null, 2)}\n` : text);
@@ -311,6 +327,7 @@ async function main() {
   if (command === "handoff") return runHandoff(values, { ...context, task: positionals.slice(1).join(" ").trim(), leftOut: skipped.length || values.back ? [] : ["claude-code"], copy: values.copy, by: process.env.WHICH_AI_TO_USE_BY === "hook" ? "hook" : null }, print);
   if (command === "sync") return runSync(values, installed);
   if (command === "fix") return runFix(values, installed, print);
+  if (command === "team") return runTeam(values, print);
   if (values.ai) return runAi(values, context, positionals.join(" "), print);
   if (noAiFound) return runNewcomer(values, context, positionals.join(" "), print);
   return print(recommendAction({ ...context, task: positionals.join(" ") }));
