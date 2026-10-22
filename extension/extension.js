@@ -179,6 +179,8 @@ async function handleMessage(message) {
     const data = await runAction(String(message.action), message.body ?? {}, { cwd: projectFolder(), home: os.homedir(), detect: detectTools });
     if (message.action === "fix" && message.body?.apply) await refreshStatus();
     if (message.action === "handoff") handoffChoices = data.data.choices;
+    // Nothing installed yet: "Install and start" may run one of the suggested AIs.
+    if (message.action === "newcomer") handoffChoices = data.data.options.filter((o) => o.command).map((o) => ({ ...o, installed: false }));
     return { id: message.id, data };
   } catch (error) {
     return { id: message.id, error: error.message };
@@ -251,12 +253,22 @@ const COMMANDS = {
     return { text, share: data.share };
   },
   async handoff(given, leaveOutClaude) {
-    const task = given ?? (await vscode.window.showInputBox({ prompt: "What were you working on?" }));
+    const task = given ?? (await vscode.window.showInputBox({ prompt: "What were you working on? (leave empty to read it from the Claude Code chat)" }));
     if (task === undefined) return undefined;
     const skip = leaveOutClaude ?? (await vscode.window.showQuickPick(["Yes, leave out Claude Code", "No"], { placeHolder: "Claude's limit is over: leave it out?" })) === "Yes, leave out Claude Code";
     const { handoffAction } = await load();
-    const { text } = handoffAction({ ...(await context(skip ? ["claude-code"] : [])), task });
+    const { text, data } = handoffAction({ ...(await context()), task, leftOut: skip ? ["claude-code"] : [], menu: true });
+    handoffChoices = data.choices;
     show("Handoff", text);
+    // Same choices as the terminal: the recommended AI first; picking one starts it in a VS Code terminal.
+    if (given === undefined) {
+      const item = await vscode.window.showQuickPick(
+        data.choices.filter((c) => c.id !== "none").map((c) => ({ label: c.name, description: c.recommended ? "recommended" : c.installed === false ? "not installed" : "", detail: c.why, choice: c })),
+        { placeHolder: "Who carries on?" },
+      );
+      if (item?.choice.command) runChoice(item.choice);
+      else if (item?.choice.id === "web") await vscode.env.clipboard.writeText(data.note);
+    }
     return text;
   },
   openSidebar() {

@@ -110,6 +110,13 @@ Task: add coupons
     assert.match(api.lastTerminalCommand(), /^claude /);
   });
 
+  await check("with no AI installed, a suggested AI can be installed and started in a terminal", async () => {
+    const reply = await api.handleMessage({ type: "action", id: 11, action: "newcomer", body: { task: "build a landing page" } });
+    const first = reply.data.data.options.find((o) => o.install);
+    await api.handleMessage({ type: "runInTerminal", choice: first.id });
+    assert.equal(api.lastTerminalCommand(), first.command);
+  });
+
   await check("handoff writes HANDOFF.md", async () => {
     assert.match(await run("whichAi.handoff", "add coupons", true), /Wrote HANDOFF\.md/);
     assert.ok(fs.existsSync(path.join(project, "HANDOFF.md")));
