@@ -9,8 +9,8 @@
     {
       "name": "limit-handoff",
       "source": "./claude-plugin",
-      "description": "When Claude's usage limit is reached, writes HANDOFF.md with which-ai-to-use and tells you how to carry on in another AI.",
-      "version": "0.1.1",
+      "description": "When Claude's usage limit is reached, writes HANDOFF.md with which-ai-to-use and tells you how to carry on in another AI. /handoff writes it before the limit, with Claude's own notes.",
+      "version": "0.2.0",
       "category": "productivity"
     }
   ]
