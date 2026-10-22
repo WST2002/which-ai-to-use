@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { classifyTask } from "./classify.mjs";
 import { applyIgnoreAdvice } from "./fix.mjs";
-import { LABELS, checkupIssues, formatAiAnswer, formatCheckup, formatDoctor, formatRecommendation, formatScore, formatTokens, formatUsage, limitWarning, usageTip, windowLine } from "./format.mjs";
+import { LABELS, checkupIssues, formatAiAnswer, formatCheckup, formatDoctor, formatRecommendation, formatScore, formatTokens, formatUsage, limitWarning, resetTime, usageTip, windowLine } from "./format.mjs";
 import { setupScore } from "./score.mjs";
 import { claudeUsage } from "./usage.mjs";
 import { copyFileToClipboard } from "./clipboard.mjs";
@@ -154,7 +154,10 @@ export function handoffAction({ cwd, home, task = "", installed, leftOut = [], c
   const file = path.join(info.root, "HANDOFF.md");
   // The Claude Code chat says what was asked and where it stopped, so nobody has to type the task again.
   const chat = home ? lastClaudeChat({ home, cwd: info.root }) : null;
-  const note = renderHandoff({ task, info, verify: verifyCommand(info.root), date, chat });
+  // Leaving Claude because its limit is over: remember when it resets, so the work can come back to it.
+  const fromClaude = leftOut.includes("claude-code");
+  const resets = fromClaude && home ? (claudeUsage({ home }).window?.end ?? null) : null;
+  const note = renderHandoff({ task, info, verify: verifyCommand(info.root), date, chat, from: fromClaude ? "claude-code" : null, resets });
   fs.writeFileSync(file, note);
   const { sensitive } = scanProject(info.root);
   const available = installed.filter((found) => !leftOut.includes(found.id));
@@ -163,6 +166,7 @@ export function handoffAction({ cwd, home, task = "", installed, leftOut = [], c
   if (chat) lines.push(`Read the Claude Code chat: "${chat.task.length > 70 ? `${chat.task.slice(0, 69)}…` : chat.task}" (${chat.requests} request${chat.requests === 1 ? "" : "s"}).`);
   lines.push(`Wrote HANDOFF.md: ${info.changes.length} changed file(s), ${info.commits.length} commit(s) on ${info.branch}.`, "");
   if (leftOut.length) lines.push(`Left out: ${leftOut.map((id) => toolById(id).name).join(", ")} (limit over). Handing off from another AI? Add --without <tool>.`, "");
+  if (resets) lines.push(`Claude's limit resets about ${resetTime(resets)}. Then hand the task back: npx which-ai-to-use handoff --back`, "");
   const categories = classifyTask(task || chat?.task || "");
   const choices = handoffChoices(next, installSuggestion({ installed, leftOut, categories, sensitive, prefer, forcePrivate }));
   if (!menu) {

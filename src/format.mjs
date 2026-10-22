@@ -50,6 +50,9 @@ function duration(ms) {
   return minutes >= 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`;
 }
 
+/** "19:00 (in 2 h 5 min)" */
+export const resetTime = (end, now = new Date()) => `${clock(end)} (in ${duration(end - now.getTime())})`;
+
 /** "~1,200 tokens in 4 replies since 14:00 · resets about 19:00 (in 1 h 12 min)", or how a new window starts. */
 export function windowLine(window, now = new Date()) {
   if (!window) return "No 5-hour window is open: your next Claude message starts a fresh one.";
