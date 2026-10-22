@@ -40,6 +40,7 @@ const ICON_PATHS = {
   tokens: '<path d="M3.5 13V9M8 13V4M12.5 13V7"/>',
   score: '<path d="M8 2.2l1.8 3.7 4 .6-2.9 2.8.7 4L8 11.4l-3.6 1.9.7-4-2.9-2.8 4-.6z"/>',
   usage: '<circle cx="8" cy="8" r="6"/><path d="M8 4.8V8l2.2 1.6"/>',
+  report: '<rect x="2.5" y="3" width="11" height="10.5" rx="1"/><path d="M2.5 6h11M5.5 9.5v1.5M8 8.5V11M10.5 9v2"/>',
   slim: '<path d="M3 4.5h10M3 8h7M3 11.5h4"/>',
   doctor: '<rect x="2.5" y="3" width="11" height="8" rx="1"/><path d="M5.5 13.5h5"/>',
   guide: '<circle cx="8" cy="8" r="6"/><path d="M6.4 6.3a1.7 1.7 0 0 1 3.2.6c0 1.1-1.6 1.4-1.6 2.4M8 11.3v.1"/>',
@@ -55,6 +56,7 @@ const NAV = [
   ["tokens", "Token details", "Everything that is counted"],
   ["score", "Score card", "Your AI setup score, ready to share"],
   ["usage", "Usage", "Limit reset time, tokens today and this week"],
+  ["report", "Your AI week", "This week vs last week, ready to share"],
   ["slim", "Shorten CLAUDE.md", "Ask your AI for a shorter version"],
   ["doctor", "Installed tools", "AI tools on this laptop"],
   ["guide", "How to use", "Six steps to get started"],
@@ -135,6 +137,9 @@ ${bridge === "vscode" ? "" : `  @media (prefers-color-scheme: dark) {
   .btn.ghost { background: var(--btn2-bg); color: var(--btn2-fg); border-color: var(--line); }
   .btn.ghost:hover { background: var(--hover); }
   .btn.small { height: 26px; padding: 0 10px; font-size: 12px; }
+  .bars { display: grid; grid-template-columns: 3em 1fr 4em; gap: 6px 10px; align-items: center; margin: 4px 0 14px; font-variant-numeric: tabular-nums; }
+  .bars .bar { height: 10px; border-radius: 3px; background: var(--accent); min-width: 2px; }
+  .bars .num { text-align: right; color: var(--muted); }
   table.points td:first-child { width: 56px; white-space: nowrap; color: var(--warn); font-variant-numeric: tabular-nums; }
   .btn:disabled { opacity: .5; cursor: progress; }
 
@@ -300,6 +305,7 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
     tokens: { title: "Token details", sub: "Instructions files, heavy files and add-ons, with numbers." },
     score: { title: "Score card", sub: "How lean and well-described your project is for AI tools. Download the card or copy the line to share." },
     usage: { title: "Usage", sub: "Claude Code tokens from its own logs on this laptop: numbers only, never your messages." },
+    report: { title: "Your AI week", sub: "The last 7 days next to the week before, from your AIs' own logs on this laptop: numbers only." },
     slim: { title: "Shorten CLAUDE.md", sub: "Your instructions file is sent with every message. Your AI writes a shorter copy next to it; you decide whether to use it." },
     doctor: { title: "Installed tools", sub: "Which AI tools this laptop has and which instructions files this project has." },
     guide: { title: "How to use", sub: "Six steps: check, fix, pick an AI, hand off, watch the limit, share." },
@@ -577,6 +583,27 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
       ];
       if (data.projects.length) parts.push(el("div", { class: "section-title", text: "Busiest projects (7 days)" }), el("table", {}, data.projects.map((p) => el("tr", {}, el("td", { text: p.project }), el("td", { text: n(p.fresh) + " tokens" })))));
       if (data.tip) parts.push(el("div", { class: "consent", style: "margin-top:14px" }, el("strong", { text: "Tip" }), el("p", { text: data.tip })));
+      return parts;
+    },
+    report(data) {
+      const used = data.tools.filter((t) => t.requests);
+      if (!data.week.replies && !used.length) return [el("div", { class: "ok", text: "No AI use found on this laptop in the last 7 days." })];
+      const n = (v) => "~" + v.toLocaleString("en-US");
+      const parts = [];
+      if (data.week.replies) {
+        const change = data.change === null ? "" : (data.change >= 0 ? "↑ " : "↓ ") + Math.abs(data.change) + "% vs the week before";
+        const most = Math.max(...data.days.map((d) => d.fresh), 1);
+        parts.push(el("div", { class: "card best", style: "margin-bottom:14px" }, el("div", { class: "muted", text: "Claude Code, last 7 days" }), el("h3", { text: n(data.week.fresh) + " tokens" }), el("p", { text: data.week.replies + " replies" + (change ? " · " + change : "") })),
+          el("div", { class: "bars", role: "img", "aria-label": "Tokens per day" }, ...data.days.flatMap((d) => [el("span", { text: d.label }), el("div", { class: "bar", style: "width:" + Math.round((d.fresh / most) * 100) + "%" }), el("span", { class: "num", text: n(d.fresh) })])),
+          el("table", {},
+            data.busiest ? el("tr", {}, el("td", { text: "Busiest day" }), el("td", { text: data.busiest.label + " (" + n(data.busiest.fresh) + " tokens)" })) : null,
+            el("tr", {}, el("td", { text: "Limit ran out" }), el("td", { text: data.limits ? data.limits + (data.limits === 1 ? " time" : " times") : "not recorded (the Claude Code plugin records it)" })),
+            data.projects.length ? el("tr", {}, el("td", { text: "Busiest projects" }), el("td", { text: data.projects.map((p) => p.project + " " + n(p.fresh)).join(", ") })) : null));
+      }
+      if (used.length) parts.push(el("div", { class: "section-title", text: "Requests per AI" }), el("table", {}, used.map((t) => el("tr", {}, el("td", { text: t.name }), el("td", { text: t.requests + " in " + t.chats + (t.chats === 1 ? " chat" : " chats") })))));
+      const copy = el("button", { class: "btn ghost", text: "Copy text to share", onclick: () => { copyText(data.share); copy.textContent = "Copied"; setTimeout(() => (copy.textContent = "Copy text to share"), 1500); } });
+      const post = (label, href) => el("a", { class: "btn ghost", text: label, href, target: "_blank", rel: "noopener" });
+      parts.push(el("div", { class: "form", style: "margin-top:14px" }, copy, post("Post on X", data.links.x), post("Post on LinkedIn", data.links.linkedin)), el("p", { class: "muted", text: data.share }));
       return parts;
     },
     ai(data) {

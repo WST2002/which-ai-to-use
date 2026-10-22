@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import http from "node:http";
 import path from "node:path";
-import { aiAction, checkupAction, doctorAction, fixAction, handoffAction, newcomerAction, recommendAction, scoreAction, slimAction, tokensAction, usageAction } from "./actions.mjs";
+import { aiAction, checkupAction, doctorAction, fixAction, handoffAction, newcomerAction, recommendAction, reportAction, scoreAction, slimAction, tokensAction, usageAction } from "./actions.mjs";
 import { dashboardPage } from "./dashboard-page.mjs";
 import { detectTools } from "./detect.mjs";
 import { toolById } from "./tools.mjs";
@@ -18,6 +18,7 @@ const ACTIONS = {
   doctor: (context) => doctorAction(context),
   score: (context) => scoreAction(context),
   usage: (context) => usageAction(context),
+  report: (context) => reportAction(context),
   ai: (context, body) => aiAction({ ...context, task: body.task, consent: body.consent === true }),
   slim: (context, body) => slimAction({ ...context, consent: body.consent === true, apply: body.apply === true }),
 };
