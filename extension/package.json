@@ -2,8 +2,11 @@
   "name": "which-ai-to-use",
   "displayName": "Which AI to Use",
   "description": "See what wastes your AI tokens, your AI setup score, which AI and model to use for a task, tips when Claude's limit is close, hand work to another AI when it runs out, and your AI week. Runs locally.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "wst2002",
+  "icon": "media/icon.png",
+  "galleryBanner": { "color": "#1d4ed8", "theme": "dark" },
+  "pricing": "Free",
   "license": "MIT",
   "author": "Wageesha Tripathi",
   "repository": {
@@ -11,6 +14,7 @@
     "url": "https://github.com/WST2002/which-ai-to-use"
   },
   "homepage": "https://github.com/WST2002/which-ai-to-use#readme",
+  "bugs": { "url": "https://github.com/WST2002/which-ai-to-use/issues" },
   "engines": {
     "vscode": "^1.90.0"
   },
