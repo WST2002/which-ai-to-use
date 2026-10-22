@@ -86,6 +86,8 @@ async function handleMessage(message) {
     if (!choice) return null;
     const terminal = vscode.window.createTerminal({ name: `Which AI: ${choice.name}`, cwd: projectFolder() });
     terminal.show();
+    // Not installed yet: the user clicked "Install and run", so the official install command runs first.
+    if (choice.installed === false) terminal.sendText(choice.install);
     terminal.sendText(choice.command);
     lastTerminalCommand = choice.command;
     return null;

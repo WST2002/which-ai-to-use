@@ -16,7 +16,7 @@ import { recommend, runCommandFor } from "./recommend.mjs";
 import { aiRunner, askAi, buildAiPrompt, parseAiAnswer } from "./ai.mjs";
 import { startCost } from "./cost.mjs";
 import { estimateTokens, listProjectFiles, mcpServers, rulesCost, tokenReport } from "./tokens.mjs";
-import { toolById } from "./tools.mjs";
+import { TOOLS, toolById } from "./tools.mjs";
 
 const ids = (installed) => installed.map((found) => found.id);
 
@@ -163,7 +163,8 @@ export function handoffAction({ cwd, home, task = "", installed, leftOut = [], c
   if (chat) lines.push(`Read the Claude Code chat: "${chat.task.length > 70 ? `${chat.task.slice(0, 69)}…` : chat.task}" (${chat.requests} request${chat.requests === 1 ? "" : "s"}).`);
   lines.push(`Wrote HANDOFF.md: ${info.changes.length} changed file(s), ${info.commits.length} commit(s) on ${info.branch}.`, "");
   if (leftOut.length) lines.push(`Left out: ${leftOut.map((id) => toolById(id).name).join(", ")} (limit over). Handing off from another AI? Add --without <tool>.`, "");
-  const choices = handoffChoices(next);
+  const categories = classifyTask(task || chat?.task || "");
+  const choices = handoffChoices(next, installSuggestion({ installed, leftOut, categories, sensitive, prefer, forcePrivate }));
   if (!menu) {
     if (next.best) lines.push(`Next:    ${next.best.name} — ${next.best.reason}`, `Run:     ${next.best.command}`);
     else lines.push(...NO_OTHER_AI);
@@ -179,16 +180,32 @@ export function handoffAction({ cwd, home, task = "", installed, leftOut = [], c
  * Where the work can go next: the recommended AI first, then the other installed ones that run in a terminal,
  * then a chat on the web (the note is copied), then nothing. Each AI comes with the command that starts it.
  */
-export function handoffChoices(next) {
+export function handoffChoices(next, suggestion = null) {
   const seen = new Set();
   const tools = [next.best, ...next.also, next.free]
     .filter((entry) => entry && !seen.has(entry.id) && seen.add(entry.id) && entry.command && !entry.command.startsWith("Open "))
-    .map((entry, i) => ({ id: entry.id, name: entry.name, why: entry.why, command: entry.command, recommended: i === 0 }));
+    .map((entry, i) => ({ id: entry.id, name: entry.name, why: entry.why, command: entry.command, installed: true, recommended: i === 0 }));
+  // The best AI that is not on this laptop yet, with its official install command; installing is the user's call.
+  const notInstalled = suggestion && !seen.has(suggestion.id)
+    ? [{ id: suggestion.id, name: suggestion.name, why: `${suggestion.why}; not installed yet`, command: suggestion.command, install: suggestion.install, installed: false, recommended: false }]
+    : [];
   return [
     ...tools,
+    ...notInstalled,
     { id: "web", name: "ChatGPT or Gemini on the web", why: "HANDOFF.md is copied to your clipboard; paste it into the chat", command: null, recommended: tools.length === 0 },
+    { id: "other", name: "Another AI", why: `start any AI here and tell it: ${CONTINUE}`, command: null, recommended: false },
     { id: "none", name: "Nothing now", why: "keep HANDOFF.md and decide later", command: null, recommended: false },
   ];
+}
+
+/** The best AI with an install command that is not installed (or left out), ranked for continuing the task. */
+function installSuggestion({ installed, leftOut, categories, sensitive, prefer, forcePrivate }) {
+  const have = new Set(installed.map((found) => found.id));
+  const candidates = TOOLS.filter((tool) => tool.install && !have.has(tool.id) && !leftOut.includes(tool.id))
+    .map((tool) => ({ id: tool.id, onPath: true, via: [`command: ${tool.detect.bins[0]}`] }));
+  if (!candidates.length) return null;
+  const best = recommend({ task: CONTINUE, categories, installed: candidates, sensitive, prefer, private: forcePrivate }).best;
+  return best && { ...best, install: toolById(best.id).install };
 }
 
 /** What fix would change; `apply` writes it. */

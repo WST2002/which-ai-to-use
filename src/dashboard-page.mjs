@@ -491,9 +491,12 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
           el("h3", {}, choice.name, choice.recommended ? el("span", { class: "tag star", text: "Recommended" }) : null),
           el("p", { text: sentence(choice.why) }));
         if (choice.command) {
+          if (!choice.installed) card.append(el("p", { class: "muted", text: "Install it first:" }), command(choice.install), el("p", { class: "muted", text: "Then start it:" }));
           card.append(command(choice.command));
-          if (vscodeApi) card.append(el("div", { class: "form", style: "margin:8px 0 0" }, el("button", { class: "btn", text: "Run in terminal", onclick: () => vscodeApi.postMessage({ type: "runInTerminal", choice: choice.id }) })));
-        } else card.append(el("div", { class: "form", style: "margin:8px 0 0" }, copyNote("Copy HANDOFF.md")));
+          const label = choice.installed ? "Run in terminal" : "Install and run in terminal";
+          if (vscodeApi) card.append(el("div", { class: "form", style: "margin:8px 0 0" }, el("button", { class: "btn", text: label, onclick: () => vscodeApi.postMessage({ type: "runInTerminal", choice: choice.id }) })));
+        } else if (choice.id === "other") card.append(command("Read HANDOFF.md and continue the task."));
+        else card.append(el("div", { class: "form", style: "margin:8px 0 0" }, copyNote("Copy HANDOFF.md")));
         parts.push(card);
       }
       if (!data.next.best) parts.push(el("p", { class: "muted", text: "No other AI tool is installed. Gemini CLI has a free tier:" }), command("npm i -g @google/gemini-cli"));

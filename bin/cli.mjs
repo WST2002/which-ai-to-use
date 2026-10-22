@@ -140,25 +140,42 @@ async function runHandoff(values, options, print) {
     choice = answer ? choices[Number(answer) - 1] : choices[recommended - 1];
     if (!choice) throw new Error(`choose a number from 1 to ${choices.length}`);
   }
-  return carryOn(choice, result.data.root);
+  return carryOn(choice, result.data.root, values);
 }
 
-function carryOn(choice, root) {
+// Runs a command in this terminal, in the project folder, and resolves with whether it succeeded.
+function runHere(command, root) {
+  return new Promise((resolve) => {
+    const child = spawn(command, { cwd: root, stdio: "inherit", shell: true });
+    child.on("error", (error) => {
+      process.stdout.write(`Could not run it (${error.message}). Run it yourself: ${command}\n`);
+      resolve(false);
+    });
+    child.on("exit", (code) => resolve(code === 0));
+  });
+}
+
+async function carryOn(choice, root, values) {
   if (choice.id === "none") return void process.stdout.write("HANDOFF.md is ready. It is for the next AI only: don't commit it.\n");
   if (choice.id === "web") {
     const copied = copyFileToClipboard(path.join(root, "HANDOFF.md"));
     return void process.stdout.write(`${copied ? "Copied HANDOFF.md." : "Open HANDOFF.md and copy it."} Paste it into chatgpt.com or gemini.google.com and ask it to continue.\n`);
   }
+  if (choice.id === "other") {
+    // Any AI we do not know: the user types the command that starts it, in their own terminal.
+    const command = process.stdin.isTTY ? await ask("Command that starts your AI (e.g. qwen, goose): ") : "";
+    if (!command) return void process.stdout.write(`Start your AI in this folder and tell it: "Read HANDOFF.md and continue the task."\n`);
+    process.stdout.write(`When it opens, tell it: "Read HANDOFF.md and continue the task."\n`);
+    return void (await runHere(command, root));
+  }
+  if (!choice.installed) {
+    const yes = values.yes || (process.stdin.isTTY && /^y(es)?$/i.test(await ask(`${choice.name} is not installed. Install it now with "${choice.install}"? (y/N) `)));
+    if (!yes) return void process.stdout.write(`Install ${choice.name} with: ${choice.install}\nThen run: ${choice.command}\n`);
+    if (!(await runHere(choice.install, root))) return void process.stdout.write(`Installing ${choice.name} failed. Install it yourself: ${choice.install}\n`);
+  }
   process.stdout.write(`Starting ${choice.name}: ${choice.command}\n`);
   // The command comes from data/tools.json with a fixed prompt; the user's words are only in HANDOFF.md.
-  return new Promise((resolve) => {
-    const child = spawn(choice.command, { cwd: root, stdio: "inherit", shell: true });
-    child.on("error", (error) => {
-      process.stdout.write(`Could not start ${choice.name} (${error.message}). Run it yourself: ${choice.command}\n`);
-      resolve();
-    });
-    child.on("exit", resolve);
-  });
+  await runHere(choice.command, root);
 }
 
 const SOURCE = { store: "from its extension store", bundled: "from the copy inside this package" };

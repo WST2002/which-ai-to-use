@@ -6,6 +6,7 @@
       "id": "claude-code",
       "name": "Claude Code",
       "homepage": "https://claude.com/claude-code",
+      "install": "npm install -g @anthropic-ai/claude-code",
       "detect": {
         "bins": [
           "claude"
@@ -33,6 +34,7 @@
       "id": "codex",
       "name": "Codex CLI",
       "homepage": "https://github.com/openai/codex",
+      "install": "npm install -g @openai/codex",
       "detect": {
         "bins": [
           "codex"
@@ -60,6 +62,7 @@
       "id": "gemini-cli",
       "name": "Gemini CLI",
       "homepage": "https://github.com/google-gemini/gemini-cli",
+      "install": "npm install -g @google/gemini-cli",
       "detect": {
         "bins": [
           "gemini"
@@ -178,6 +181,7 @@
       "id": "aider",
       "name": "Aider",
       "homepage": "https://aider.chat",
+      "install": "python -m pip install aider-install && aider-install",
       "detect": {
         "bins": [
           "aider"
