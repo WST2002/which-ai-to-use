@@ -15,7 +15,8 @@ export const LABELS = {
   "security-sensitive": "risky (security, payments, data)",
 };
 
-const freeToolNames = (installed) => installed.filter((found) => TOOLS.find((tool) => tool.id === found.id)?.capabilities.freeTier || found.id === "ollama").map((found) => found.name);
+const freeToolNames = (installed) =>
+  installed.map((found) => TOOLS.find((tool) => tool.id === found.id)).filter((tool) => tool && (tool.capabilities.freeTier || tool.id === "ollama")).map((tool) => tool.name);
 
 /** A tip only when today is well above the daily average of the last 7 days. */
 export function usageTip(usage, installed) {
@@ -24,6 +25,22 @@ export function usageTip(usage, installed) {
   const free = freeToolNames(installed);
   const where = free.length ? `${free[0]} (free)` : "Claude with --model haiku";
   return `Today is ${(usage.today.fresh / average).toFixed(1)}× your daily average. Send small tasks to ${where} to save your Claude limit.`;
+}
+
+const WARN_SHARE = 0.8;
+// Below this a "busiest window" says little about the limit, so no warning is given.
+const MIN_REFERENCE = 20000;
+
+/** A heads-up when the current 5-hour window is close to where the limit ran out, or to the busiest window. */
+export function limitWarning(usage, installed) {
+  const { window, limit } = usage;
+  if (!window || !limit || limit.tokens < MIN_REFERENCE) return null;
+  const share = window.fresh / limit.tokens;
+  if (share < WARN_SHARE) return null;
+  const free = freeToolNames(installed);
+  const where = free.length ? `${free[0]} (free)` : "Claude with --model haiku";
+  const reference = limit.source === "limit" ? "what you had used when your limit ran out last time" : "your busiest 5-hour window this week";
+  return `This window is at ${Math.round(share * 100)}% of ${reference} (~${limit.tokens.toLocaleString("en-US")} tokens); it resets about ${clock(window.end)}. Send small tasks to ${where} to make it last.`;
 }
 
 const clock = (ms) => new Date(ms).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
@@ -49,6 +66,7 @@ export function formatUsage(usage, installed, now = new Date()) {
     "",
     "5-hour limit window (estimate)",
     `  ${windowLine(usage.window, now)}`,
+    ...(limitWarning(usage, installed) ? [`  ⚠ ${limitWarning(usage, installed)}`] : []),
     "",
     line("Today:", usage.today),
     line("Last 7 days:", usage.week),
