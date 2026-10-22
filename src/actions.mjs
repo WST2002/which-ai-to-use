@@ -161,7 +161,7 @@ export function usageAction({ home, installed, now = new Date() }) {
 /** The last 7 days of AI use next to the week before, with a line to share. */
 export function reportAction({ home, now = new Date() }) {
   const report = weeklyReport({ home, now });
-  const parts = [report.week.fresh && `~${shortNumber(report.week.fresh)} tokens with Claude Code`, ...report.tools.filter((t) => t.tool !== "claude-code" && t.requests).map((t) => `${t.requests} ${t.name} requests`)].filter(Boolean);
+  const parts = [report.week.fresh && `~${shortNumber(report.week.fresh)} tokens with Claude Code`, ...report.tools.filter((t) => t.tool !== "claude-code" && t.requests).map((t) => `${t.requests} ${t.name} request${t.requests === 1 ? "" : "s"}`)].filter(Boolean);
   report.share = `My AI coding week: ${parts.join(", ") || "a quiet one"}. Tracked with which-ai-to-use: npx which-ai-to-use report`;
   report.links = shareLinks(report.share);
   return { text: formatReport(report), data: report };

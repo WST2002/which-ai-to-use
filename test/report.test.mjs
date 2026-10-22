@@ -66,3 +66,9 @@ test("the week's tokens per day, the change from the week before, limit hits and
 test("no AI use in the last 7 days says so", (t) => {
   assert.match(reportAction({ home: home(t), now: NOW }).text, /^No AI use found on this laptop in the last 7 days/);
 });
+
+test("one request is written as one request in the share line", (t) => {
+  const dir = home(t);
+  write(path.join(dir, ".gemini", "tmp", "abc", "chats", "session-1.json"), JSON.stringify({ projectHash: "abc", messages: [{ type: "user", content: "Make the cart responsive" }] }));
+  assert.equal(reportAction({ home: dir, now: NOW }).data.share, "My AI coding week: 1 Gemini CLI request. Tracked with which-ai-to-use: npx which-ai-to-use report");
+});
