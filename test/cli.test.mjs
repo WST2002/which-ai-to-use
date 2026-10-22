@@ -477,3 +477,12 @@ test("handoff --to an installed AI that was left out starts it, since the user a
   assert.match(result.stdout, /Starting Claude Code: claude "Read HANDOFF\.md and continue the task\."/);
   assert.ok(fs.existsSync(log));
 });
+
+test("writing the note again, for example on hand back, keeps the task the user typed", (t) => {
+  const { project, run } = gitProject(t, ["claude", "gemini"]);
+  run("handoff", "add coupons to checkout", "--to", "none");
+  loggingStandIn(project, "claude");
+  const back = run("handoff", "--back");
+  assert.equal(back.status, 0, back.stderr);
+  assert.match(fs.readFileSync(path.join(project, "HANDOFF.md"), "utf8"), /^Task: add coupons to checkout$/m);
+});

@@ -8,7 +8,7 @@ import { setupScore } from "./score.mjs";
 import { claudeUsage } from "./usage.mjs";
 import { copyFileToClipboard } from "./clipboard.mjs";
 import { lastClaudeChat } from "./chat.mjs";
-import { collectHandoff, renderHandoff } from "./handoff.mjs";
+import { collectHandoff, handoffTask, renderHandoff } from "./handoff.mjs";
 import { RULES_FILES, scanProject } from "./project.mjs";
 import { buildSlimPrompt, parseSlim, slimFileName } from "./slim.mjs";
 import { betterPrompt, relevantFiles, verifyCommand } from "./prompt.mjs";
@@ -19,6 +19,14 @@ import { estimateTokens, listProjectFiles, mcpServers, rulesCost, tokenReport } 
 import { TOOLS, toolById } from "./tools.mjs";
 
 const ids = (installed) => installed.map((found) => found.id);
+
+function readText(file) {
+  try {
+    return fs.readFileSync(file, "utf8");
+  } catch {
+    return "";
+  }
+}
 
 export function checkupAction({ cwd, home, installed }) {
   const report = tokenReport({ dir: cwd, home, installedIds: ids(installed) });
@@ -211,15 +219,18 @@ const NO_OTHER_AI = [
 ];
 
 /** `leftOut`: tools left out because their limit is over, named in the answer. `copy`: also put the note on the clipboard. */
-export function handoffAction({ cwd, home, task = "", installed, leftOut = [], copy = false, menu = false, prefer = "balanced", private: forcePrivate = false, date = new Date().toISOString().slice(0, 10) }) {
+/** `by`: "hook" when the Claude Code plugin writes the note after the limit was reached (VS Code reacts to that). */
+export function handoffAction({ cwd, home, task: given = "", installed, leftOut = [], copy = false, menu = false, by = null, prefer = "balanced", private: forcePrivate = false, date = new Date().toISOString().slice(0, 10) }) {
   const info = collectHandoff(cwd);
   const file = path.join(info.root, "HANDOFF.md");
+  // Writing the note again (hand back, another limit hit) keeps the task the user typed the first time.
+  const task = given || handoffTask(readText(file));
   // The Claude Code chat says what was asked and where it stopped, so nobody has to type the task again.
   const chat = home ? lastClaudeChat({ home, cwd: info.root }) : null;
   // Leaving Claude because its limit is over: remember when it resets, so the work can come back to it.
   const fromClaude = leftOut.includes("claude-code");
   const resets = fromClaude && home ? (claudeUsage({ home }).window?.end ?? null) : null;
-  const note = renderHandoff({ task, info, verify: verifyCommand(info.root), date, chat, from: fromClaude ? "claude-code" : null, resets });
+  const note = renderHandoff({ task, info, verify: verifyCommand(info.root), date, chat, from: fromClaude ? "claude-code" : null, resets, by });
   fs.writeFileSync(file, note);
   const { next, choices } = planNext({ root: info.root, task, chat, installed, leftOut, prefer, forcePrivate });
   const lines = [];

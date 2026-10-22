@@ -4,8 +4,8 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { collectHandoff, renderHandoff } from "../src/handoff.mjs";
-import { nextChoices } from "../src/actions.mjs";
+import { collectHandoff, handoffMeta, handoffTask, renderHandoff } from "../src/handoff.mjs";
+import { handoffAction, nextChoices } from "../src/actions.mjs";
 
 const git = (dir, ...args) => spawnSync("git", args, { cwd: dir, encoding: "utf8" });
 
@@ -82,4 +82,13 @@ test("every installed AI that runs in a terminal is a choice, however many edito
   const installed = [editor("github-copilot"), editor("cursor"), editor("cline"), editor("windsurf"), cli("codex", "codex"), cli("gemini-cli", "gemini"), cli("aider", "aider"), cli("claude-code", "claude")];
   const ids = nextChoices({ cwd: dir, home: dir, installed, leftOut: [], task: "fix the login bug" }).filter((c) => c.installed).map((c) => c.id);
   assert.deepEqual(ids.sort(), ["aider", "claude-code", "codex", "gemini-cli"]);
+});
+
+test("a note written by the Claude Code plugin says so, and the task can be read back", (t) => {
+  const dir = repo(t);
+  const { note } = handoffAction({ cwd: dir, home: dir, task: "add coupons", installed: [], leftOut: ["claude-code"], by: "hook" }).data;
+  assert.deepEqual(handoffMeta(note), { from: "claude-code", by: "hook", resets: null });
+  assert.equal(handoffTask(note), "add coupons");
+  assert.equal(handoffTask("# Handoff\n\nTask: not given (ask the user)\n"), "");
+  assert.equal(handoffMeta("<!-- which-ai-to-use: from=claude-code resets=2026-10-22T10:00:00.000Z -->").by, null);
 });
