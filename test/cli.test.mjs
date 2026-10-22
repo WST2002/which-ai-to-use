@@ -371,6 +371,25 @@ test("handoff with no task reads the Claude Code chat for this project", (t) => 
   assert.doesNotMatch(note, /abc123secret/);
 });
 
+test("handing off from Codex reads the Codex chat", (t) => {
+  const { project, run } = gitProject(t, ["claude", "codex"]);
+  const home = path.join(project, "..", "home");
+  const file = path.join(home, ".codex", "sessions", "2026", "10", "22", "rollout-1.jsonl");
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const line = (type, payload) => JSON.stringify({ timestamp: "2026-10-22T08:00:00.000Z", type, payload });
+  fs.writeFileSync(file, [
+    line("session_meta", { id: "s1", cwd: project }),
+    line("response_item", { type: "message", role: "user", content: [{ type: "input_text", text: "Add a coupon field to checkout" }] }),
+    line("response_item", { type: "message", role: "assistant", content: [{ type: "output_text", text: "The field is in; validation is next." }] }),
+  ].join("\n"));
+  const result = run("handoff", "--without", "codex", "--to", "none");
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Read the Codex CLI chat: "Add a coupon field to checkout" \(1 request\)\./);
+  const note = fs.readFileSync(path.join(project, "HANDOFF.md"), "utf8");
+  assert.match(note, /## From the Codex CLI chat/);
+  assert.match(note, /Where Codex CLI stopped: "The field is in; validation is next\."/);
+});
+
 // Replaces a stand-in command with one that logs how it was started.
 function loggingStandIn(project, name) {
   const bin = path.join(project, "..", "bin");

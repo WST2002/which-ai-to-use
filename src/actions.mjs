@@ -7,7 +7,7 @@ import { LABELS, checkupIssues, formatAiAnswer, formatCheckup, formatDoctor, for
 import { setupScore } from "./score.mjs";
 import { claudeUsage } from "./usage.mjs";
 import { copyFileToClipboard } from "./clipboard.mjs";
-import { lastClaudeChat } from "./chat.mjs";
+import { lastChat } from "./chat.mjs";
 import { collectHandoff, handoffTask, renderHandoff } from "./handoff.mjs";
 import { RULES_FILES, scanProject } from "./project.mjs";
 import { buildSlimPrompt, parseSlim, slimFileName } from "./slim.mjs";
@@ -225,8 +225,9 @@ export function handoffAction({ cwd, home, task: given = "", installed, leftOut 
   const file = path.join(info.root, "HANDOFF.md");
   // Writing the note again (hand back, another limit hit) keeps the task the user typed the first time.
   const task = given || handoffTask(readText(file));
-  // The Claude Code chat says what was asked and where it stopped, so nobody has to type the task again.
-  const chat = home ? lastClaudeChat({ home, cwd: info.root }) : null;
+  // The chat (in the AI whose limit ran out, or the newest one) says what was asked and where it stopped,
+  // so nobody has to type the task again.
+  const chat = home ? lastChat({ home, cwd: info.root, from: leftOut }) : null;
   // Leaving Claude because its limit is over: remember when it resets, so the work can come back to it.
   const fromClaude = leftOut.includes("claude-code");
   const resets = fromClaude && home ? (claudeUsage({ home }).window?.end ?? null) : null;
@@ -234,7 +235,7 @@ export function handoffAction({ cwd, home, task: given = "", installed, leftOut 
   fs.writeFileSync(file, note);
   const { next, choices } = planNext({ root: info.root, task, chat, installed, leftOut, prefer, forcePrivate });
   const lines = [];
-  if (chat) lines.push(`Read the Claude Code chat: "${chat.task.length > 70 ? `${chat.task.slice(0, 69)}…` : chat.task}" (${chat.requests} request${chat.requests === 1 ? "" : "s"}).`);
+  if (chat) lines.push(`Read the ${chat.name} chat: "${chat.task.length > 70 ? `${chat.task.slice(0, 69)}…` : chat.task}" (${chat.requests} request${chat.requests === 1 ? "" : "s"}).`);
   lines.push(`Wrote HANDOFF.md: ${info.changes.length} changed file(s), ${info.commits.length} commit(s) on ${info.branch}.`, "");
   if (leftOut.length) lines.push(`Left out: ${leftOut.map((id) => toolById(id).name).join(", ")} (limit over). Handing off from another AI? Add --without <tool>.`, "");
   if (resets) lines.push(`Claude's limit resets about ${resetTime(resets)}. Then hand the task back: npx which-ai-to-use handoff --back`, "");
@@ -246,7 +247,7 @@ export function handoffAction({ cwd, home, task: given = "", installed, leftOut 
     lines.push("", copyFileToClipboard(file) ? "Copied HANDOFF.md to your clipboard: paste it into any AI chat." : "Could not reach the clipboard (no clipboard tool found): open HANDOFF.md and copy it.");
   } else if (!next.best && !menu) lines.push("", "Add --copy to put HANDOFF.md on your clipboard.");
   if (!menu) lines.push("", "HANDOFF.md is for the next AI only: don't commit it.");
-  return { text: `${lines.join("\n")}\n`, data: { file: "HANDOFF.md", ...info, next, choices, note, chat: chat && { task: chat.task, requests: chat.requests } } };
+  return { text: `${lines.join("\n")}\n`, data: { file: "HANDOFF.md", ...info, next, choices, note, chat: chat && { tool: chat.tool, name: chat.name, task: chat.task, requests: chat.requests } } };
 }
 
 function planNext({ root, task, chat, installed, leftOut, prefer, forcePrivate }) {
@@ -260,7 +261,7 @@ function planNext({ root, task, chat, installed, leftOut, prefer, forcePrivate }
 
 /** Who can carry on, without writing a note: VS Code uses it when the Claude Code plugin has already written one. */
 export function nextChoices({ cwd, home, installed, leftOut = ["claude-code"], task = "" }) {
-  const chat = home ? lastClaudeChat({ home, cwd }) : null;
+  const chat = home ? lastChat({ home, cwd, from: leftOut }) : null;
   return planNext({ root: cwd, task, chat, installed, leftOut, prefer: "balanced", forcePrivate: false }).choices;
 }
 
