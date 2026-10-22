@@ -26,6 +26,9 @@ function standIn(dir, bin, { storeHasIt }) {
   }
 }
 
+// Windows quotes every argument; the log is read without the quotes.
+const readLog = (file) => fs.readFileSync(file, "utf8").replace(/"/g, "");
+
 const envFor = (bin, log) => ({ ...process.env, PATH: [bin, process.env.PATH].join(path.delimiter), WAITU_LOG: log });
 
 test("finds the editors whose command is on PATH", (t) => {
@@ -41,7 +44,7 @@ test("installs from the editor's store when it has the extension", (t) => {
   const log = path.join(bin, "log.txt");
   standIn(bin, "code", { storeHasIt: true });
   assert.equal(installExtension({ bin: "code", name: "VS Code" }, { env: envFor(bin, log), vsix: path.join(bin, "none.vsix") }), "store");
-  assert.match(fs.readFileSync(log, "utf8"), new RegExp(`--install-extension ${EXTENSION_ID} --force`));
+  assert.match(readLog(log), new RegExp(`--install-extension ${EXTENSION_ID} --force`));
 });
 
 test("falls back to the copy inside the package when the store does not have it", (t) => {
@@ -51,9 +54,21 @@ test("falls back to the copy inside the package when the store does not have it"
   fs.writeFileSync(vsix, "x");
   standIn(bin, "cursor", { storeHasIt: false });
   assert.equal(installExtension({ bin: "cursor", name: "Cursor" }, { env: envFor(bin, log), vsix }), "bundled");
-  const calls = fs.readFileSync(log, "utf8").trim().split(/\r?\n/);
+  const calls = readLog(log).trim().split(/\r?\n/);
   assert.equal(calls.length, 2);
   assert.match(calls[1], /--install-extension "?.*which ai\.vsix"? --force/);
+});
+
+test("a package path with & in it stays one argument", (t) => {
+  const bin = tempDir(t);
+  const log = path.join(bin, "log.txt");
+  const folder = path.join(bin, "R&D");
+  fs.mkdirSync(folder);
+  const vsix = path.join(folder, "which-ai.vsix");
+  fs.writeFileSync(vsix, "x");
+  standIn(bin, "code", { storeHasIt: false });
+  assert.equal(installExtension({ bin: "code", name: "VS Code" }, { env: envFor(bin, log), vsix }), "bundled");
+  assert.ok(readLog(log).includes("R&D"));
 });
 
 test("reports failure when neither the store nor a bundled copy works", (t) => {
@@ -79,7 +94,7 @@ function setupRun(t, args) {
   standIn(bin, "npm", { storeHasIt: true });
   const env = { ...process.env, PATH: [bin, path.dirname(process.execPath)].join(path.delimiter), WAITU_LOG: log };
   const result = spawnSync(process.execPath, [cli, "setup", ...args], { env, encoding: "utf8", input: "" });
-  return { result, calls: fs.existsSync(log) ? fs.readFileSync(log, "utf8") : "" };
+  return { result, calls: fs.existsSync(log) ? readLog(log) : "" };
 }
 
 test("setup --yes installs the terminal command and the VS Code sidebar", (t) => {
