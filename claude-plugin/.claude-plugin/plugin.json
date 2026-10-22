@@ -1,7 +1,7 @@
 {
   "name": "limit-handoff",
   "version": "0.2.0",
-  "description": "When Claude's usage limit is reached, writes HANDOFF.md with which-ai-to-use and tells you how to carry on in another AI. /handoff writes it before the limit, with Claude's own notes.",
+  "description": "When Claude's usage limit is reached, writes HANDOFF.md with which-ai-to-use and tells you how to carry on in another AI. /limit-handoff:handoff writes it before the limit, with Claude's own notes.",
   "author": {
     "name": "Wageesha Tripathi",
     "email": "tripathiwageesha2002@gmail.com",
