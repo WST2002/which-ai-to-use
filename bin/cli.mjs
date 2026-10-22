@@ -300,7 +300,7 @@ async function main() {
   if (command === "score") return values.card ? runDashboard(values, "score") : print(scoreAction(context));
   if (command === "slim") return runSlim(values, context, print);
   // Handoff is for when Claude's limit is over, so Claude Code is left out unless --without names another tool.
-  if (command === "handoff") return runHandoff(values, { ...context, task: positionals.slice(1).join(" ").trim(), leftOut: skipped.length || values.back ? [] : ["claude-code"], copy: values.copy }, print);
+  if (command === "handoff") return runHandoff(values, { ...context, task: positionals.slice(1).join(" ").trim(), leftOut: skipped.length || values.back ? [] : ["claude-code"], copy: values.copy, by: process.env.WHICH_AI_TO_USE_BY === "hook" ? "hook" : null }, print);
   if (command === "sync") return runSync(values, installed);
   if (command === "fix") return runFix(values, installed);
   if (values.ai) return runAi(values, context, positionals.join(" "), print);

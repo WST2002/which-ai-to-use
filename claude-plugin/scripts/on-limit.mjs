@@ -6,7 +6,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const LIMIT = /usage limit|limit reached|rate limit|out of (?:extra )?usage|hit your limit/i;
+// The usage limit, not a short per-minute rate limit (API keys), which Claude Code retries and which passes quickly.
+const LIMIT = /usage limit|limit reached|out of (?:extra )?usage|hit your limit|limit will reset/i;
 const WINDOWS = process.platform === "win32";
 
 function onPath(bin) {
@@ -20,11 +21,33 @@ function record(input) {
   fs.appendFileSync(file, `${JSON.stringify({ at: new Date().toISOString(), session: input.session_id ?? null, error: input.error ?? null })}\n`);
 }
 
-function handoff(cwd) {
-  const inGit = spawnSync("git", ["rev-parse", "--is-inside-work-tree"], { cwd, encoding: "utf8" }).stdout?.trim() === "true";
-  if (!inGit) return false;
+const FIVE_HOURS = 5 * 60 * 60 * 1000;
+const NOTE = /<!-- which-ai-to-use: from=claude-code(?: by=[\w-]+)?(?: resets=(\S+))? -->/;
+
+function gitRoot(cwd) {
+  const result = spawnSync("git", ["rev-parse", "--show-toplevel"], { cwd, encoding: "utf8" });
+  return result.status === 0 ? result.stdout.trim() : null;
+}
+
+// Every message sent while the limit is over fails again; the note written for this window is already there.
+function alreadyHandedOff(root) {
+  const file = path.join(root, "HANDOFF.md");
+  let text;
+  try {
+    text = fs.readFileSync(file, "utf8");
+  } catch {
+    return false;
+  }
+  const match = NOTE.exec(text);
+  if (!match) return false;
+  const resets = match[1] ? Date.parse(match[1]) : Number.NaN;
+  return Number.isNaN(resets) ? Date.now() - fs.statSync(file).mtimeMs < FIVE_HOURS : resets > Date.now();
+}
+
+function handoff(root) {
   const command = onPath("which-ai-to-use") ? "which-ai-to-use" : "npx -y which-ai-to-use@latest";
-  const result = spawnSync(`${command} handoff --to none --copy`, { cwd, shell: true, input: "", stdio: ["pipe", "ignore", "ignore"], timeout: 150000 });
+  const env = { ...process.env, WHICH_AI_TO_USE_BY: "hook" };
+  const result = spawnSync(`${command} handoff --to none --copy`, { cwd: root, env, shell: true, input: "", stdio: ["pipe", "ignore", "ignore"], timeout: 150000 });
   return result.status === 0;
 }
 
@@ -47,9 +70,12 @@ function notify(title, body) {
 function main() {
   const input = JSON.parse(fs.readFileSync(0, "utf8"));
   if (input.hook_event_name !== "StopFailure") return;
-  if (input.error !== "rate_limit" && !LIMIT.test(String(input.last_assistant_message ?? ""))) return;
+  const message = String(input.last_assistant_message ?? "");
+  if (!LIMIT.test(message) && !(input.error === "rate_limit" && !message.trim())) return;
+  const root = gitRoot(input.cwd ?? process.cwd());
+  if (root && alreadyHandedOff(root)) return;
   record(input);
-  const written = handoff(input.cwd ?? process.cwd());
+  const written = root ? handoff(root) : false;
   notify(
     "Claude's limit was reached",
     written

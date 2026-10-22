@@ -16,9 +16,9 @@ function machine(t, { git = true } = {}) {
   const [bin, home, project] = ["bin", "home", "project"].map((name) => path.join(dir, name));
   for (const folder of [bin, home, project]) fs.mkdirSync(folder);
   const log = path.join(dir, "calls.log");
-  if (process.platform === "win32") fs.writeFileSync(path.join(bin, "which-ai-to-use.cmd"), `@echo off\r\necho %*>>"${log}"\r\n`);
+  if (process.platform === "win32") fs.writeFileSync(path.join(bin, "which-ai-to-use.cmd"), `@echo off\r\necho %* by=%WHICH_AI_TO_USE_BY%>>"${log}"\r\n`);
   else {
-    fs.writeFileSync(path.join(bin, "which-ai-to-use"), `#!/bin/sh\necho "$@" >> "${log}"\n`);
+    fs.writeFileSync(path.join(bin, "which-ai-to-use"), `#!/bin/sh\necho "$@" by=$WHICH_AI_TO_USE_BY >> "${log}"\n`);
     fs.chmodSync(path.join(bin, "which-ai-to-use"), 0o755);
   }
   if (git) spawnSync("git", ["init", "-q"], { cwd: project });
@@ -33,7 +33,7 @@ function machine(t, { git = true } = {}) {
     return fs.existsSync(file) ? fs.readFileSync(file, "utf8").trim().split("\n").map((line) => JSON.parse(line)) : [];
   };
   const calls = () => (fs.existsSync(log) ? fs.readFileSync(log, "utf8") : "");
-  return { run, limits, calls };
+  return { run, limits, calls, project };
 }
 
 test("a usage limit records the time and writes the handoff note, copied", (t) => {
@@ -43,7 +43,41 @@ test("a usage limit records the time and writes the handoff note, copied", (t) =
   const [hit] = limits();
   assert.equal(hit.session, "s1");
   assert.ok(Date.now() - Date.parse(hit.at) < 60000);
+  assert.match(calls(), /handoff --to none --copy by=hook/);
+});
+
+const LIMIT_HIT = { hook_event_name: "StopFailure", error: "rate_limit", last_assistant_message: "You've hit your limit · resets 6pm" };
+
+test("messages sent while the limit is still over do not write the note again", (t) => {
+  const { run, limits, calls, project } = machine(t);
+  const later = new Date(Date.now() + 60 * 60000).toISOString();
+  fs.writeFileSync(path.join(project, "HANDOFF.md"), `# Handoff
+
+Task: add coupons
+
+<!-- which-ai-to-use: from=claude-code by=hook resets=${later} -->
+`);
+  run(LIMIT_HIT);
+  assert.deepEqual(limits(), []);
+  assert.equal(calls(), "");
+});
+
+test("once the limit has reset, the next limit writes a new note", (t) => {
+  const { run, calls, project } = machine(t);
+  const earlier = new Date(Date.now() - 60 * 60000).toISOString();
+  fs.writeFileSync(path.join(project, "HANDOFF.md"), `# Handoff
+
+<!-- which-ai-to-use: from=claude-code by=hook resets=${earlier} -->
+`);
+  run(LIMIT_HIT);
   assert.match(calls(), /handoff --to none --copy/);
+});
+
+test("a short per-minute rate limit is not the usage limit", (t) => {
+  const { run, limits, calls } = machine(t);
+  run({ hook_event_name: "StopFailure", error: "rate_limit", last_assistant_message: "API Error: 429 rate_limit_error: Number of request tokens has exceeded your per-minute rate limit" });
+  assert.deepEqual(limits(), []);
+  assert.equal(calls(), "");
 });
 
 test("a limit message with another error type still counts", (t) => {

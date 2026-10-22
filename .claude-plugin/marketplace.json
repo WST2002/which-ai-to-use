@@ -10,7 +10,7 @@
       "name": "limit-handoff",
       "source": "./claude-plugin",
       "description": "When Claude's usage limit is reached, writes HANDOFF.md with which-ai-to-use and tells you how to carry on in another AI.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "productivity"
     }
   ]
