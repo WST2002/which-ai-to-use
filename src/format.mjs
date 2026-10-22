@@ -53,7 +53,7 @@ export function stretchTips(installed) {
     text: free.length ? `Send the next task to another AI, like ${free[0]} (free)` : "Send the next task to another AI you have",
     command: 'npx which-ai-to-use "your task" --without claude-code',
   });
-  tips.push({ text: "Save where you are before the limit hits, so any AI can carry on", command: "/handoff (with the Claude Code plugin) or npx which-ai-to-use handoff --to none" });
+  tips.push({ text: "Save where you are before the limit hits, so any AI can carry on", command: "/limit-handoff:handoff (Claude Code plugin) or npx which-ai-to-use handoff --to none" });
   return tips;
 }
 
