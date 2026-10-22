@@ -68,3 +68,16 @@ test("long messages are shortened to one line", (t) => {
   const { task } = lastClaudeChat({ home: dir, cwd: project });
   assert.ok(task.length <= 600 && task.endsWith("…") && !task.includes("\n"));
 });
+
+test("a chat logged under another spelling of the same folder still matches", (t) => {
+  const dir = home(t);
+  const real = fs.mkdtempSync(path.join(os.tmpdir(), "waitu-real-"));
+  const link = path.join(os.tmpdir(), `waitu-link-${process.pid}`);
+  t.after(() => {
+    fs.rmSync(link, { force: true, recursive: true });
+    fs.rmSync(real, { recursive: true, force: true });
+  });
+  fs.symlinkSync(real, link, "junction");
+  session(dir, "shop", link, [["user", "Fix the header"]]);
+  assert.equal(lastClaudeChat({ home: dir, cwd: real }).task, "Fix the header");
+});

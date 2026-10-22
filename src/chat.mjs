@@ -28,11 +28,24 @@ const clip = (text) => {
 const textOf = (content) =>
   typeof content === "string" ? content : Array.isArray(content) ? content.filter((b) => b?.type === "text").map((b) => b.text).join("\n") : "";
 
-const samePath = (a, b) => {
-  if (typeof a !== "string") return false;
-  const norm = (p) => path.resolve(p).replace(/[\\/]+$/, "");
-  return process.platform === "win32" ? norm(a).toLowerCase() === norm(b).toLowerCase() : norm(a) === norm(b);
-};
+// The same folder can be written several ways: through a symlink (/var and /private/var on macOS) or with
+// Windows short names (RUNNER~1). The real path settles it; a folder that no longer exists is compared as written.
+const realPaths = new Map();
+function realPath(p) {
+  if (!realPaths.has(p)) {
+    let real;
+    try {
+      real = fs.realpathSync.native(p);
+    } catch {
+      real = path.resolve(p);
+    }
+    real = real.replace(/[\\/]+$/, "");
+    realPaths.set(p, process.platform === "win32" ? real.toLowerCase() : real);
+  }
+  return realPaths.get(p);
+}
+
+const samePath = (a, b) => typeof a === "string" && realPath(a) === realPath(b);
 
 function chatFiles(home) {
   const root = path.join(home, ".claude", "projects");
