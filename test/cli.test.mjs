@@ -444,3 +444,19 @@ test("--back without Claude Code says so", (t) => {
   assert.equal(result.status, 1);
   assert.match(result.stderr, /--back needs Claude Code on this laptop, and it was not found/);
 });
+
+test("with no AI installed, a task gets the AI to install, a free one and the website", (t) => {
+  const result = machine(t).run("build a landing page");
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^No AI coding tool was found on this laptop\. For "build a landing page"/);
+  assert.match(result.stdout, /1\. Best for this task: Claude Code, .+\n\s+Install: npm install -g @anthropic-ai\/claude-code\n\s+Then:\s+claude "build a landing page/);
+  assert.match(result.stdout, /Free option: Gemini CLI \(free\)/);
+  assert.match(result.stdout, /https:\/\/wst2002\.github\.io\/which-ai-to-use\//);
+});
+
+test("with no AI installed, --json gives the options", (t) => {
+  const { options } = JSON.parse(machine(t).run("fix the login bug", "--json").stdout);
+  assert.ok(options.length >= 2);
+  assert.ok(options.every((o) => o.homepage.startsWith("https://")));
+  assert.ok(options.some((o) => o.free && o.install));
+});

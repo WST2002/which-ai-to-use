@@ -7,7 +7,7 @@ import os from "node:os";
 import { parseArgs } from "node:util";
 import { startDashboard } from "../src/dashboard.mjs";
 import { detectTools } from "../src/detect.mjs";
-import { aiAction, checkupAction, doctorAction, fixAction, handoffAction, recommendAction, scoreAction, slimAction, tokensAction, usageAction } from "../src/actions.mjs";
+import { aiAction, checkupAction, doctorAction, fixAction, handoffAction, newcomerAction, recommendAction, scoreAction, slimAction, tokensAction, usageAction } from "../src/actions.mjs";
 import { formatSyncPlan } from "../src/format.mjs";
 import { RULES_FILES } from "../src/project.mjs";
 import { copyFileToClipboard } from "../src/clipboard.mjs";
@@ -149,6 +149,23 @@ async function runHandoff(values, options, print) {
 }
 
 // Runs a command in this terminal, in the project folder, and resolves with whether it succeeded.
+// No AI on the laptop: what to get for this task, then offer to install one and start the task in it.
+async function runNewcomer(values, context, task, print) {
+  const result = newcomerAction({ ...context, task });
+  if (values.json || !process.stdin.isTTY) return print(result);
+  process.stdout.write(result.text);
+  const installable = result.data.options.filter((o) => o.install);
+  if (!installable.length) return undefined;
+  process.stdout.write("\n");
+  installable.forEach((o, i) => process.stdout.write(`  ${i + 1}. Install ${o.name}${o.free ? " (free)" : ""}\n`));
+  process.stdout.write(`  ${installable.length + 1}. Not now\n`);
+  const choice = installable[Number(await ask(`Install one now? [${installable.length + 1}]: `)) - 1];
+  if (!choice) return undefined;
+  if (!(await runHere(choice.install, context.cwd))) return void process.stdout.write(`Installing ${choice.name} failed. Install it yourself: ${choice.install}\n`);
+  process.stdout.write(`Starting ${choice.name}: ${choice.command}\n`);
+  return runHere(choice.command, context.cwd);
+}
+
 function runHere(command, root) {
   return new Promise((resolve) => {
     const child = spawn(command, { cwd: root, stdio: "inherit", shell: true });
@@ -263,7 +280,14 @@ async function main() {
   const [command] = positionals;
   const context = { cwd: process.cwd(), home: os.homedir(), installed, prefer: values.prefer, private: values.private };
   const print = ({ text, data }) => process.stdout.write(values.json ? `${JSON.stringify(data, null, 2)}\n` : text);
-  if (!command) return print(checkupAction(context));
+  const noAiFound = installed.length === 0 && skipped.length === 0;
+  if (!command) {
+    print(checkupAction(context));
+    // Nothing installed yet: ask what they want to do and suggest an AI for it, instead of stopping here.
+    if (!noAiFound || values.json || !process.stdin.isTTY) return undefined;
+    const task = await ask("What do you want to do with AI? (e.g. build a landing page; Enter to skip): ");
+    return task ? runNewcomer(values, context, task, print) : undefined;
+  }
   if (command === "dashboard") return runDashboard(values);
   if (command === "setup") return runSetup(values);
   if (command === "doctor") return print(doctorAction(context));
@@ -276,6 +300,7 @@ async function main() {
   if (command === "sync") return runSync(values, installed);
   if (command === "fix") return runFix(values, installed);
   if (values.ai) return runAi(values, context, positionals.join(" "), print);
+  if (noAiFound) return runNewcomer(values, context, positionals.join(" "), print);
   return print(recommendAction({ ...context, task: positionals.join(" ") }));
 }
 

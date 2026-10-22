@@ -126,6 +126,42 @@ export function doctorAction({ cwd, installed }) {
   return { text: formatDoctor(installed, project), data: { installed, project } };
 }
 
+const WEBSITE = "https://wst2002.github.io/which-ai-to-use/";
+
+/**
+ * No AI tool on this laptop: from the task, the best AI to get, the best one with an install command, and a free
+ * one, each with how to install it and the command that then starts the task.
+ */
+export function newcomerAction({ cwd, task, prefer = "balanced", private: forcePrivate = false }) {
+  const clean = String(task ?? "").trim();
+  if (!clean) throw new Error('task is empty: say what you want to do, e.g. "build a landing page"');
+  const { sensitive } = scanProject(cwd);
+  const files = relevantFiles(clean, listProjectFiles(cwd));
+  const prompt = betterPrompt(clean, files, verifyCommand(cwd));
+  const categories = classifyTask(clean);
+  const rank = (tools) =>
+    recommend({ task: clean, prompt, files, categories, sensitive, prefer, private: forcePrivate, installed: tools.map((tool) => ({ id: tool.id, onPath: true, via: [tool.detect.bins.length ? `command: ${tool.detect.bins[0]}` : "extension: vscode"] })) }).best;
+  const option = (entry, label) => {
+    const tool = toolById(entry.id);
+    return { id: tool.id, name: tool.name, label, why: entry.why, free: Boolean(tool.capabilities.freeTier || tool.capabilities.local), install: tool.install ?? null, homepage: tool.homepage, command: tool.install ? entry.command : null };
+  };
+  const seen = new Set();
+  const options = [
+    [rank(TOOLS), "Best for this task"],
+    [rank(TOOLS.filter((tool) => tool.install)), "Best you can install from the terminal"],
+    [rank(TOOLS.filter((tool) => tool.capabilities.freeTier || tool.capabilities.local)), "Free option"],
+  ].filter(([entry]) => entry && !seen.has(entry.id) && seen.add(entry.id)).map(([entry, label]) => option(entry, label));
+
+  const lines = [`No AI coding tool was found on this laptop. For "${clean}"  →  ${categories.map((c) => LABELS[c] ?? c).join(", ")}:`, ""];
+  options.forEach((o, i) => {
+    lines.push(`${i + 1}. ${o.label}: ${o.name}${o.free ? " (free)" : ""}, ${o.why}.`);
+    lines.push(o.install ? `   Install: ${o.install}` : `   Get it: ${o.homepage.replace(/^https:\/\//, "")}`);
+    if (o.command) lines.push(`   Then:    ${o.command}`);
+  });
+  lines.push("", `Not into terminals? The website suggests AI apps for any task: ${WEBSITE}`);
+  return { text: `${lines.join("\n")}\n`, data: { task: clean, labels: categories.map((c) => LABELS[c] ?? c), options, website: WEBSITE } };
+}
+
 export function recommendAction({ cwd, home, task, installed, prefer = "balanced", private: forcePrivate = false }) {
   const clean = String(task ?? "").trim();
   if (!clean) throw new Error('task is empty: describe it in quotes, e.g. which-ai-to-use "fix the login bug"');
