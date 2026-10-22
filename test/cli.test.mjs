@@ -351,3 +351,50 @@ test("score --card opens the dashboard straight on the score card", async (t) =>
     await exited;
   }
 });
+
+test("handoff with no task reads the Claude Code chat for this project", (t) => {
+  const { project, run } = gitProject(t, ["claude", "gemini"]);
+  const home = path.join(project, "..", "home");
+  const line = (type, text) => JSON.stringify({ type, cwd: project, message: { role: type, content: text } });
+  fs.mkdirSync(path.join(home, ".claude", "projects", "shop"), { recursive: true });
+  fs.writeFileSync(path.join(home, ".claude", "projects", "shop", "s.jsonl"), [
+    line("user", "Add a pricing section to the landing page, api_key=abc123secret"),
+    line("assistant", [{ type: "text", text: "Pricing cards are done; the FAQ is still empty." }]),
+  ].join("\n"));
+  const result = run("handoff");
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Read the Claude Code chat: "Add a pricing section to the landing page, api_key=\[hidden\]" \(1 request\)\./);
+  const note = fs.readFileSync(path.join(project, "HANDOFF.md"), "utf8");
+  assert.match(note, /^Task: Add a pricing section to the landing page/m);
+  assert.match(note, /Where Claude stopped: "Pricing cards are done; the FAQ is still empty\."/);
+  assert.doesNotMatch(note, /abc123secret/);
+});
+
+// Replaces a stand-in command with one that logs how it was started.
+function loggingStandIn(project, name) {
+  const bin = path.join(project, "..", "bin");
+  const log = path.join(project, "..", `${name}.log`);
+  if (process.platform === "win32") fs.writeFileSync(path.join(bin, `${name}.cmd`), `@echo off\r\necho %*>>"${log}"\r\n`);
+  else fs.writeFileSync(path.join(bin, name), `#!/bin/sh\necho "$@" >> "${log}"\n`);
+  return log;
+}
+
+test("handoff --to starts the chosen AI with the note", (t) => {
+  const { project, run } = gitProject(t, ["claude", "gemini"]);
+  const log = loggingStandIn(project, "gemini");
+  const result = run("handoff", "add coupons", "--to", "gemini-cli");
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Starting Gemini CLI: gemini -i "Read HANDOFF\.md and continue the task\."/);
+  assert.doesNotMatch(result.stdout, /^Next:/m);
+  assert.match(fs.readFileSync(log, "utf8"), /-i "?Read HANDOFF\.md and continue the task\."?/);
+});
+
+test("handoff --to none only writes the note; an unknown choice lists the valid ones", (t) => {
+  const { project, run } = gitProject(t, ["claude", "gemini"]);
+  const none = run("handoff", "add coupons", "--to", "none");
+  assert.match(none.stdout, /HANDOFF\.md is ready\./);
+  assert.ok(fs.existsSync(path.join(project, "HANDOFF.md")));
+  const bad = run("handoff", "add coupons", "--to", "chatgpt");
+  assert.equal(bad.status, 1);
+  assert.match(bad.stderr, /--to must be one of: gemini-cli, web, none/);
+});

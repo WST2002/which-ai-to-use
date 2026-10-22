@@ -139,3 +139,14 @@ test("a full Claude model id from an AI becomes the short alias the CLI takes", 
   assert.equal(runCommandFor(found("claude-code"), "tidy the hero", "Haiku"), 'claude --model haiku "tidy the hero"');
   assert.equal(runCommandFor(found("claude-code"), "tidy the hero", "gpt-6"), 'claude "tidy the hero"');
 });
+
+test("handoff choices put the recommended AI first, then the others, the web and nothing", async () => {
+  const { handoffChoices } = await import("../src/actions.mjs");
+  const next = recommend({ ...base, task: "Read HANDOFF.md and continue the task.", installed: [found("gemini-cli"), found("codex"), viaExtension("github-copilot")] });
+  const choices = handoffChoices(next);
+  assert.deepEqual(choices.map((c) => c.id), [next.best.id, ...choices.slice(1, -2).map((c) => c.id), "web", "none"]);
+  assert.equal(choices.filter((c) => c.recommended).length, 1);
+  assert.ok(choices[0].recommended);
+  assert.ok(!choices.some((c) => c.id === "github-copilot"), "editor-only tools cannot be started from a terminal");
+  assert.ok(handoffChoices(recommend({ ...base, installed: [] })).find((c) => c.id === "web").recommended);
+});

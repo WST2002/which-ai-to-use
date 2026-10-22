@@ -7,6 +7,7 @@ import { LABELS, checkupIssues, formatAiAnswer, formatCheckup, formatDoctor, for
 import { setupScore } from "./score.mjs";
 import { claudeUsage } from "./usage.mjs";
 import { copyFileToClipboard } from "./clipboard.mjs";
+import { lastClaudeChat } from "./chat.mjs";
 import { collectHandoff, renderHandoff } from "./handoff.mjs";
 import { RULES_FILES, scanProject } from "./project.mjs";
 import { buildSlimPrompt, parseSlim, slimFileName } from "./slim.mjs";
@@ -148,23 +149,46 @@ const NO_OTHER_AI = [
 ];
 
 /** `leftOut`: tools left out because their limit is over, named in the answer. `copy`: also put the note on the clipboard. */
-export function handoffAction({ cwd, task = "", installed, leftOut = [], copy = false, prefer = "balanced", private: forcePrivate = false, date = new Date().toISOString().slice(0, 10) }) {
+export function handoffAction({ cwd, home, task = "", installed, leftOut = [], copy = false, menu = false, prefer = "balanced", private: forcePrivate = false, date = new Date().toISOString().slice(0, 10) }) {
   const info = collectHandoff(cwd);
   const file = path.join(info.root, "HANDOFF.md");
-  const note = renderHandoff({ task, info, verify: verifyCommand(info.root), date });
+  // The Claude Code chat says what was asked and where it stopped, so nobody has to type the task again.
+  const chat = home ? lastClaudeChat({ home, cwd: info.root }) : null;
+  const note = renderHandoff({ task, info, verify: verifyCommand(info.root), date, chat });
   fs.writeFileSync(file, note);
   const { sensitive } = scanProject(info.root);
   const available = installed.filter((found) => !leftOut.includes(found.id));
-  const next = recommend({ task: CONTINUE, categories: classifyTask(task), installed: available, sensitive, prefer, private: forcePrivate });
-  const lines = [`Wrote HANDOFF.md: ${info.changes.length} changed file(s), ${info.commits.length} commit(s) on ${info.branch}.`, ""];
+  const next = recommend({ task: CONTINUE, categories: classifyTask(task || chat?.task || ""), installed: available, sensitive, prefer, private: forcePrivate });
+  const lines = [];
+  if (chat) lines.push(`Read the Claude Code chat: "${chat.task.length > 70 ? `${chat.task.slice(0, 69)}…` : chat.task}" (${chat.requests} request${chat.requests === 1 ? "" : "s"}).`);
+  lines.push(`Wrote HANDOFF.md: ${info.changes.length} changed file(s), ${info.commits.length} commit(s) on ${info.branch}.`, "");
   if (leftOut.length) lines.push(`Left out: ${leftOut.map((id) => toolById(id).name).join(", ")} (limit over). Handing off from another AI? Add --without <tool>.`, "");
-  if (next.best) lines.push(`Next:    ${next.best.name} — ${next.best.reason}`, `Run:     ${next.best.command}`);
-  else lines.push(...NO_OTHER_AI);
+  const choices = handoffChoices(next);
+  if (!menu) {
+    if (next.best) lines.push(`Next:    ${next.best.name} — ${next.best.reason}`, `Run:     ${next.best.command}`);
+    else lines.push(...NO_OTHER_AI);
+  }
   if (copy) {
     lines.push("", copyFileToClipboard(file) ? "Copied HANDOFF.md to your clipboard: paste it into any AI chat." : "Could not reach the clipboard (no clipboard tool found): open HANDOFF.md and copy it.");
-  } else if (!next.best) lines.push("", "Add --copy to put HANDOFF.md on your clipboard.");
-  lines.push("", "HANDOFF.md is for the next AI only: don't commit it.");
-  return { text: `${lines.join("\n")}\n`, data: { file: "HANDOFF.md", ...info, next, note } };
+  } else if (!next.best && !menu) lines.push("", "Add --copy to put HANDOFF.md on your clipboard.");
+  if (!menu) lines.push("", "HANDOFF.md is for the next AI only: don't commit it.");
+  return { text: `${lines.join("\n")}\n`, data: { file: "HANDOFF.md", ...info, next, choices, note, chat: chat && { task: chat.task, requests: chat.requests } } };
+}
+
+/**
+ * Where the work can go next: the recommended AI first, then the other installed ones that run in a terminal,
+ * then a chat on the web (the note is copied), then nothing. Each AI comes with the command that starts it.
+ */
+export function handoffChoices(next) {
+  const seen = new Set();
+  const tools = [next.best, ...next.also, next.free]
+    .filter((entry) => entry && !seen.has(entry.id) && seen.add(entry.id) && entry.command && !entry.command.startsWith("Open "))
+    .map((entry, i) => ({ id: entry.id, name: entry.name, why: entry.why, command: entry.command, recommended: i === 0 }));
+  return [
+    ...tools,
+    { id: "web", name: "ChatGPT or Gemini on the web", why: "HANDOFF.md is copied to your clipboard; paste it into the chat", command: null, recommended: tools.length === 0 },
+    { id: "none", name: "Nothing now", why: "keep HANDOFF.md and decide later", command: null, recommended: false },
+  ];
 }
 
 /** What fix would change; `apply` writes it. */

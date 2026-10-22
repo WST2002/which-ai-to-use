@@ -60,13 +60,22 @@ export function collectHandoff(dir) {
   return { root, branch, base: base ?? null, commits, changes };
 }
 
-export function renderHandoff({ task, info, verify, date }) {
+/** `chat`: the summary from lastClaudeChat, if the work was done in Claude Code. */
+export function renderHandoff({ task, info, verify, date, chat = null }) {
   const lines = [
     "# Handoff",
     "",
-    `Task: ${task || "not given (ask the user)"}`,
+    `Task: ${task || chat?.task || "not given (ask the user)"}`,
     `Branch: ${info.branch}`,
     "",
+  ];
+  if (chat) {
+    lines.push("## From the Claude Code chat", "", `First request: "${chat.task}"`);
+    if (chat.recent.length) lines.push("", "Latest requests:", ...chat.recent.map((r) => `- "${r}"`));
+    if (chat.lastReply) lines.push("", `Where Claude stopped: "${chat.lastReply}"`);
+    lines.push("", "(Read from Claude Code's chat log on this laptop; passwords and keys are hidden.)", "");
+  }
+  lines.push(
     "## Commits for this task",
     "",
     ...(info.commits.length ? info.commits.map((subject) => `- ${subject}`) : ["None yet."]),
@@ -80,7 +89,7 @@ export function renderHandoff({ task, info, verify, date }) {
     "## For the next AI",
     "",
     "1. Read the changed files above before searching the rest of the project.",
-  ];
+  );
   if (verify) lines.push(`2. Run \`${verify}\` to see where things stand.`);
   lines.push(
     `${verify ? 3 : 2}. Continue the task. Do not redo work that is already committed.`,
