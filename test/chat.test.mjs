@@ -1,9 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { lastClaudeChat, redact } from "../src/chat.mjs";
+import { lastChat, lastClaudeChat, lastCodexChat, lastGeminiChat, redact } from "../src/chat.mjs";
 
 function home(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "waitu-chat-"));
@@ -139,4 +140,62 @@ test("a chat logged under another spelling of the same folder still matches", (t
   fs.symlinkSync(real, link, "junction");
   session(dir, "shop", link, [["user", "Fix the header"]]);
   assert.equal(lastClaudeChat({ home: dir, cwd: real }).task, "Fix the header");
+});
+
+// A Codex CLI session log (~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl): each line is { timestamp, type, payload }.
+function codexSession(dir, cwd, messages, ageMinutes = 0) {
+  const file = path.join(dir, ".codex", "sessions", "2026", "10", "22", `rollout-${ageMinutes}.jsonl`);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const line = (type, payload) => JSON.stringify({ timestamp: "2026-10-22T08:00:00.000Z", type, payload });
+  fs.writeFileSync(file, [
+    line("session_meta", { id: "s1", cwd, originator: "codex_cli_rs" }),
+    line("response_item", { type: "message", role: "user", content: [{ type: "input_text", text: `<environment_context>\n  <cwd>${cwd}</cwd>\n</environment_context>` }] }),
+    ...messages.map(([role, text]) => line("response_item", { type: "message", role, content: [{ type: role === "user" ? "input_text" : "output_text", text }] })),
+  ].join("\n") + "\n");
+  const time = new Date(Date.now() - ageMinutes * 60000);
+  fs.utimesSync(file, time, time);
+}
+
+// A Gemini CLI chat (~/.gemini/tmp/<sha256 of the project path>/chats/session-*.json).
+function geminiSession(dir, cwd, messages, ageMinutes = 0) {
+  const hash = createHash("sha256").update(cwd).digest("hex");
+  const file = path.join(dir, ".gemini", "tmp", hash, "chats", `session-${ageMinutes}.json`);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify({ sessionId: "g1", projectHash: hash, messages: messages.map(([type, content], i) => ({ id: String(i), type, content })) }));
+  const time = new Date(Date.now() - ageMinutes * 60000);
+  fs.utimesSync(file, time, time);
+}
+
+test("reads the Codex CLI chat for this project, without Codex's own context messages", (t) => {
+  const dir = home(t);
+  codexSession(dir, project, [["user", "Add coupons to checkout"], ["assistant", "Coupon field added."], ["user", "Now validate the code, token=abc123secret"], ["assistant", "Validation is half done."]]);
+  codexSession(dir, path.resolve(os.tmpdir(), "blog"), [["user", "Write the about page"]], -5);
+  const chat = lastCodexChat({ home: dir, cwd: project });
+  assert.equal(chat.name, "Codex CLI");
+  assert.equal(chat.task, "Add coupons to checkout");
+  assert.deepEqual(chat.recent, ["Now validate the code, token=[hidden]"]);
+  assert.equal(chat.lastReply, "Validation is half done.");
+  assert.equal(chat.requests, 2);
+});
+
+test("reads the Gemini CLI chat for this project, without slash commands", (t) => {
+  const dir = home(t);
+  geminiSession(dir, project, [["user", "/stats"], ["user", "Make the cart page responsive"], ["gemini", "The cart now stacks on phones."]]);
+  geminiSession(dir, path.resolve(os.tmpdir(), "blog"), [["user", "Write the about page"]], -5);
+  const chat = lastGeminiChat({ home: dir, cwd: project });
+  assert.equal(chat.name, "Gemini CLI");
+  assert.equal(chat.task, "Make the cart page responsive");
+  assert.equal(chat.lastReply, "The cart now stacks on phones.");
+  assert.equal(lastGeminiChat({ home: dir, cwd: path.resolve(os.tmpdir(), "other") }), null);
+});
+
+test("the chat comes from the AI whose limit ran out, or else from the newest chat", (t) => {
+  const dir = home(t);
+  session(dir, "shop", project, [["user", "Claude: add coupons"]], 60);
+  codexSession(dir, project, [["user", "Codex: validate coupons"]], 30);
+  geminiSession(dir, project, [["user", "Gemini: style the coupon field"]], 10);
+  assert.equal(lastChat({ home: dir, cwd: project, from: ["claude-code"] }).task, "Claude: add coupons");
+  assert.equal(lastChat({ home: dir, cwd: project, from: ["codex"] }).task, "Codex: validate coupons");
+  assert.equal(lastChat({ home: dir, cwd: project }).task, "Gemini: style the coupon field");
+  assert.equal(lastChat({ home: home(t), cwd: project }), null);
 });
