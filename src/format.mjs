@@ -244,7 +244,7 @@ export function formatTokens(report) {
   } else {
     const total = report.heavy.reduce((sum, file) => sum + file.tokens, 0);
     lines.push(`Heavy files an agent may read (${count(total)} in total)`);
-    for (const file of report.heavy) lines.push(`  ${file.file.padEnd(34)}  ${count(file.tokens)}`);
+    for (const file of report.heavy) lines.push(`  ${file.file.padEnd(34)}  ${count(file.tokens)}${file.team ? "  (team list)" : ""}`);
     if (report.ignore.length) {
       lines.push("", "  Tell your AI tools to skip them:");
       for (const advice of report.ignore) lines.push(`  ${toolName(advice.id)} → ${advice.file}`, indent(advice.snippet, 6));

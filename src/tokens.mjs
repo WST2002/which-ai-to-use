@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { RULES_FILES, SKIP_DIRS } from "./project.mjs";
+import { readTeam } from "./team.mjs";
 
 const LARGE_RULES_TOKENS = 2000;
 const MAX_WALK_DEPTH = 6;
@@ -152,9 +153,18 @@ function alreadySkipped(dir, file, installedIds) {
 
 /** Everything `which-ai-to-use tokens` reports for a project. */
 export function tokenReport({ dir, home, installedIds }) {
-  const heavy = heavyFiles(dir, listProjectFiles(dir))
-    .filter((entry) => !alreadySkipped(dir, entry.file, installedIds))
-    .slice(0, MAX_HEAVY_LISTED);
+  const found = heavyFiles(dir, listProjectFiles(dir));
+  // Files the team listed in .which-ai.json are skipped too, whatever their size.
+  const team = (readTeam(dir)?.skip ?? []).filter((file) => !found.some((h) => h.file === file)).flatMap((file) => {
+    try {
+      const bytes = fs.statSync(path.join(dir, file)).size;
+      return [{ file, bytes, tokens: Math.ceil(bytes / 4), team: true }];
+    } catch {
+      return [];
+    }
+  });
+  const open = (entry) => !alreadySkipped(dir, entry.file, installedIds);
+  const heavy = [...team.filter(open), ...found.filter(open).slice(0, MAX_HEAVY_LISTED)];
   return {
     rules: rulesCost(dir),
     heavy,
