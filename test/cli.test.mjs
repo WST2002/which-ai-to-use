@@ -228,10 +228,28 @@ test("handoff --copy puts the note on the clipboard, or says how to copy it by h
   assert.doesNotMatch(result.stdout, /Add --copy/);
 });
 
-test("handoff outside a git repository fails with a fix", (t) => {
-  const result = machine(t, { bins: ["claude"] }).run("handoff");
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /handoff needs a git repository/);
+test("handoff in a folder without git lists the files the AI changed in its chat", (t) => {
+  const { project, run } = machine(t, { bins: ["claude", "gemini"], files: { "index.html": "<h1>hi</h1>\n" } });
+  const log = path.join(project, "..", "home", ".claude", "projects", "p", "s.jsonl");
+  fs.mkdirSync(path.dirname(log), { recursive: true });
+  fs.writeFileSync(log, [
+    { type: "user", cwd: project, message: { role: "user", content: "make my portfolio" } },
+    { type: "assistant", cwd: project, message: { role: "assistant", content: [{ type: "tool_use", name: "Write", input: { file_path: path.join(project, "index.html") } }, { type: "text", text: "The hero is done." }] } },
+  ].map((line) => JSON.stringify(line)).join("\n") + "\n");
+  const result = run("handoff", "--to", "none");
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Wrote HANDOFF\.md: 1 file\(s\) changed in the Claude Code chat \(this folder has no git\)\./);
+  const note = fs.readFileSync(path.join(project, "HANDOFF.md"), "utf8");
+  assert.match(note, /Task: make my portfolio/);
+  assert.match(note, /- edited `index\.html`/);
+});
+
+test("handoff in a folder without git or any chat still writes the note and asks for the task", (t) => {
+  const { project, run } = machine(t, { bins: ["claude"] });
+  const result = run("handoff", "--to", "none");
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /This folder has no git and no AI chat was found for it, so say what you were doing: npx which-ai-to-use handoff "<task>"/);
+  assert.ok(fs.existsSync(path.join(project, "HANDOFF.md")));
 });
 
 test("fix shows what it would change and needs a yes before writing", (t) => {

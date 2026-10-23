@@ -676,8 +676,12 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
     handoff(data) {
       // What the next AI will read, before anyone runs it: open the file, or look at it here.
       const open = vscodeApi ? el("button", { class: "btn ghost", onclick: () => vscodeApi.postMessage({ type: "openHandoff" }) }, svg("external"), el("span", { text: "Open HANDOFF.md" })) : copyButton(data.note, "Copy HANDOFF.md");
+      // A folder without git: the changed files come from the chat.
+      const wrote = (d) => d.git !== false ? "Wrote HANDOFF.md: " + d.changes.length + " changed file(s), " + d.commits.length + " commit(s) on " + d.branch + "."
+        : d.chat ? "Wrote HANDOFF.md: " + d.changes.length + " file(s) changed in the " + d.chat.name + " chat (this folder has no git)."
+          : "Wrote HANDOFF.md. This folder has no git and no AI chat was found for it, so type what you were working on above.";
       const parts = [
-        el("div", { class: "ok wrote" }, el("span", { text: "Wrote HANDOFF.md: " + data.changes.length + " changed file(s), " + data.commits.length + " commit(s) on " + data.branch + "." }), open),
+        el("div", { class: "ok wrote" }, el("span", { text: wrote(data) }), open),
         el("details", { class: "preview" }, el("summary", { text: "See what the next AI will read" }), el("pre", { class: "raw", text: data.note })),
       ];
       if (data.chat) parts.push(el("p", { class: "muted", text: "Read from the " + data.chat.name + " chat (" + data.chat.requests + " request" + (data.chat.requests === 1 ? "" : "s") + "): “" + data.chat.task + "”" }));
@@ -692,11 +696,11 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
           const label = choice.installed ? "Run in terminal" : "Install and run";
           action = runButton(choice.id, label);
         } else if (choice.id === "other") body.push(command("Read HANDOFF.md and continue the task."));
-        else action = copyButton(data.note, "Copy HANDOFF.md");
+        else action = copyButton(data.web, "Copy note and changes");
         parts.push(el("div", { style: "margin-bottom:8px" }, toolCard({ id: choice.id, name: choice.name, best: choice.recommended, tags: [choice.recommended ? el("span", { class: "tag star", text: "Recommended" }) : null], body, action })));
       }
       if (!data.next.best) parts.push(el("p", { class: "muted", text: "No other AI tool is installed. Gemini CLI has a free tier:" }), command("npm i -g @google/gemini-cli"));
-      if (data.changes.length) parts.push(el("div", { class: "section-title", text: "Changed files in the note" }), el("table", {}, el("tr", {}, el("th", { text: "File" }), el("th", { text: "Change" })), data.changes.map((c) => el("tr", {}, el("td", { text: c.file }), el("td", { text: c.status + " (+" + c.added + " −" + c.removed + ")" })))));
+      if (data.changes.length) parts.push(el("div", { class: "section-title", text: "Changed files in the note" }), el("table", {}, el("tr", {}, el("th", { text: "File" }), el("th", { text: "Change" })), data.changes.map((c) => el("tr", {}, el("td", { text: c.file }), el("td", { text: c.added === null ? c.status : c.status + " (+" + c.added + " −" + c.removed + ")" })))));
       parts.push(el("p", { class: "muted", text: "HANDOFF.md is for the next AI only: don't commit it." }));
       return parts;
     },

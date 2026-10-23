@@ -7,9 +7,9 @@ import { LABELS, checkupIssues, formatAiAnswer, formatCheckup, formatDoctor, for
 import { setupScore } from "./score.mjs";
 import { claudeUsage } from "./usage.mjs";
 import { weeklyReport } from "./report.mjs";
-import { copyFileToClipboard } from "./clipboard.mjs";
-import { lastChat } from "./chat.mjs";
-import { collectHandoff, handoffTask, renderHandoff } from "./handoff.mjs";
+import { copyTextToClipboard } from "./clipboard.mjs";
+import { lastChat, redact } from "./chat.mjs";
+import { collectHandoff, handoffTask, projectRoot, renderHandoff, webHandoff } from "./handoff.mjs";
 import { RULES_FILES, scanProject } from "./project.mjs";
 import { buildSlimPrompt, parseSlim, slimFileName } from "./slim.mjs";
 import { betterPrompt, openEnded, relevantFiles, verifyCommand } from "./prompt.mjs";
@@ -231,25 +231,32 @@ const NO_OTHER_AI = [
   `  2. Or install Gemini CLI (free tier): npm i -g @google/gemini-cli, then run: gemini -i "${CONTINUE}"`,
 ];
 
+/** For a chat on the web, which cannot open the project: the note with the changes in it, keys hidden. */
+export const webNote = (root, note) => webHandoff(root, note, redact);
+
 /** `leftOut`: tools left out because their limit is over, named in the answer. `copy`: also put the note on the clipboard. */
 /** `by`: "hook" when the Claude Code plugin writes the note after the limit was reached (VS Code reacts to that). */
 export function handoffAction({ cwd, home, task: given = "", installed, leftOut = [], copy = false, menu = false, by = null, prefer = "balanced", private: forcePrivate = false, date = new Date().toISOString().slice(0, 10) }) {
-  const info = collectHandoff(cwd);
+  const root = projectRoot(cwd);
+  // The chat (in the AI whose limit ran out, or the newest one) says what was asked and where it stopped,
+  // so nobody has to type the task again. Without git, the files it changed stand in for the diff.
+  const chat = home ? lastChat({ home, cwd: root, from: leftOut }) : null;
+  const info = collectHandoff(root, { edited: chat?.edited ?? [] });
   const file = path.join(info.root, "HANDOFF.md");
   // Writing the note again (hand back, another limit hit) keeps the task the user typed the first time.
   const task = given || handoffTask(readText(file));
-  // The chat (in the AI whose limit ran out, or the newest one) says what was asked and where it stopped,
-  // so nobody has to type the task again.
-  const chat = home ? lastChat({ home, cwd: info.root, from: leftOut }) : null;
   // Leaving Claude because its limit is over: remember when it resets, so the work can come back to it.
   const fromClaude = leftOut.includes("claude-code");
   const resets = fromClaude && home ? (claudeUsage({ home }).window?.end ?? null) : null;
   const note = renderHandoff({ task, info, verify: verifyCommand(info.root), date, chat, from: fromClaude ? "claude-code" : null, resets, by });
   fs.writeFileSync(file, note);
+  const web = webNote(info.root, note);
   const { next, choices } = planNext({ root: info.root, task, chat, installed, leftOut, prefer, forcePrivate });
   const lines = [];
   if (chat) lines.push(`Read the ${chat.name} chat: "${chat.task.length > 70 ? `${chat.task.slice(0, 69)}…` : chat.task}" (${chat.requests} request${chat.requests === 1 ? "" : "s"}).`);
-  lines.push(`Wrote HANDOFF.md: ${info.changes.length} changed file(s), ${info.commits.length} commit(s) on ${info.branch}.`, "");
+  if (info.git) lines.push(`Wrote HANDOFF.md: ${info.changes.length} changed file(s), ${info.commits.length} commit(s) on ${info.branch}.`, "");
+  else if (chat) lines.push(`Wrote HANDOFF.md: ${info.changes.length} file(s) changed in the ${chat.name} chat (this folder has no git).`, "");
+  else lines.push(`Wrote HANDOFF.md. This folder has no git and no AI chat was found for it${task ? "" : `, so say what you were doing: npx which-ai-to-use handoff "<task>"`}.`, "");
   if (leftOut.length) lines.push(`Left out: ${leftOut.map((id) => toolById(id).name).join(", ")} (limit over). Handing off from another AI? Add --without <tool>.`, "");
   if (resets) lines.push(`Claude's limit resets about ${resetTime(resets)}. Then hand the task back: npx which-ai-to-use handoff --back`, "");
   if (!menu) {
@@ -257,10 +264,10 @@ export function handoffAction({ cwd, home, task: given = "", installed, leftOut 
     else lines.push(...NO_OTHER_AI);
   }
   if (copy) {
-    lines.push("", copyFileToClipboard(file) ? "Copied HANDOFF.md to your clipboard: paste it into any AI chat." : "Could not reach the clipboard (no clipboard tool found): open HANDOFF.md and copy it.");
+    lines.push("", copyTextToClipboard(web) ? "Copied HANDOFF.md with the changes to your clipboard: paste it into any AI chat." : "Could not reach the clipboard (no clipboard tool found): open HANDOFF.md and copy it.");
   } else if (!next.best && !menu) lines.push("", "Add --copy to put HANDOFF.md on your clipboard.");
   if (!menu) lines.push("", "HANDOFF.md is for the next AI only: don't commit it.");
-  return { text: `${lines.join("\n")}\n`, data: { file: "HANDOFF.md", ...info, next, choices, note, chat: chat && { tool: chat.tool, name: chat.name, task: chat.task, requests: chat.requests } } };
+  return { text: `${lines.join("\n")}\n`, data: { file: "HANDOFF.md", ...info, next, choices, note, web, chat: chat && { tool: chat.tool, name: chat.name, task: chat.task, requests: chat.requests } } };
 }
 
 function planNext({ root, task, chat, installed, leftOut, prefer, forcePrivate }) {
@@ -294,7 +301,7 @@ export function handoffChoices(next, suggestion = null) {
   return [
     ...tools,
     ...notInstalled,
-    { id: "web", name: "ChatGPT or Gemini on the web", why: "HANDOFF.md is copied to your clipboard; paste it into the chat", command: null, recommended: tools.length === 0 },
+    { id: "web", name: "ChatGPT or Gemini on the web", why: "HANDOFF.md and the changes are copied to your clipboard; paste them into the chat", command: null, recommended: tools.length === 0 },
     { id: "other", name: "Another AI", why: `start any AI here and tell it: ${CONTINUE}`, command: null, recommended: false },
     { id: "none", name: "Nothing now", why: "keep HANDOFF.md and decide later", command: null, recommended: false },
   ];

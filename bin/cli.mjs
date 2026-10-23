@@ -2,7 +2,6 @@
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import fs from "node:fs";
-import path from "node:path";
 import os from "node:os";
 import { parseArgs } from "node:util";
 import { startDashboard } from "../src/dashboard.mjs";
@@ -10,7 +9,7 @@ import { detectTools } from "../src/detect.mjs";
 import { aiAction, checkupAction, doctorAction, fixAction, handoffAction, installChoice, newcomerAction, offerFix, recommendAction, reportAction, scoreAction, slimAction, teamAction, tokensAction, usageAction } from "../src/actions.mjs";
 import { formatSyncPlan } from "../src/format.mjs";
 import { RULES_FILES } from "../src/project.mjs";
-import { copyFileToClipboard } from "../src/clipboard.mjs";
+import { copyTextToClipboard } from "../src/clipboard.mjs";
 import { findEditors, hasGlobalCommand, installExtension, installGlobal } from "../src/setup.mjs";
 import { PREFERENCES, readTeam } from "../src/team.mjs";
 import { applySync, planSync } from "../src/sync.mjs";
@@ -165,7 +164,7 @@ async function runHandoff(values, options, print) {
     choice = answer ? choices[Number(answer) - 1] : choices[recommended - 1];
     if (!choice) throw new Error(`choose a number from 1 to ${choices.length}`);
   }
-  return carryOn(choice, result.data.root, values);
+  return carryOn(choice, result.data, values);
 }
 
 // Runs a command in this terminal, in the project folder, and resolves with whether it succeeded.
@@ -197,11 +196,11 @@ function runHere(command, root) {
   });
 }
 
-async function carryOn(choice, root, values) {
+async function carryOn(choice, { root, web }, values) {
   if (choice.id === "none") return void process.stdout.write("HANDOFF.md is ready. It is for the next AI only: don't commit it.\n");
   if (choice.id === "web") {
-    const copied = copyFileToClipboard(path.join(root, "HANDOFF.md"));
-    return void process.stdout.write(`${copied ? "Copied HANDOFF.md." : "Open HANDOFF.md and copy it."} Paste it into chatgpt.com or gemini.google.com and ask it to continue.\n`);
+    const copied = copyTextToClipboard(web);
+    return void process.stdout.write(`${copied ? "Copied HANDOFF.md with the changes." : "Open HANDOFF.md and copy it."} Paste it into chatgpt.com or gemini.google.com and ask it to continue.\n`);
   }
   if (choice.id === "other") {
     // Any AI we do not know: the user types the command that starts it, in their own terminal.
