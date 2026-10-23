@@ -10,7 +10,7 @@ const MAX_BODY = 16 * 1024;
 
 const ACTIONS = {
   checkup: (context) => checkupAction(context),
-  task: (context, body) => recommendAction({ ...context, task: body.task }),
+  task: (context, body, { detected, without }) => recommendAction({ ...context, task: body.task, leftOut: without.filter((id) => detected.some((found) => found.id === id)) }),
   newcomer: (context, body) => newcomerAction({ ...context, task: body.task }),
   // A tool left out is still installed: it is named as left out, not offered as "not installed yet".
   handoff: (context, body, { detected, without }) => handoffAction({ ...context, installed: detected, leftOut: without, task: String(body.task ?? "").trim() }),

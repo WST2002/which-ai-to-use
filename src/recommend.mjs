@@ -136,8 +136,11 @@ function describe(found, categories, privacy, task) {
   return entry;
 }
 
-/** `alsoCount`: how many other installed tools to describe after the best one. */
-export function recommend({ task, prompt = task, files = [], categories, installed, sensitive = [], prefer = "balanced", private: forcePrivate = false, alsoCount = 3 }) {
+/**
+ * `alsoCount`: how many other installed tools to describe after the best one.
+ * `leftOut`: installed tools the user left out (their limit is over), so the notes do not call them missing.
+ */
+export function recommend({ task, prompt = task, files = [], categories, installed, sensitive = [], prefer = "balanced", private: forcePrivate = false, alsoCount = 3, leftOut = [] }) {
   const privacy = forcePrivate || sensitive.length > 0;
   const notes = [];
   if (privacy && sensitive.length) {
@@ -150,6 +153,11 @@ export function recommend({ task, prompt = task, files = [], categories, install
     );
   }
 
+  if (installed.length === 0 && leftOut.length) {
+    const free = [["gemini-cli", "Gemini CLI (free tier)"], ["ollama", "Ollama (local and private)"]].filter(([id]) => !leftOut.includes(id)).map(([, name]) => name);
+    notes.push(`All your AI tools are left out (${leftOut.map((id) => toolById(id).name).join(", ")}). Wait for a limit to reset${free.length ? `, or try a free one: ${free.join(" or ")}` : ""}.`);
+    return { task, categories, overall: null, best: null, also: [], free: null, reviewer: null, suggested: [], notes };
+  }
   if (installed.length === 0) {
     notes.push("No AI coding tools found. Free options: Gemini CLI (free tier) or Ollama (local and private).");
     return { task, categories, overall: null, best: null, also: [], free: null, reviewer: null, suggested: [], notes };
@@ -191,13 +199,15 @@ export function recommend({ task, prompt = task, files = [], categories, install
     const other = rest.find((entry) => entry.tool.review);
     if (other) {
       reviewer = { id: other.tool.id, name: other.tool.name, command: commandFor(other.tool, other.found, other.tool.review, task) };
+    } else if (installed.length === 1 && leftOut.length) {
+      notes.push(`${top.tool.name} is the only AI tool you can use now, and this task is risky. Once a limit resets, ask another AI to review the change.`);
     } else if (installed.length === 1) {
       notes.push(`${top.tool.name} is the only AI tool found, and this task is risky. A second tool (for example Gemini CLI, which has a free tier) can review the change.`);
     } else {
       notes.push("This task is risky. Install a second AI tool to get an independent review.");
     }
   }
-  if (installed.length === 1 && !reviewer && !categories.some((c) => SECOND_OPINION.has(c))) {
+  if (installed.length === 1 && !leftOut.length && !reviewer && !categories.some((c) => SECOND_OPINION.has(c))) {
     notes.push(`${top.tool.name} is the only AI tool found. A second tool (for example Gemini CLI, which has a free tier) lets you get second opinions.`);
   }
   if (top.tool.id === "ollama" && !top.found.models?.length) notes.push("No Ollama models installed yet. Try: ollama pull qwen2.5-coder");

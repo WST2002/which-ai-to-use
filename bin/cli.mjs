@@ -299,7 +299,10 @@ async function main() {
   for (const id of skipped) {
     if (!toolById(id)) throw new Error(`unknown tool "${id}" for --without. Use one of: ${TOOLS.map((tool) => tool.id).join(", ")}`);
   }
-  const installed = detectTools().filter((found) => !skipped.includes(found.id) && !team?.without.includes(found.id));
+  const detected = detectTools();
+  const installed = detected.filter((found) => !skipped.includes(found.id) && !team?.without.includes(found.id));
+  // Tools on this laptop that were left out: the answer names them as left out, not as missing.
+  const leftOut = detected.filter((found) => !installed.includes(found)).map((found) => found.id);
   const [command] = positionals;
   const context = { cwd: process.cwd(), home: os.homedir(), installed, prefer: values.prefer, private: values.private };
   const print = ({ text, data }) => process.stdout.write(values.json ? `${JSON.stringify(data, null, 2)}\n` : text);
@@ -330,7 +333,7 @@ async function main() {
   if (command === "team") return runTeam(values, print);
   if (values.ai) return runAi(values, context, positionals.join(" "), print);
   if (noAiFound) return runNewcomer(values, context, positionals.join(" "), print);
-  return print(recommendAction({ ...context, task: positionals.join(" ") }));
+  return print(recommendAction({ ...context, task: positionals.join(" "), leftOut }));
 }
 
 main().catch((error) => {

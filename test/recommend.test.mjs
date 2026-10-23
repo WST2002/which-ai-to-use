@@ -63,6 +63,15 @@ test("no tools installed suggests what to install", () => {
   assert.match(result.notes.join(" "), /No AI coding tools found/);
 });
 
+test("tools left out are named as left out, never as missing, and are not suggested again", () => {
+  const none = recommend({ ...base, installed: [], leftOut: ["claude-code", "gemini-cli"] });
+  assert.deepEqual(none.notes, ["All your AI tools are left out (Claude Code, Gemini CLI). Wait for a limit to reset, or try a free one: Ollama (local and private)."]);
+  const one = recommend({ ...base, installed: [found("gemini-cli")], leftOut: ["claude-code"] });
+  assert.doesNotMatch(one.notes.join(" "), /only AI tool found/);
+  const risky = recommend({ ...base, categories: ["security-sensitive"], installed: [found("gemini-cli")], leftOut: ["claude-code"] });
+  assert.deepEqual(risky.notes, ["Gemini CLI is the only AI tool you can use now, and this task is risky. Once a limit resets, ask another AI to review the change."]);
+});
+
 test("only one tool installed says so", () => {
   const result = recommend({ ...base, installed: [found("claude-code")] });
   assert.equal(result.best.id, "claude-code");

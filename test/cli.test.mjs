@@ -458,6 +458,13 @@ test("handing off from Claude notes when its limit resets, and --back hands the 
   assert.match(fs.readFileSync(log, "utf8"), /Read HANDOFF\.md and continue the task\./);
 });
 
+test("a task with every installed AI left out says they are left out, not missing", (t) => {
+  const result = gitProject(t, ["claude", "gemini"]).run("add a coupon field", "--without", "claude-code", "--without", "gemini-cli");
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /All your AI tools are left out \(Claude Code, Gemini CLI\)\. Wait for a limit to reset, or try a free one: Ollama/);
+  assert.doesNotMatch(result.stdout, /No AI coding tools found/);
+});
+
 test("--back without Claude Code says so", (t) => {
   const result = gitProject(t, ["gemini"]).run("handoff", "--back");
   assert.equal(result.status, 1);
