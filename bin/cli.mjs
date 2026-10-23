@@ -144,8 +144,8 @@ async function ask(question) {
 
 // Handoff writes the note, then the recommended AI (or the one picked) carries on in this terminal.
 async function runHandoff(values, options, print) {
-  // --back: Claude's limit has reset, so the work goes back to Claude Code.
-  const to = values.back ? "claude-code" : values.to;
+  // --back: Claude's limit has reset, so the work goes back to Claude Code, unless --to names who carries on.
+  const to = values.to ?? (values.back ? "claude-code" : undefined);
   // --json only writes the note and prints it with the choices; it never starts an AI.
   if (values.json) return print(handoffAction(options));
   const choosing = Boolean(to) || process.stdin.isTTY;
@@ -154,7 +154,7 @@ async function runHandoff(values, options, print) {
   process.stdout.write(result.text);
   const { choices } = result.data;
   let choice = choices.find((c) => c.id === to && c.installed !== false);
-  if (values.back && !choice) throw new Error("--back needs Claude Code on this laptop, and it was not found");
+  if (values.back && to === "claude-code" && !choice) throw new Error("--back needs Claude Code on this laptop, and it was not found");
   if (to && !choice) choice = choices.find((c) => c.id === to) ?? installChoice(to, options.installed);
   if (to && !choice) throw new Error(`--to must be one of: ${[...new Set([...choices.map((c) => c.id), ...TOOLS.filter((t) => t.install).map((t) => t.id)])].join(", ")}`);
   if (!choice) {

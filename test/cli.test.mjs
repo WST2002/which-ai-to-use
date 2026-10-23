@@ -458,6 +458,16 @@ test("handing off from Claude notes when its limit resets, and --back hands the 
   assert.match(fs.readFileSync(log, "utf8"), /Read HANDOFF\.md and continue the task\./);
 });
 
+test("--back with --to none writes the note for Claude but starts nothing", (t) => {
+  const { project, run } = gitProject(t, ["claude", "gemini"]);
+  const log = loggingStandIn(project, "claude");
+  const result = run("handoff", "--back", "--to", "none");
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /HANDOFF\.md is ready\./);
+  assert.doesNotMatch(result.stdout, /Starting Claude Code/);
+  assert.equal(fs.existsSync(log), false, "Claude Code was not started");
+});
+
 test("a task with every installed AI left out says they are left out, not missing", (t) => {
   const result = gitProject(t, ["claude", "gemini"]).run("add a coupon field", "--without", "claude-code", "--without", "gemini-cli");
   assert.equal(result.status, 0, result.stderr);
