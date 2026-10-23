@@ -2,7 +2,6 @@
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import fs from "node:fs";
-import path from "node:path";
 import os from "node:os";
 import { parseArgs } from "node:util";
 import { startDashboard } from "../src/dashboard.mjs";
@@ -10,7 +9,7 @@ import { detectTools } from "../src/detect.mjs";
 import { aiAction, checkupAction, doctorAction, fixAction, handoffAction, installChoice, newcomerAction, offerFix, recommendAction, reportAction, scoreAction, slimAction, teamAction, tokensAction, usageAction } from "../src/actions.mjs";
 import { formatSyncPlan } from "../src/format.mjs";
 import { RULES_FILES } from "../src/project.mjs";
-import { copyFileToClipboard } from "../src/clipboard.mjs";
+import { copyTextToClipboard } from "../src/clipboard.mjs";
 import { findEditors, hasGlobalCommand, installExtension, installGlobal } from "../src/setup.mjs";
 import { PREFERENCES, readTeam } from "../src/team.mjs";
 import { applySync, planSync } from "../src/sync.mjs";
@@ -144,8 +143,8 @@ async function ask(question) {
 
 // Handoff writes the note, then the recommended AI (or the one picked) carries on in this terminal.
 async function runHandoff(values, options, print) {
-  // --back: Claude's limit has reset, so the work goes back to Claude Code.
-  const to = values.back ? "claude-code" : values.to;
+  // --back: Claude's limit has reset, so the work goes back to Claude Code, unless --to names who carries on.
+  const to = values.to ?? (values.back ? "claude-code" : undefined);
   // --json only writes the note and prints it with the choices; it never starts an AI.
   if (values.json) return print(handoffAction(options));
   const choosing = Boolean(to) || process.stdin.isTTY;
@@ -154,7 +153,7 @@ async function runHandoff(values, options, print) {
   process.stdout.write(result.text);
   const { choices } = result.data;
   let choice = choices.find((c) => c.id === to && c.installed !== false);
-  if (values.back && !choice) throw new Error("--back needs Claude Code on this laptop, and it was not found");
+  if (values.back && to === "claude-code" && !choice) throw new Error("--back needs Claude Code on this laptop, and it was not found");
   if (to && !choice) choice = choices.find((c) => c.id === to) ?? installChoice(to, options.installed);
   if (to && !choice) throw new Error(`--to must be one of: ${[...new Set([...choices.map((c) => c.id), ...TOOLS.filter((t) => t.install).map((t) => t.id)])].join(", ")}`);
   if (!choice) {
@@ -165,7 +164,7 @@ async function runHandoff(values, options, print) {
     choice = answer ? choices[Number(answer) - 1] : choices[recommended - 1];
     if (!choice) throw new Error(`choose a number from 1 to ${choices.length}`);
   }
-  return carryOn(choice, result.data.root, values);
+  return carryOn(choice, result.data, values);
 }
 
 // Runs a command in this terminal, in the project folder, and resolves with whether it succeeded.
@@ -197,11 +196,11 @@ function runHere(command, root) {
   });
 }
 
-async function carryOn(choice, root, values) {
+async function carryOn(choice, { root, web }, values) {
   if (choice.id === "none") return void process.stdout.write("HANDOFF.md is ready. It is for the next AI only: don't commit it.\n");
   if (choice.id === "web") {
-    const copied = copyFileToClipboard(path.join(root, "HANDOFF.md"));
-    return void process.stdout.write(`${copied ? "Copied HANDOFF.md." : "Open HANDOFF.md and copy it."} Paste it into chatgpt.com or gemini.google.com and ask it to continue.\n`);
+    const copied = copyTextToClipboard(web);
+    return void process.stdout.write(`${copied ? "Copied HANDOFF.md with the changes." : "Open HANDOFF.md and copy it."} Paste it into chatgpt.com or gemini.google.com and ask it to continue.\n`);
   }
   if (choice.id === "other") {
     // Any AI we do not know: the user types the command that starts it, in their own terminal.
@@ -299,7 +298,10 @@ async function main() {
   for (const id of skipped) {
     if (!toolById(id)) throw new Error(`unknown tool "${id}" for --without. Use one of: ${TOOLS.map((tool) => tool.id).join(", ")}`);
   }
-  const installed = detectTools().filter((found) => !skipped.includes(found.id) && !team?.without.includes(found.id));
+  const detected = detectTools();
+  const installed = detected.filter((found) => !skipped.includes(found.id) && !team?.without.includes(found.id));
+  // Tools on this laptop that were left out: the answer names them as left out, not as missing.
+  const leftOut = detected.filter((found) => !installed.includes(found)).map((found) => found.id);
   const [command] = positionals;
   const context = { cwd: process.cwd(), home: os.homedir(), installed, prefer: values.prefer, private: values.private };
   const print = ({ text, data }) => process.stdout.write(values.json ? `${JSON.stringify(data, null, 2)}\n` : text);
@@ -330,7 +332,7 @@ async function main() {
   if (command === "team") return runTeam(values, print);
   if (values.ai) return runAi(values, context, positionals.join(" "), print);
   if (noAiFound) return runNewcomer(values, context, positionals.join(" "), print);
-  return print(recommendAction({ ...context, task: positionals.join(" ") }));
+  return print(recommendAction({ ...context, task: positionals.join(" "), leftOut }));
 }
 
 main().catch((error) => {

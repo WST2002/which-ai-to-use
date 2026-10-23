@@ -189,6 +189,46 @@ test("reads the Gemini CLI chat for this project, without slash commands", (t) =
   assert.equal(lastGeminiChat({ home: dir, cwd: path.resolve(os.tmpdir(), "other") }), null);
 });
 
+test("lists the files Claude Code changed in the chat, inside the project only", (t) => {
+  const dir = home(t);
+  session(dir, "shop", project, [
+    ["user", "Add coupons"],
+    ["assistant", [
+      { type: "tool_use", name: "Edit", input: { file_path: path.join(project, "src", "cart.ts"), old_string: "a", new_string: "b" } },
+      { type: "tool_use", name: "Write", input: { file_path: path.join(project, "src", "coupon.ts"), content: "x" } },
+      { type: "tool_use", name: "Edit", input: { file_path: path.join(project, "src", "cart.ts"), old_string: "b", new_string: "c" } },
+      { type: "tool_use", name: "NotebookEdit", input: { notebook_path: path.join(project, "notes.ipynb") } },
+      { type: "tool_use", name: "Read", input: { file_path: path.join(project, "README.md") } },
+      { type: "tool_use", name: "Write", input: { file_path: path.resolve(os.tmpdir(), "elsewhere.txt"), content: "x" } },
+    ]],
+  ]);
+  assert.deepEqual(lastClaudeChat({ home: dir, cwd: project }).edited, ["notes.ipynb", "src/cart.ts", "src/coupon.ts"]);
+});
+
+test("lists the files Codex CLI changed with patches, and Gemini CLI with its file tools", (t) => {
+  const dir = home(t);
+  const patch = "*** Begin Patch\n*** Update File: src/cart.ts\n@@\n-a\n+b\n*** Add File: src/coupon.ts\n+x\n*** End Patch";
+  const file = path.join(dir, ".codex", "sessions", "2026", "10", "23", "rollout-edits.jsonl");
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const line = (type, payload) => JSON.stringify({ timestamp: "2026-10-23T08:00:00.000Z", type, payload });
+  fs.writeFileSync(file, [
+    line("session_meta", { id: "s2", cwd: project }),
+    line("response_item", { type: "message", role: "user", content: [{ type: "input_text", text: "Add coupons" }] }),
+    line("response_item", { type: "custom_tool_call", name: "apply_patch", input: patch }),
+    line("response_item", { type: "function_call", name: "shell", arguments: JSON.stringify({ command: ["apply_patch", "*** Begin Patch\n*** Delete File: old/promo.ts\n*** End Patch"] }) }),
+  ].join("\n") + "\n");
+  assert.deepEqual(lastCodexChat({ home: dir, cwd: project }).edited, ["old/promo.ts", "src/cart.ts", "src/coupon.ts"]);
+
+  const hash = createHash("sha256").update(project).digest("hex");
+  const chat = path.join(dir, ".gemini", "tmp", hash, "chats", "session-edits.json");
+  fs.mkdirSync(path.dirname(chat), { recursive: true });
+  fs.writeFileSync(chat, JSON.stringify({ projectHash: hash, messages: [
+    { type: "user", content: "Style the coupon field" },
+    { type: "gemini", content: "Done.", toolCalls: [{ name: "replace", args: { file_path: path.join(project, "src", "coupon.css") } }, { name: "read_file", args: { absolute_path: path.join(project, "README.md") } }] },
+  ] }));
+  assert.deepEqual(lastGeminiChat({ home: dir, cwd: project }).edited, ["src/coupon.css"]);
+});
+
 test("the chat comes from the AI whose limit ran out, or else from the newest chat", (t) => {
   const dir = home(t);
   session(dir, "shop", project, [["user", "Claude: add coupons"]], 60);

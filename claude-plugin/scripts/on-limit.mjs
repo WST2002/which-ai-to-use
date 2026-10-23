@@ -72,10 +72,12 @@ function main() {
   if (input.hook_event_name !== "StopFailure") return;
   const message = String(input.last_assistant_message ?? "");
   if (!LIMIT.test(message) && !(input.error === "rate_limit" && !message.trim())) return;
-  const root = gitRoot(input.cwd ?? process.cwd());
-  if (root && alreadyHandedOff(root)) return;
+  // The top of the git repository, or the folder Claude worked in when it has no git (the note then lists the
+  // files Claude changed in the chat).
+  const root = gitRoot(input.cwd ?? process.cwd()) ?? path.resolve(input.cwd ?? process.cwd());
+  if (alreadyHandedOff(root)) return;
   record(input);
-  const written = root ? handoff(root) : false;
+  const written = handoff(root);
   notify(
     "Claude's limit was reached",
     written

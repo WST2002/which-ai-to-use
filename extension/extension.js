@@ -123,7 +123,7 @@ async function notice(kind, text, ...buttons) {
 // plugin wrote it (by=hook), nobody has picked who carries on yet, so offer that too; a handoff the user ran already asked.
 let noticedHandoff;
 async function onHandoffWritten(uri) {
-  const { handoffMeta, nextChoices } = await load();
+  const { handoffMeta, nextChoices, webNote } = await load();
   let text;
   try {
     text = fs.readFileSync(uri.fsPath, "utf8");
@@ -148,7 +148,7 @@ async function onHandoffWritten(uri) {
       { placeHolder: "Who carries on?" },
     );
     if (item?.choice.command) runChoice(item.choice);
-    else if (item) await vscode.env.clipboard.writeText(text);
+    else if (item) await vscode.env.clipboard.writeText(webNote(repoRoot(), text));
   } else if (picked) runChoice(recommended);
 }
 
@@ -318,7 +318,7 @@ const COMMANDS = {
         { placeHolder: "Who carries on?" },
       );
       if (item?.choice.command) runChoice(item.choice);
-      else if (item?.choice.id === "web") await vscode.env.clipboard.writeText(data.note);
+      else if (item?.choice.id === "web") await vscode.env.clipboard.writeText(data.web);
     }
     return text;
   },

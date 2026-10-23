@@ -1,5 +1,7 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 // Each command reads the text from stdin, except on Windows, where PowerShell reads the file itself so that
 // non-ASCII characters survive (its stdin uses the console code page).
@@ -8,6 +10,17 @@ const COMMANDS = {
   darwin: () => [["pbcopy", []]],
   linux: () => [["wl-copy", []], ["xclip", ["-selection", "clipboard"]], ["xsel", ["--clipboard", "--input"]]],
 };
+
+/** Copies text to the clipboard through a short-lived file. Returns the tool used, or null. */
+export function copyTextToClipboard(text, platform = process.platform) {
+  const file = path.join(os.tmpdir(), `which-ai-to-use-${process.pid}-${Date.now()}.md`);
+  fs.writeFileSync(file, text);
+  try {
+    return copyFileToClipboard(file, platform);
+  } finally {
+    fs.rmSync(file, { force: true });
+  }
+}
 
 /** Copies a text file to the clipboard with the system's own tool. Returns the tool used, or null. */
 export function copyFileToClipboard(file, platform = process.platform) {
