@@ -424,7 +424,8 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
     return node;
   }
   const tokens = (n) => "~" + Number(n).toLocaleString("en-US");
-  const sentence = (s) => s.charAt(0).toUpperCase() + s.slice(1) + ".";
+  // A capital first letter and one full stop, even when the text already ends with one.
+  const sentence = (s) => s.charAt(0).toUpperCase() + s.slice(1).replace(/[.!?]?$/, (end) => end || ".");
 
   // Our own icons (fixed markup in this page, never text from the server).
   const ICON_SVG = ${JSON.stringify(Object.fromEntries(ICONS_FOR_SCRIPT.map((name) => [name, icon(name)])))};
