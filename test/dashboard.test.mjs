@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
@@ -134,6 +135,18 @@ test("runAction gives the sidebar the same answers as the server, and leaves out
   await assert.rejects(runAction("format-disk", {}, { cwd: dir, home: dir, detect: two }), /unknown action format-disk/);
 });
 
+test("a handoff from the dashboard names Claude Code as left out, never as not installed", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "waitu-run-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  spawnSync("git", ["init", "-q"], { cwd: dir });
+  const two = () => [...claudeOnly(), { id: "gemini-cli", name: "Gemini CLI", onPath: true, via: ["command: gemini"] }];
+  const handoff = await runAction("handoff", { task: "add a cart", without: ["claude-code"] }, { cwd: dir, home: dir, detect: two });
+  assert.match(handoff.text, /Left out: Claude Code \(limit over\)/);
+  assert.equal(handoff.data.choices[0].id, "gemini-cli");
+  assert.equal(handoff.data.choices.some((c) => c.id === "claude-code"), false, "Claude Code is not offered to install");
+  assert.match(fs.readFileSync(path.join(dir, "HANDOFF.md"), "utf8"), /from=claude-code/, "the note records that it came from Claude, so it can go back");
+});
+
 test("the page talks to the local server by default and to VS Code only in the sidebar", async () => {
   const { dashboardPage } = await import("../src/dashboard-page.mjs");
   const browser = dashboardPage({ token: "t", project: "shop", version: "1" });
@@ -163,11 +176,22 @@ test("the usage view gets the 5-hour window line", async (t) => {
 test("the menu has a How to use guide and line icons, and other views still fill the summary", async () => {
   const { dashboardPage } = await import("../src/dashboard-page.mjs");
   const page = dashboardPage({ token: "t", project: "shop", version: "1" });
-  assert.match(page, /data-view="guide"><svg class="i"[^>]*>.*<\/svg><span><strong>How to use<\/strong><small>Six steps to get started<\/small>/);
+  assert.match(page, /data-view="guide" title="Six steps to get started"><svg class="i"[^>]*>.*<\/svg><span><strong>How to use<\/strong><small>Six steps to get started<\/small>/);
   assert.equal((page.match(/<button class="nav-btn"/g) ?? []).length, 11);
   assert.doesNotMatch(page, /nav-more|More tools/);
   assert.match(page, /step\("4\. Claude's limit ran out\?"/);
   assert.match(page, /if \(opening !== "checkup"\) refreshStats\(\);/);
+});
+
+test("while waiting the page shows a spinner with what is happening, and gives up on a reply that never comes", async () => {
+  const { dashboardPage } = await import("../src/dashboard-page.mjs");
+  const page = dashboardPage({ token: "", project: "shop", version: "1", bridge: "vscode", nonce: "n" });
+  assert.doesNotMatch(page, /Running…/);
+  assert.match(page, /el\("span", \{ class: "spinner", "aria-hidden": "true" \}\)/);
+  assert.match(page, /ai: "Asking your AI\. This can take up to 2 minutes\."/);
+  assert.match(page, /No answer from VS Code after 3 minutes/);
+  assert.match(page, /RENDER\[action\]\(response\.data, applied, response\.text\)\.filter\(Boolean\)/, "optional parts never print as the word null");
+  assert.match(page, /<span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24">/, "the header shows the sparkle logo");
 });
 
 test("the footer links the author's LinkedIn and the repository", async () => {

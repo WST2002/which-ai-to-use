@@ -20,9 +20,9 @@ exports.run = async () => {
   const project = vscode.workspace.workspaceFolders[0].uri.fsPath;
   const api = await vscode.extensions.getExtension("wst2002.which-ai-to-use").activate();
 
-  await check("status bar shows the score and tokens at risk", async () => {
+  await check("status bar shows the score, tokens at risk, and when the close limit resets", async () => {
     await api.refreshStatus();
-    assert.match(api.statusText(), /^\$\(sparkle\) AI \d+\/100 · 10k tokens at risk · \$\(warning\) limit close$/);
+    assert.match(api.statusText(), /^\$\(sparkle\) AI \d+\/100 · 10k tokens at risk · \$\(warning\) limit close · resets in (\d+h )?\d+m$/);
   });
 
   await check("a window close to the busiest one warns once, from the made-up usage in the test home", async () => {
@@ -115,6 +115,21 @@ Task: add coupons
     await wait("Claude's limit has reset. Hand the task back to Claude?");
     await run("whichAi.handBack");
     assert.match(api.lastTerminalCommand(), /^claude /);
+  });
+
+  await check("the AI a task answer names can be started in a terminal with the prepared prompt", async () => {
+    const reply = await api.handleMessage({ type: "action", id: 13, action: "task", body: { task: "make the hero section look better" } });
+    await api.handleMessage({ type: "runInTerminal", choice: reply.data.data.best.id });
+    assert.equal(api.lastTerminalCommand(), reply.data.data.best.command);
+  });
+
+  await check("a handoff waiting for Claude counts down in the status bar, and its note opens in an editor", async () => {
+    const resets = new Date(Date.now() + 80 * 60 * 1000).toISOString();
+    fs.writeFileSync(path.join(project, "HANDOFF.md"), `# Handoff\n\nTask: add coupons\n\n<!-- which-ai-to-use: from=claude-code resets=${resets} -->\n`);
+    for (let i = 0; i < 100 && !/Claude back in/.test(api.statusText()); i++) await new Promise((done) => setTimeout(done, 100));
+    assert.match(api.statusText(), / · \$\(history\) Claude back in 1h (19|20)m$/);
+    await api.handleMessage({ type: "openHandoff" });
+    assert.equal(path.basename(vscode.window.activeTextEditor.document.fileName), "HANDOFF.md");
   });
 
   await check("with no AI installed, a suggested AI can be installed and started in a terminal", async () => {

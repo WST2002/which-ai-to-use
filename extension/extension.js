@@ -54,6 +54,22 @@ h1{font-size:1.2em}pre{white-space:pre-wrap;font-family:var(--vscode-editor-font
 }
 
 let status;
+let statusBase = "";
+let limitResets = null; // when the open 5-hour window ends, shown only while the limit is close
+
+// "1h 20m" or "20m" until a moment, for the status bar.
+function until(time) {
+  const minutes = Math.max(1, Math.round((time - Date.now()) / 60000));
+  return minutes >= 60 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : `${minutes}m`;
+}
+
+// The status bar counts down to Claude coming back: a task handed off waits for the reset, or the limit is close.
+function renderStatus() {
+  if (!status || !statusBase) return;
+  const back = Math.min(...[...handBacks.values()].map(({ meta }) => meta.resets).filter((time) => time > Date.now()));
+  const countdown = Number.isFinite(back) ? ` · $(history) Claude back in ${until(back)}` : limitResets > Date.now() ? ` · resets in ${until(limitResets)}` : "";
+  status.text = statusBase + countdown;
+}
 
 async function refreshStatus() {
   if (!status) return;
@@ -63,7 +79,9 @@ async function refreshStatus() {
     const { data } = checkupAction(await context());
     const usage = usageAction(await context()).data;
     const atRisk = data.issues.reduce((sum, issue) => sum + issue.tokens, 0);
-    status.text = `$(sparkle) AI ${data.score.score}/100${atRisk ? ` · ${Math.round(atRisk / 1000)}k tokens at risk` : ""}${usage.warning ? " · $(warning) limit close" : ""}`;
+    statusBase = `$(sparkle) AI ${data.score.score}/100${atRisk ? ` · ${Math.round(atRisk / 1000)}k tokens at risk` : ""}${usage.warning ? " · $(warning) limit close" : ""}`;
+    limitResets = usage.warning ? (usage.window?.end ?? null) : null;
+    renderStatus();
     status.backgroundColor = usage.warning ? new vscode.ThemeColor("statusBarItem.warningBackground") : undefined;
     const reasons = data.issues.length ? data.issues.map((i) => `• ${i.problem}`).join("\n") : "Nothing is wasting your tokens.";
     status.tooltip = `${usage.warning ? `⚠ ${usage.warning}\n\n` : ""}${reasons}\n\nClick for options.`;
@@ -84,9 +102,9 @@ function warnOnce(usage) {
 }
 let lastWarning; // for the tests
 
-let handoffChoices = []; // from the last handoff, so "Run in terminal" can only start one of those commands
+let startable = []; // from the last answer (handoff, task or newcomer), so "Run in terminal" can only start one of those commands
 
-/** Starts a handoff choice in a VS Code terminal (installing it first when it is not installed yet). */
+/** Starts a choice from the last answer in a VS Code terminal (installing it first when it is not installed yet). */
 function runChoice(choice) {
   const terminal = vscode.window.createTerminal({ name: `Which AI: ${choice.name}`, cwd: repoRoot() });
   terminal.show();
@@ -120,7 +138,7 @@ async function onHandoffWritten(uri) {
   if (noticedHandoff === key) return;
   noticedHandoff = key;
   const choices = nextChoices(await context());
-  handoffChoices = choices;
+  startable = choices;
   const recommended = choices.find((c) => c.recommended && c.command);
   const buttons = [recommended && `Continue in ${recommended.name}`, "Other choices…"].filter(Boolean);
   const picked = await notice("warning", "Claude's limit was reached. HANDOFF.md is ready.", ...buttons);
@@ -151,6 +169,7 @@ function checkHandBacks() {
     handBacks.delete(file);
     offerHandBack(uri, meta);
   }
+  renderStatus();
 }
 
 async function offerHandBack(uri, meta) {
@@ -169,6 +188,8 @@ async function offerHandBack(uri, meta) {
 let lastTerminalCommand; // for the tests
 const PNG_DATA_URL = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/;
 
+const fromTask = (task) => [task.best, ...task.also].filter((t) => t?.command && !t.command.startsWith("Open ")).map((t) => ({ id: t.id, name: t.name, command: t.command, installed: true }));
+
 /** Messages from the sidebar page: run an action, copy text, or save the score card. */
 async function handleMessage(message) {
   if (message?.type === "copy") {
@@ -185,8 +206,12 @@ async function handleMessage(message) {
   }
   if (message?.type === "runInTerminal") {
     // Only a command from the last handoff runs, looked up by its id; the page never sends a command line.
-    const choice = handoffChoices.find((c) => c.id === message.choice && c.command);
+    const choice = startable.find((c) => c.id === message.choice && c.command);
     if (choice) runChoice(choice);
+    return null;
+  }
+  if (message?.type === "openHandoff") {
+    await vscode.window.showTextDocument(vscode.Uri.file(path.join(repoRoot(), "HANDOFF.md")), { preview: false });
     return null;
   }
   if (message?.type === "openFull") {
@@ -198,9 +223,15 @@ async function handleMessage(message) {
     const { runAction, detectTools } = await load();
     const data = await runAction(String(message.action), message.body ?? {}, { cwd: projectFolder(), home: os.homedir(), detect: detectTools });
     if (message.action === "fix" && message.body?.apply) await refreshStatus();
-    if (message.action === "handoff") handoffChoices = data.data.choices;
+    if (message.action === "handoff") startable = data.data.choices;
+    // A task answer (from the rules, or from the AI asked): the AIs it names can be started with the prepared prompt.
+    if (message.action === "task") startable = fromTask(data.data);
+    if (message.action === "ai") {
+      const { answer } = data.data;
+      startable = answer ? [{ id: answer.bestInstalled, name: answer.bestInstalledName, command: data.data.command, installed: true }] : fromTask(data.data.rules);
+    }
     // Nothing installed yet: "Install and start" may run one of the suggested AIs.
-    if (message.action === "newcomer") handoffChoices = data.data.options.filter((o) => o.command).map((o) => ({ ...o, installed: false }));
+    if (message.action === "newcomer") startable = data.data.options.filter((o) => o.command).map((o) => ({ ...o, installed: false }));
     return { id: message.id, data };
   } catch (error) {
     return { id: message.id, error: error.message };
@@ -278,7 +309,7 @@ const COMMANDS = {
     const skip = leaveOutClaude ?? (await vscode.window.showQuickPick(["Yes, leave out Claude Code", "No"], { placeHolder: "Claude's limit is over: leave it out?" })) === "Yes, leave out Claude Code";
     const { handoffAction } = await load();
     const { text, data } = handoffAction({ ...(await context()), task, leftOut: skip ? ["claude-code"] : [], menu: true });
-    handoffChoices = data.choices;
+    startable = data.choices;
     show("Handoff", text);
     // Same choices as the terminal: the recommended AI first; picking one starts it in a VS Code terminal.
     if (given === undefined) {
@@ -297,8 +328,8 @@ const COMMANDS = {
   async handBack() {
     const { handoffAction } = await load();
     const result = handoffAction({ ...(await context()), task: "", leftOut: [] });
-    handoffChoices = result.data.choices;
-    const claude = handoffChoices.find((c) => c.id === "claude-code" && c.installed !== false);
+    startable = result.data.choices;
+    const claude = startable.find((c) => c.id === "claude-code" && c.installed !== false);
     if (!claude) {
       vscode.window.showWarningMessage("Which AI: Claude Code was not found on this laptop, so the task cannot go back to it.");
       return result.text;

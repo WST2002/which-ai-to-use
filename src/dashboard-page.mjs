@@ -46,7 +46,21 @@ const ICON_PATHS = {
   guide: '<circle cx="8" cy="8" r="6"/><path d="M6.4 6.3a1.7 1.7 0 0 1 3.2.6c0 1.1-1.6 1.4-1.6 2.4M8 11.3v.1"/>',
   lock: '<rect x="3.5" y="7" width="9" height="6.5" rx="1"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/>',
   expand: '<path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9"/>',
+  layers: '<path d="M8 2.5 14 5.5 8 8.5 2 5.5z"/><path d="M2 8.5l6 3 6-3M2 11l6 3 6-3"/>',
+  file: '<path d="M9.5 2H4.5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V5z"/><path d="M9.5 2v3h3"/>',
+  puzzle: '<path d="M6 3.5a1.5 1.5 0 0 1 3 0V5h3v3h-1.5a1.5 1.5 0 0 0 0 3H12v2.5H3V11h1.5a1.5 1.5 0 0 0 0-3H3V5h3z"/>',
+  trophy: '<path d="M5 2.5h6v4a3 3 0 0 1-6 0zM5 4H2.5a2.5 2.5 0 0 0 2.6 3M11 4h2.5a2.5 2.5 0 0 1-2.6 3M8 9.5V12M5.5 13.5h5"/>',
+  send: '<path d="M14 2 7 9M14 2 9.5 14 7 9 2 6.5z"/>',
+  copy: '<rect x="5.5" y="5.5" width="8" height="8" rx="1"/><path d="M10.5 5.5V3.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/>',
+  download: '<path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10"/>',
+  external: '<path d="M9.5 2.5h4v4M13.5 2.5 7.5 8.5M12 9.5v3a1 1 0 0 1-1 1H3.5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h3"/>',
+  info: '<circle cx="8" cy="8" r="6"/><path d="M8 7.3v3.5M8 5.2v.1"/>',
+  chevron: '<path d="M6 3.5 10.5 8 6 12.5"/>',
+  warn: '<path d="M8 2.5 14 13H2z"/><path d="M8 6.5v3M8 11.2v.1"/>',
+  retry: '<path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v3h-3"/>',
 };
+// Pieces of markup the script builds from: our own icons, never anything from the server.
+const ICONS_FOR_SCRIPT = ["copy", "send", "external", "download", "info", "warn", "retry"];
 const icon = (name) => `<svg class="i" viewBox="0 0 16 16" aria-hidden="true">${ICON_PATHS[name]}</svg>`;
 const NAV = [
   ["checkup", "Checkup", "What is wasting your tokens"],
@@ -91,7 +105,8 @@ ${bridge === "vscode" ? "" : `  @media (prefers-color-scheme: dark) {
   .top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; height: 52px;
     padding: 0 clamp(16px, 3vw, 32px); background: var(--panel); border-bottom: 1px solid var(--line); }
   .brand { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; letter-spacing: -.01em; }
-  .mark { width: 18px; height: 18px; border-radius: 5px; background: var(--accent); }
+  .mark { width: 22px; height: 22px; border-radius: 6px; background: linear-gradient(135deg, #3b82f6, #1d4ed8); display: grid; place-items: center; flex: none; }
+  .mark svg { width: 15px; height: 15px; fill: #fff; }
   .brand .project { color: var(--muted); font-weight: 400; }
   .meta { margin-left: auto; display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12.5px; white-space: nowrap; }
   .meta svg.i { width: 14px; height: 14px; color: var(--good); }
@@ -100,37 +115,53 @@ ${bridge === "vscode" ? "" : `  @media (prefers-color-scheme: dark) {
   /* Grid items default to min-width: auto, so a long command would stretch the whole column. */
   main { min-width: 0; }
   nav { position: sticky; top: 76px; align-self: start; display: flex; flex-direction: column; gap: 2px; }
-  .nav-btn { display: flex; gap: 10px; align-items: flex-start; width: 100%; min-width: 0; padding: 8px 10px; border-radius: var(--radius);
-    border: 0; background: transparent; color: var(--fg); text-align: left; cursor: pointer; }
-  .nav-btn svg.i { margin-top: 2px; color: var(--muted); }
-  .nav-btn strong { display: block; font-size: 13.5px; font-weight: 500; }
+  .nav-btn { display: flex; gap: 12px; align-items: flex-start; width: 100%; min-width: 0; padding: 9px 12px; border-radius: 8px;
+    border: 0; border-left: 3px solid transparent; background: transparent; color: var(--fg); text-align: left; cursor: pointer; }
+  .nav-btn svg.i { width: 18px; height: 18px; margin-top: 1px; color: var(--muted); }
+  .nav-btn strong { display: block; font-size: 14px; font-weight: 600; }
   .nav-btn small { display: block; color: var(--muted); font-size: 12px; }
   .nav-btn[aria-current="true"] svg.i { color: inherit; }
   .nav-btn[aria-current="true"] small { color: inherit; opacity: .8; }
   .nav-btn:hover { background: var(--hover); color: var(--fg); }
-  .nav-btn[aria-current="true"] { background: var(--selected-bg); color: var(--selected-fg); font-weight: 500; }
+  .nav-btn[aria-current="true"] { background: var(--selected-bg); color: var(--selected-fg); border-left-color: var(--accent); }
   .nav-btn:focus-visible, .btn:focus-visible, input:focus-visible { outline: 1px solid var(--focus); outline-offset: 1px; }
 
   .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
-  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 12px 14px; min-width: 0; }
-  .stat .label { color: var(--muted); font-size: 12px; }
-  .stat .value { font-size: 22px; font-weight: 600; letter-spacing: -.02em; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  /* Each summary box opens the view with its details. */
+  .stat { display: flex; gap: 12px; align-items: flex-start; text-align: left; width: 100%; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 14px; min-width: 0; color: var(--fg); cursor: pointer; }
+  .stat:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+  .stat:hover .go { color: var(--fg); }
+  .stat-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .stat-text > span { display: block; }
+  .stat-text > .chips { display: flex; }
+  .stat .go { color: var(--muted); margin-top: 2px; }
+  .stat-icon { width: 40px; height: 40px; border-radius: 10px; flex: none; display: grid; place-items: center; }
+  .stat-icon svg.i { width: 20px; height: 20px; }
+  .stat-icon.blue { color: #60a5fa; background: rgba(59, 130, 246, .16); }
+  .stat-icon.orange { color: #fb923c; background: rgba(249, 115, 22, .16); }
+  .stat-icon.purple { color: #c084fc; background: rgba(168, 85, 247, .16); }
+  .stat-icon.green { color: #4ade80; background: rgba(34, 197, 94, .16); }
+  .stat .label { color: var(--muted); font-size: 12.5px; }
+  .stat .value { font-size: 26px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; margin-top: 2px; font-variant-numeric: tabular-nums; }
   .stat .value.warn { color: var(--warn); }
   .stat .value.good { color: var(--good); }
   .stat .muted { font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
   .chips { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
-  .chip { font-size: 12px; padding: 1px 7px; border-radius: 4px; background: var(--panel-2); border: 1px solid var(--line); color: var(--muted); }
+  .chip { white-space: nowrap; font-size: 12px; padding: 1px 7px; border-radius: 4px; background: var(--panel-2); border: 1px solid var(--line); color: var(--muted); }
   canvas.scorecard { width: 100%; max-width: 760px; height: auto; border-radius: var(--radius-lg); border: 1px solid var(--line); display: block; }
 
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); }
-  .panel-head { padding: 16px 18px 0; }
-  .panel-head h1 { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: -.01em; }
-  .panel-head p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
-  .panel-body { padding: 14px 18px 18px; }
+  .panel { background: transparent; }
+  .panel-head { padding: 4px 0 14px; }
+  .panel-head h1 { font-size: 24px; font-weight: 700; margin: 0; letter-spacing: -.02em; line-height: 1.25; }
+  .panel-head p { margin: 4px 0 0; color: var(--muted); font-size: 13.5px; }
+  .panel-body { padding: 0; }
   .form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
-  .form input[type=text] { flex: 1 1 260px; min-width: 0; height: 32px; padding: 0 10px; border: 1px solid var(--input-border); border-radius: var(--radius);
-    background: var(--input-bg); color: var(--input-fg); }
-  .check { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 13px; }
+  .form input[type=text] { flex: 1 1 260px; min-width: 0; height: 42px; padding: 0 14px; border: 1px solid var(--input-border); border-radius: 8px;
+    background: var(--input-bg); color: var(--input-fg); font-size: 14px; }
+  .check { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 13.5px; }
+  .check input { width: 16px; height: 16px; accent-color: var(--accent); }
+  .btn.big { height: 42px; padding: 0 20px; font-size: 14px; border-radius: 8px; }
   .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid transparent;
     border-radius: var(--radius); font-weight: 500; font-size: 13px; cursor: pointer; background: var(--accent); color: var(--accent-fg); text-decoration: none; white-space: nowrap; }
   .btn:hover { background: var(--accent-hover); }
@@ -145,20 +176,50 @@ ${bridge === "vscode" ? "" : `  @media (prefers-color-scheme: dark) {
 
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
   .list { display: flex; flex-direction: column; gap: 8px; max-width: 760px; }
-  .card { border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 12px 14px; background: var(--panel); min-width: 0; }
+  .card { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; background: var(--panel); min-width: 0; }
   .card.best { border-color: var(--accent); grid-column: 1 / -1; }
-  .card h3 { margin: 0; font-size: 14px; font-weight: 600; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-  .card .tag { font-size: 11px; font-weight: 500; padding: 1px 6px; border-radius: 4px; background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); }
+  .card h3 { margin: 0; font-size: 16px; font-weight: 600; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .card .tag { font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 6px; background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); }
   .card .tag.star { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
   .card .tag.yes { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, transparent); background: transparent; }
-  .card .tag.no { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); background: transparent; }
+  .card .tag.no { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); background: var(--warn-soft); }
+  /* An AI tool: its letter tile, what to do, and the button for it on the right. */
+  .tool { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 14px; align-items: start; }
+  .tool > .tool-body { min-width: 0; }
+  .tool > .tool-action { align-self: start; }
+  .avatar { width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; font-weight: 700; font-size: 15px; color: #fff; }
+  .card.tool.best { background: color-mix(in srgb, var(--accent) 7%, var(--panel)); }
   .card.mine { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
   .consent { border: 1px solid color-mix(in srgb, var(--warn) 50%, var(--line)); background: var(--warn-soft); border-radius: var(--radius-lg); padding: 12px 14px; margin-bottom: 14px; }
   .consent p { margin: 6px 0 12px; white-space: pre-line; }
   ol { margin: 0; padding-left: 20px; }
+  ol.steps { list-style: none; padding: 0; counter-reset: step; display: flex; flex-direction: column; gap: 8px; }
+  ol.steps li { counter-increment: step; display: flex; gap: 10px; align-items: flex-start; }
+  ol.steps li::before { content: counter(step); flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px;
+    font-weight: 600; border: 1px solid var(--line); background: var(--panel-2); color: var(--fg); margin-top: -1px; }
+  /* A notice: an icon tile, a plain heading, the reason in muted text, and an optional button. */
+  .alert { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel);
+    margin-bottom: 14px; }
+  .alert .alert-icon { width: 32px; height: 32px; border-radius: 8px; flex: none; display: grid; place-items: center; color: var(--warn); background: var(--warn-soft); }
+  .alert.info .alert-icon { color: var(--link); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .alert .alert-body { flex: 1; min-width: 0; }
+  .alert strong { display: block; font-weight: 600; }
+  .alert p { margin: 2px 0 0; color: var(--muted); }
+  .alert .btn { flex: none; align-self: center; }
+  .ok.wrote { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+  .ok.wrote .btn { font-weight: 500; }
+  details.preview { margin: 10px 0 0; }
+  details.preview summary { cursor: pointer; color: var(--link); font-size: 13px; padding: 4px 0; }
+  details.preview pre { margin-top: 8px; max-height: 360px; }
+  .note { display: flex; gap: 8px; align-items: flex-start; color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+  .note svg.i { margin-top: 2px; }
   .card p { margin: 4px 0 0; color: var(--muted); }
   .card a { color: var(--link); }
-  .section-title { font-size: 12px; font-weight: 600; color: var(--muted); margin: 18px 0 8px; }
+  /* Section headings: bold and in the text colour, so each block of an answer stands apart from its text. */
+  .section-title { font-size: 14.5px; font-weight: 650; color: var(--fg); margin: 22px 0 10px; letter-spacing: -.005em; }
+  .card .section-title { margin: 16px 0 8px; font-size: 13.5px; }
+  .eyebrow { font-size: 12.5px; color: var(--muted); margin-bottom: 2px; }
+  .card h3.big { font-size: 18px; letter-spacing: -.01em; margin-top: 2px; }
   .issue { display: flex; gap: 10px; align-items: flex-start; }
   .issue .num { flex: none; width: 20px; height: 20px; border-radius: 4px; display: grid; place-items: center; font-weight: 600; font-size: 12px;
     background: var(--warn-soft); color: var(--warn); margin-top: 1px; }
@@ -166,16 +227,29 @@ ${bridge === "vscode" ? "" : `  @media (prefers-color-scheme: dark) {
   .ok { padding: 10px 12px; border-radius: var(--radius); background: var(--good-soft); color: var(--good); font-weight: 500;
     border: 1px solid color-mix(in srgb, var(--good) 30%, transparent); }
 
-  .cmd { display: flex; gap: 6px; align-items: stretch; margin-top: 8px; }
-  .cmd code { flex: 1; min-width: 0; overflow-x: auto; white-space: pre; padding: 7px 10px; border-radius: var(--radius); background: var(--code); color: var(--code-fg);
-    border: 1px solid var(--line); font: 12.5px/1.5 var(--mono); }
+  /* Commands wrap instead of scrolling sideways, with Copy next to them. */
+  .cmd { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; padding: 10px 10px 10px 14px; border-radius: 8px; background: var(--code);
+    border: 1px solid var(--line); }
+  /* VS Code gives code its own box; inside a command it sits flat on the command box. */
+  .cmd code { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--code-fg); font: 12.5px/1.6 var(--mono); padding: 3px 0 0;
+    background: transparent; border-radius: 0; }
+  .cmd .btn { flex: none; }
   pre.raw { margin: 0; padding: 12px 14px; border-radius: var(--radius); background: var(--code); color: var(--code-fg); border: 1px solid var(--line);
     overflow: auto; white-space: pre-wrap; font: 12.5px/1.6 var(--mono); }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
   th { color: var(--muted); font-weight: 500; font-size: 12px; }
-  .status { min-height: 20px; font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  .status { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  .status:empty { display: none; }
   .status.error { color: var(--warn); }
+  /* While an answer is on its way: a spinner and what is happening, above the old answer so it is seen. */
+  .status.busy { margin: 0 0 14px; padding: 10px 12px; border-radius: var(--radius-lg); color: var(--fg);
+    background: color-mix(in srgb, var(--accent) 10%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line)); }
+  .spinner { width: 16px; height: 16px; flex: none; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--accent) 25%, transparent);
+    border-top-color: var(--accent); animation: spin .8s linear infinite; }
+  .status .elapsed { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
   .muted { color: var(--muted); }
   .hidden { display: none !important; }
   footer { text-align: center; color: var(--muted); font-size: 12px; padding: 4px 16px 24px; }
@@ -192,22 +266,39 @@ ${bridge === "vscode" ? "" : `  @media (prefers-color-scheme: dark) {
   .tip button { margin-left: auto; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px; }
   /* In the sidebar the content sits straight on the background, with no card inside a card. */
   body.surface-sidebar .layout { padding: 10px; }
-  body.surface-sidebar .panel { border: 0; background: transparent; }
-  body.surface-sidebar .panel-head, body.surface-sidebar .panel-body { padding-left: 0; padding-right: 0; }
 
   /* Narrow: a phone or a VS Code sidebar. The same menu becomes a list above the content, never a sideways strip. */
   @media (max-width: 900px) {
     .layout { grid-template-columns: 1fr; gap: 12px; padding: 12px; }
-    nav { position: static; gap: 1px; border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 4px; background: var(--panel); }
-    .nav-btn { padding: 6px 8px; }
+    /* Two columns of short labels, so the answer is close to the top instead of below eleven rows. */
+    nav { position: static; display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 2px;
+      border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 4px; background: var(--panel); }
+    .nav-btn { padding: 6px 8px; gap: 8px; align-items: center; }
+    .nav-btn svg.i { margin-top: 0; }
+    .nav-btn strong { font-size: 12.5px; line-height: 1.3; }
+    .nav-btn small { display: none; }
     .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
     .stat { padding: 10px 12px; }
     .stat .value { font-size: 18px; }
     .stat .chips, .stat .muted { display: none; }
-    .panel-head { padding: 12px 12px 0; }
-    .panel-body { padding: 12px; }
+    .panel-head h1 { font-size: 20px; }
     .grid { grid-template-columns: 1fr; }
     .meta .long { display: none; }
+  }
+  /* Narrow (a VS Code sidebar): summary boxes stack their icon above the numbers, AI cards put their button and
+     commands under the name, and Copy goes below a command, so nothing is squeezed into a thin column. */
+  @media (max-width: 560px) {
+    .stat { flex-direction: column; gap: 8px; position: relative; padding: 12px; }
+    .stat-icon { width: 30px; height: 30px; border-radius: 8px; }
+    .stat-icon svg.i { width: 16px; height: 16px; }
+    .stat .go { position: absolute; top: 12px; right: 10px; }
+    .tool { display: block; position: relative; }
+    .tool > .avatar { position: absolute; top: 14px; left: 16px; width: 30px; height: 30px; border-radius: 8px; font-size: 13px; }
+    .tool > .tool-body > h3 { min-height: 30px; padding-left: 40px; }
+    .tool > .tool-action { margin-top: 10px; }
+    .cmd { flex-wrap: wrap; padding: 10px 12px; }
+    .cmd code { flex-basis: 100%; }
+    .cmd .btn { margin-left: auto; }
   }
   @media (max-width: 420px) {
     .top { height: 44px; padding: 0 12px; }
@@ -218,7 +309,7 @@ ${bridge === "vscode" ? "" : `  @media (prefers-color-scheme: dark) {
 </head>
 <body class="surface-${surface}">
 <header class="top">
-  <div class="brand"><span class="mark" aria-hidden="true"></span>which-ai-to-use<span class="project">/ ${escapeHtml(project)}</span></div>
+  <div class="brand"><span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2.5l2.2 5.3 5.3 2.2-5.3 2.2L12 17.5l-2.2-5.3L4.5 10l5.3-2.2z"/><path d="M18.5 15.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/></svg></span>which-ai-to-use<span class="project">/ ${escapeHtml(project)}</span></div>
   <div class="meta">${icon("lock")}<span class="long">Runs only on this laptop</span>${version ? `<span>· v${escapeHtml(version)}</span>` : ""}</div>
   ${surface === "sidebar" ? `<button class="btn ghost small" id="open-full" title="Open the full dashboard in an editor tab">${icon("expand")}<span>Full view</span></button>` : ""}
 </header>
@@ -226,15 +317,15 @@ ${surface === "sidebar" ? `<p class="tip hidden" id="width-tip"><span>Looks cram
 
 <div class="layout">
   <nav aria-label="Actions">
-${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${view}">${icon(view)}<span><strong>${label}</strong><small>${hint}</small></span></button>`).join("\n")}
+${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${view}" title="${hint}">${icon(view)}<span><strong>${label}</strong><small>${hint}</small></span></button>`).join("\n")}
   </nav>
 
   <main>
     <section class="stats" aria-label="Summary">
-      <div class="stat"><div class="label">Your AI tools</div><div class="value" id="stat-tools">–</div><div class="chips" id="stat-tool-chips"></div></div>
-      <div class="stat"><div class="label">Tokens at risk</div><div class="value" id="stat-tokens">–</div><div class="muted" id="stat-tokens-note"></div></div>
-      <div class="stat"><div class="label">Add-ons on</div><div class="value" id="stat-addons">–</div><div class="muted" id="stat-addons-note"></div></div>
-      <div class="stat"><div class="label">Setup score</div><div class="value" id="stat-score">–</div><div class="muted" id="stat-score-note"></div></div>
+      <button class="stat" data-go="doctor" title="Installed tools"><span class="stat-icon blue">${icon("layers")}</span><span class="stat-text"><span class="label">Your AI tools</span><span class="value" id="stat-tools">–</span><span class="chips" id="stat-tool-chips"></span></span><span class="go">${icon("chevron")}</span></button>
+      <button class="stat" data-go="tokens" title="Token details"><span class="stat-icon orange">${icon("file")}</span><span class="stat-text"><span class="label">Tokens at risk</span><span class="value" id="stat-tokens">–</span><span class="muted" id="stat-tokens-note"></span></span><span class="go">${icon("chevron")}</span></button>
+      <button class="stat" data-go="tokens" title="Token details"><span class="stat-icon purple">${icon("puzzle")}</span><span class="stat-text"><span class="label">Add-ons on</span><span class="value" id="stat-addons">–</span><span class="muted" id="stat-addons-note"></span></span><span class="go">${icon("chevron")}</span></button>
+      <button class="stat" data-go="score" title="Score card"><span class="stat-icon green">${icon("trophy")}</span><span class="stat-text"><span class="label">Setup score</span><span class="value" id="stat-score">–</span><span class="muted" id="stat-score-note"></span></span><span class="go">${icon("chevron")}</span></button>
     </section>
 
     <section class="panel" aria-live="polite">
@@ -243,7 +334,7 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
         <div class="form hidden" id="form-task">
           <input type="text" id="task" placeholder="Describe the task, e.g. make the hero section look better" aria-label="Task">
           <label class="check"><input type="checkbox" id="use-ai"> Ask my AI too</label>
-          <button class="btn" id="ask">Ask</button>
+          <button class="btn big" id="ask">${icon("send")}<span>Ask</span></button>
         </div>
         <div class="form hidden" id="form-slim">
           <button class="btn" id="slim-start">Ask my AI to shorten it</button>
@@ -256,10 +347,11 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
         <div class="form hidden" id="form-handoff">
           <input type="text" id="handoff-task" placeholder="What were you working on? (optional: read from your AI's chat)" aria-label="Task to hand off">
           <label class="check"><input type="checkbox" id="without-claude" checked> Leave out Claude Code</label>
-          <button class="btn" id="write-handoff">Write HANDOFF.md</button>
+          <button class="btn big" id="write-handoff">${icon("send")}<span>Write HANDOFF.md</span></button>
         </div>
+        <div class="status" id="status" role="status"></div>
         <div id="result"></div>
-        <div class="status" id="status"></div>
+        <div class="status" id="updated"></div>
       </div>
     </section>
   </main>
@@ -285,7 +377,12 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
     if (vscodeApi) {
       return new Promise((resolve, reject) => {
         const id = ++nextId;
-        pending.set(id, (reply) => (reply.error ? reject(new Error(reply.error)) : resolve(reply.data)));
+        // A reply that never comes (VS Code reloaded the extension, say) must not leave the page waiting forever.
+        const timer = setTimeout(() => pending.delete(id) && reject(new Error("No answer from VS Code after 3 minutes. Click the view again to retry.")), 180000);
+        pending.set(id, (reply) => {
+          clearTimeout(timer);
+          return reply.error ? reject(new Error(reply.error)) : resolve(reply.data);
+        });
         vscodeApi.postMessage({ type: "action", id, action, body });
       });
     }
@@ -329,22 +426,79 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
   const tokens = (n) => "~" + Number(n).toLocaleString("en-US");
   const sentence = (s) => s.charAt(0).toUpperCase() + s.slice(1) + ".";
 
+  // Our own icons (fixed markup in this page, never text from the server).
+  const ICON_SVG = ${JSON.stringify(Object.fromEntries(ICONS_FOR_SCRIPT.map((name) => [name, icon(name)])))};
+  function svg(name) {
+    const holder = document.createElement("template");
+    holder.innerHTML = ICON_SVG[name];
+    return holder.content.firstChild;
+  }
+  function copyButton(text, label = "Copy") {
+    const words = el("span", { text: label });
+    const button = el("button", { class: "btn ghost small", onclick: () => { copyText(text); words.textContent = "Copied"; setTimeout(() => (words.textContent = label), 1500); } }, svg("copy"), words);
+    return button;
+  }
   function command(text) {
-    const button = el("button", { class: "btn ghost small", text: "Copy", onclick: () => { copyText(text); button.textContent = "Copied"; setTimeout(() => (button.textContent = "Copy"), 1500); } });
-    return el("div", { class: "cmd" }, el("code", { text }), button);
+    return el("div", { class: "cmd" }, el("code", { text }), copyButton(text));
+  }
+  function alertBox({ title, text, tone = "warn", action = null, more = [] }) {
+    return el("div", { class: "alert " + tone, role: "status" },
+      el("span", { class: "alert-icon" }, svg(tone === "warn" ? "warn" : "info")),
+      el("div", { class: "alert-body" }, el("strong", { text: title }), text ? el("p", { text }) : null, ...more),
+      action);
+  }
+  const note = (text) => el("p", { class: "note" }, svg("info"), el("span", { text }));
+
+  // Each AI gets a letter tile in its own colour (not its logo).
+  const TOOL_COLORS = { "claude-code": "#d97757", codex: "#10a37f", "gemini-cli": "#3b82f6", copilot: "#8957e5", cursor: "#52525b", windsurf: "#0f9d8a", aider: "#14b8a6", ollama: "#64748b", web: "#0ea5e9", other: "#71717a" };
+  const avatar = (id, name) => el("span", { class: "avatar", style: "background:" + (TOOL_COLORS[id] ?? "#2563eb"), "aria-hidden": "true", text: name.charAt(0).toUpperCase() });
+  function toolCard({ id, name, tags = [], best = false, body = [], action = null }) {
+    return el("div", { class: "card tool" + (best ? " best" : "") },
+      avatar(id, name),
+      el("div", { class: "tool-body" }, el("h3", {}, name, ...tags), ...body),
+      action ? el("div", { class: "tool-action" }, action) : el("span"));
+  }
+  // VS Code only: starts that AI in a terminal; the extension accepts only an id from its last answer.
+  const runButton = (id, label = "Run in terminal") => vscodeApi
+    ? el("button", { class: "btn", onclick: () => vscodeApi.postMessage({ type: "runInTerminal", choice: id }) }, svg("send"), el("span", { text: label }))
+    : null;
+  const getButton = (href, label) => el("a", { class: "btn ghost", href, target: "_blank", rel: "noopener" }, svg("external"), el("span", { text: label }));
+
+  // What the user sees while an answer is on its way; asking an AI can take up to two minutes.
+  const WAITING = {
+    ai: "Asking your AI. This can take up to 2 minutes.",
+    slim: "Asking your AI for a shorter copy. This can take up to 2 minutes.",
+    handoff: "Reading your chat and writing HANDOFF.md…",
+  };
+  let ticking = null;
+  function busy(action) {
+    const elapsed = el("span", { class: "elapsed" });
+    const started = Date.now();
+    status.className = "status busy";
+    status.replaceChildren(el("span", { class: "spinner", "aria-hidden": "true" }), el("span", { text: WAITING[action] ?? "Working…" }), elapsed);
+    clearInterval(ticking);
+    ticking = setInterval(() => {
+      const seconds = Math.round((Date.now() - started) / 1000);
+      if (seconds >= 3) elapsed.textContent = seconds + " s";
+    }, 1000);
+  }
+  function idle(text = "", error = false) {
+    clearInterval(ticking);
+    status.className = "status" + (error ? " error" : "");
+    status.textContent = text;
   }
 
   async function call(action, body = {}) {
     document.querySelectorAll("button").forEach((b) => (b.disabled = true));
-    status.className = "status";
-    status.textContent = "Running…";
+    busy(action);
+    $("updated").textContent = "";
     try {
       const data = await request(action, body);
-      status.textContent = "Updated " + new Date().toLocaleTimeString();
+      idle();
+      $("updated").textContent = "Updated " + new Date().toLocaleTimeString();
       return data;
     } catch (error) {
-      status.className = "status error";
-      status.textContent = error.message;
+      idle(error.message, true);
       return null;
     } finally {
       document.querySelectorAll("button").forEach((b) => (b.disabled = false));
@@ -380,8 +534,14 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
     c.lineWidth = 2;
     c.strokeRect(1, 1, 1198, 628);
 
-    c.fillStyle = "#3b82f6";
-    c.fillRect(72, 66, 22, 22);
+    // The logo: the sparkle on a blue tile, as in the header.
+    c.fillStyle = "#2563eb";
+    c.beginPath(); c.roundRect(66, 58, 34, 34, 8); c.fill();
+    c.save();
+    c.translate(70, 62);
+    c.fillStyle = "#ffffff";
+    c.fill(new Path2D("M12 2.5l2.2 5.3 5.3 2.2-5.3 2.2L12 17.5l-2.2-5.3L4.5 10l5.3-2.2z M18.5 15.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"));
+    c.restore();
     c.fillStyle = "#e4e4e7";
     c.font = font(24, 600);
     c.fillText("which-ai-to-use", 108, 86);
@@ -463,43 +623,45 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
       ];
     },
     task(data) {
-      const parts = [el("p", { class: "muted", text: "Task type: " + data.labels.join(", ") })];
+      const parts = [note("Task type: " + data.labels.join(", "))];
       if (!data.best) return parts.concat(data.notes.map((n) => el("p", { text: n })));
       const o = data.overall;
       const more = o.alsoGreat.length > 2 ? " and " + (o.alsoGreat.length - 2) + " more" : "";
       parts.push(
-        el("div", { class: "section-title", text: "① Best AI for this task (any tool)" }),
-        el("div", { class: "card best" },
-          el("h3", {}, o.name, el("span", { class: "tag " + (o.installed ? "yes" : "no"), text: o.installed ? "✓ On your laptop" : "✗ Not on your laptop" })),
-          el("p", { text: sentence(o.why) }),
-          o.installed ? el("p", { text: "You already have it: use the command below." })
-            : el("p", {}, "Get it: ", el("a", { href: o.homepage, target: "_blank", rel: "noopener", text: o.homepage.replace("https://", "") })),
-          o.alsoGreat.length ? el("p", { text: "Just as good: " + o.alsoGreat.slice(0, 2).join(", ") + more }) : null),
+        el("div", { class: "section-title", text: "Best AI for this task (any tool)" }),
+        toolCard({ id: o.id, name: o.name, best: true,
+          tags: [el("span", { class: "tag " + (o.installed ? "yes" : "no"), text: o.installed ? "✓ On your laptop" : "Not on your laptop" })],
+          body: [el("p", { text: sentence(o.why) }),
+            o.installed ? el("p", { text: "You already have it: use the command below." }) : null,
+            o.alsoGreat.length ? el("p", { text: "Just as good: " + o.alsoGreat.slice(0, 2).join(", ") + more }) : null],
+          action: o.installed ? null : getButton(o.homepage, "Get " + o.name) }),
       );
       const yours = [data.best, ...data.also];
       if (data.free && !yours.some((t) => t.id === data.free.id)) yours.push(data.free);
       parts.push(
-        el("div", { class: "section-title", text: "② On your laptop: " + yours.map((t) => t.name).join(", ") }),
-        el("div", { class: "card mine" },
-          el("h3", {}, data.best.name, el("span", { class: "tag star", text: "Best of yours" }), el("span", { class: "tag", text: data.best.where })),
-          data.best.id !== o.id ? el("p", { text: sentence(data.best.why) }) : null,
-          command(data.best.command),
-          data.best.model ? el("p", { text: "Model: " + data.best.model }) : null,
-          data.files.length ? el("p", { text: "Starts with: " + data.files.join(", ") }) : null),
+        el("div", { class: "section-title", text: "On your laptop" }),
+        toolCard({ id: data.best.id, name: data.best.name,
+          tags: [el("span", { class: "tag star", text: "Best of yours" }), el("span", { class: "tag", text: data.best.where }), data.best.model ? el("span", { class: "tag", text: "model: " + data.best.model }) : null],
+          body: [data.best.id !== o.id ? el("p", { text: sentence(data.best.why) }) : null,
+            data.asksFirst ? el("p", { text: "Your task leaves the stack, style and content open, so the command asks you about them first." }) : null,
+            command(data.best.command),
+            data.files.length ? el("p", { text: "Starts with: " + data.files.join(", ") }) : null],
+          action: runButton(data.best.id) }),
       );
       if (yours.length > 1) {
-        parts.push(el("div", { class: "grid", style: "margin-top:12px" }, yours.slice(1).map((t) =>
-          el("div", { class: "card" }, el("h3", {}, t.name, el("span", { class: "tag", text: t.where })), t.why !== data.best.why ? el("p", { text: sentence(t.why) }) : null))));
+        parts.push(el("div", { class: "grid", style: "margin-top:10px" }, yours.slice(1).map((t) =>
+          toolCard({ id: t.id, name: t.name, tags: [el("span", { class: "tag", text: t.where })], body: [t.why !== data.best.why ? el("p", { text: sentence(t.why) }) : null],
+            action: t.command && !t.command.startsWith("Open ") ? runButton(t.id, "Run") : null }))));
       }
       if (data.reviewer) parts.push(el("div", { class: "section-title", text: "Second opinion from " + data.reviewer.name }), command(data.reviewer.command));
-      if (data.notes.length) parts.push(el("div", { class: "section-title", text: "Notes" }), ...data.notes.map((n) => el("p", { class: "muted", text: n })));
+      if (data.notes.length) parts.push(el("div", { style: "margin-top:18px" }, ...data.notes.map((n) => alertBox({ title: "Good to know", text: n, tone: "info" }))));
       return parts;
     },
     newcomer(data) {
       const parts = [el("p", { class: "muted", text: "No AI tool yet. Task type: " + data.labels.join(", ") + "." })];
       data.options.forEach((o, i) => {
         const card = el("div", { class: "card" + (i === 0 ? " best" : ""), style: "margin-bottom:8px" },
-          el("div", { class: "muted", text: o.label }),
+          el("div", { class: "eyebrow", text: o.label }),
           el("h3", {}, o.name, o.free ? el("span", { class: "tag yes", text: "Free" }) : null),
           el("p", { text: sentence(o.why) }));
         if (o.install) {
@@ -512,26 +674,26 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
       return parts;
     },
     handoff(data) {
-      const parts = [el("div", { class: "ok", text: "Wrote HANDOFF.md: " + data.changes.length + " changed file(s), " + data.commits.length + " commit(s) on " + data.branch + "." })];
+      // What the next AI will read, before anyone runs it: open the file, or look at it here.
+      const open = vscodeApi ? el("button", { class: "btn ghost", onclick: () => vscodeApi.postMessage({ type: "openHandoff" }) }, svg("external"), el("span", { text: "Open HANDOFF.md" })) : copyButton(data.note, "Copy HANDOFF.md");
+      const parts = [
+        el("div", { class: "ok wrote" }, el("span", { text: "Wrote HANDOFF.md: " + data.changes.length + " changed file(s), " + data.commits.length + " commit(s) on " + data.branch + "." }), open),
+        el("details", { class: "preview" }, el("summary", { text: "See what the next AI will read" }), el("pre", { class: "raw", text: data.note })),
+      ];
       if (data.chat) parts.push(el("p", { class: "muted", text: "Read from the " + data.chat.name + " chat (" + data.chat.requests + " request" + (data.chat.requests === 1 ? "" : "s") + "): “" + data.chat.task + "”" }));
       // The recommended AI first, then the others, then a chat on the web: the same choices as the terminal menu.
       parts.push(el("div", { class: "section-title", text: "Who carries on?" }));
-      const copyNote = (label) => {
-        const button = el("button", { class: "btn ghost", text: label, onclick: () => { copyText(data.note); button.textContent = "Copied"; setTimeout(() => (button.textContent = label), 1500); } });
-        return button;
-      };
       for (const choice of data.choices.filter((c) => c.id !== "none")) {
-        const card = el("div", { class: "card" + (choice.recommended ? " best" : ""), style: "margin-bottom:8px" },
-          el("h3", {}, choice.name, choice.recommended ? el("span", { class: "tag star", text: "Recommended" }) : null),
-          el("p", { text: sentence(choice.why) }));
+        const body = [el("p", { text: sentence(choice.why) })];
+        let action = null;
         if (choice.command) {
-          if (!choice.installed) card.append(el("p", { class: "muted", text: "Install it first:" }), command(choice.install), el("p", { class: "muted", text: "Then start it:" }));
-          card.append(command(choice.command));
-          const label = choice.installed ? "Run in terminal" : "Install and run in terminal";
-          if (vscodeApi) card.append(el("div", { class: "form", style: "margin:8px 0 0" }, el("button", { class: "btn", text: label, onclick: () => vscodeApi.postMessage({ type: "runInTerminal", choice: choice.id }) })));
-        } else if (choice.id === "other") card.append(command("Read HANDOFF.md and continue the task."));
-        else card.append(el("div", { class: "form", style: "margin:8px 0 0" }, copyNote("Copy HANDOFF.md")));
-        parts.push(card);
+          if (!choice.installed) body.push(el("p", { class: "muted", text: "Install it first:" }), command(choice.install), el("p", { class: "muted", text: "Then start it:" }));
+          body.push(command(choice.command));
+          const label = choice.installed ? "Run in terminal" : "Install and run";
+          action = runButton(choice.id, label);
+        } else if (choice.id === "other") body.push(command("Read HANDOFF.md and continue the task."));
+        else action = copyButton(data.note, "Copy HANDOFF.md");
+        parts.push(el("div", { style: "margin-bottom:8px" }, toolCard({ id: choice.id, name: choice.name, best: choice.recommended, tags: [choice.recommended ? el("span", { class: "tag star", text: "Recommended" }) : null], body, action })));
       }
       if (!data.next.best) parts.push(el("p", { class: "muted", text: "No other AI tool is installed. Gemini CLI has a free tier:" }), command("npm i -g @google/gemini-cli"));
       if (data.changes.length) parts.push(el("div", { class: "section-title", text: "Changed files in the note" }), el("table", {}, el("tr", {}, el("th", { text: "File" }), el("th", { text: "Change" })), data.changes.map((c) => el("tr", {}, el("td", { text: c.file }), el("td", { text: c.status + " (+" + c.added + " −" + c.removed + ")" })))));
@@ -574,15 +736,15 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
     usage(data) {
       if (!data.found) return [el("div", { class: "ok", text: "No Claude Code logs on this laptop, so there is no usage to show." })];
       const n = (v) => "~" + v.toLocaleString("en-US");
-      const stat = (label, bucket) => el("div", { class: "card" }, el("div", { class: "muted", text: label }), el("h3", { text: n(bucket.fresh) + " tokens" }), el("p", { text: bucket.replies + " replies · + " + n(bucket.cached) + " re-read from cache" }));
+      const stat = (label, bucket) => el("div", { class: "card" }, el("div", { class: "eyebrow", text: label }), el("h3", { class: "big", text: n(bucket.fresh) + " tokens" }), el("p", { text: bucket.replies + " replies · + " + n(bucket.cached) + " re-read from cache" }));
       const parts = [
-        el("div", { class: "card best", style: "margin-bottom:14px" }, el("div", { class: "muted", text: "5-hour limit window (estimate)" }), el("p", { text: data.windowText })),
-        data.warning ? el("div", { class: "consent", style: "margin-bottom:14px" }, el("strong", { text: "Close to your limit" }), el("p", { text: data.warning }),
-          el("p", { text: "To make it last:" }), el("ul", {}, ...data.tips.map((tip) => el("li", {}, el("span", { text: tip.text + ": " }), el("code", { text: tip.command }))))) : null,
+        el("div", { class: "card best", style: "margin-bottom:14px" }, el("div", { class: "eyebrow", text: "5-hour limit window (estimate)" }), el("p", { text: data.windowText })),
+        data.warning ? alertBox({ title: "Close to your limit", text: data.warning,
+          more: [el("p", { text: "To make it last:" }), el("ul", {}, ...data.tips.map((tip) => el("li", {}, el("span", { text: tip.text + ": " }), el("code", { text: tip.command }))))] }) : null,
         el("div", { class: "grid" }, stat("Today", data.today), stat("Last 7 days", data.week)),
       ];
       if (data.projects.length) parts.push(el("div", { class: "section-title", text: "Busiest projects (7 days)" }), el("table", {}, data.projects.map((p) => el("tr", {}, el("td", { text: p.project }), el("td", { text: n(p.fresh) + " tokens" })))));
-      if (data.tip) parts.push(el("div", { class: "consent", style: "margin-top:14px" }, el("strong", { text: "Tip" }), el("p", { text: data.tip })));
+      if (data.tip) parts.push(el("div", { style: "margin-top:14px" }, alertBox({ title: "Tip", text: data.tip, tone: "info" })));
       return parts;
     },
     report(data) {
@@ -593,7 +755,7 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
       if (data.week.replies) {
         const change = data.change === null ? "" : (data.change >= 0 ? "↑ " : "↓ ") + Math.abs(data.change) + "% vs the week before";
         const most = Math.max(...data.days.map((d) => d.fresh), 1);
-        parts.push(el("div", { class: "card best", style: "margin-bottom:14px" }, el("div", { class: "muted", text: "Claude Code, last 7 days" }), el("h3", { text: n(data.week.fresh) + " tokens" }), el("p", { text: data.week.replies + " replies" + (change ? " · " + change : "") })),
+        parts.push(el("div", { class: "card best", style: "margin-bottom:14px" }, el("div", { class: "eyebrow", text: "Claude Code, last 7 days" }), el("h3", { class: "big", text: n(data.week.fresh) + " tokens" }), el("p", { text: data.week.replies + " replies" + (change ? " · " + change : "") })),
           el("div", { class: "bars", role: "img", "aria-label": "Tokens per day" }, ...data.days.flatMap((d) => [el("span", { text: d.label }), el("div", { class: "bar", style: "width:" + Math.round((d.fresh / most) * 100) + "%" }), el("span", { class: "num", text: d.fresh ? n(d.fresh) : "0" })])),
           el("table", {},
             data.busiest ? el("tr", {}, el("td", { text: "Busiest day" }), el("td", { text: data.busiest.label + " (" + n(data.busiest.fresh) + " tokens)" })) : null,
@@ -607,31 +769,34 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
       return parts;
     },
     ai(data) {
-      if (!data.answer) return [el("div", { class: "consent" }, el("strong", { text: data.fallback + ", so here is the rules answer." }))].concat(RENDER.task(data.rules));
+      if (!data.answer) {
+        const retry = el("button", { class: "btn ghost", onclick: () => load("ai", { task: $("task").value, consent: true }) }, svg("retry"), el("span", { text: "Try again" }));
+        return [alertBox({ title: "Couldn't get an answer from " + data.runner.name, text: sentence(data.fallback) + " Here is the built-in answer instead.", action: retry })].concat(RENDER.task(data.rules));
+      }
       const a = data.answer;
-      const parts = [el("p", { class: "muted", text: "Answer from " + data.runner.name + " (asked with no tools). Rules answer: " + data.rules.overall.name + " / " + data.rules.best.name + "." })];
-      parts.push(el("div", { class: "section-title", text: "① Best AI for this task (any tool)" }),
-        el("div", { class: "card best" },
-          el("h3", {}, a.bestAnywhereName, el("span", { class: "tag " + (a.bestAnywhereInstalled ? "yes" : "no"), text: a.bestAnywhereInstalled ? "✓ On your laptop" : "✗ Not on your laptop" })),
-          a.bestAnywhereInstalled ? el("p", { text: "You already have it: use the command below." })
-            : el("p", {}, "Get it: ", el("a", { href: a.bestAnywhereHomepage, target: "_blank", rel: "noopener", text: a.bestAnywhereHomepage.replace("https://", "") }))));
-      parts.push(el("div", { class: "section-title", text: "② Use on your laptop" }),
-        el("div", { class: "card mine" },
-          el("h3", {}, a.bestInstalledName, a.model ? el("span", { class: "tag", text: "model: " + a.model }) : null),
-          el("p", { text: a.why }),
-          command(data.command)));
-      if (a.steps.length) parts.push(el("div", { class: "section-title", text: "Steps" }), el("ol", {}, a.steps.map((s) => el("li", { text: s }))));
-      parts.push(el("div", { class: "section-title", text: "Better prompt" }), el("pre", { class: "raw", text: a.prompt }));
+      const parts = [note("Answer from " + data.runner.name + " (asked with no tools). Rules answer: " + data.rules.overall.name + " / " + data.rules.best.name + ".")];
+      parts.push(el("div", { class: "section-title", text: "Best AI for this task (any tool)" }),
+        toolCard({ id: a.bestAnywhere, name: a.bestAnywhereName, best: true,
+          tags: [el("span", { class: "tag " + (a.bestAnywhereInstalled ? "yes" : "no"), text: a.bestAnywhereInstalled ? "✓ On your laptop" : "Not on your laptop" })],
+          body: [a.bestAnywhereInstalled ? el("p", { text: "You already have it: use the command below." })
+            : el("p", {}, "Get it: ", el("a", { href: a.bestAnywhereHomepage, target: "_blank", rel: "noopener", text: a.bestAnywhereHomepage.replace("https://", "") }))],
+          action: a.bestAnywhereInstalled ? null : getButton(a.bestAnywhereHomepage, "Get it") }));
+      const body = [el("p", { text: a.why }), command(data.command)];
+      if (a.questions.length) body.push(el("div", { class: "section-title", text: "Decide first" }), el("p", { class: "muted", text: "The task leaves these open, so the prompt asks you before any code is written:" }), el("ul", {}, a.questions.map((q) => el("li", { text: q }))));
+      if (a.steps.length) body.push(el("div", { class: "section-title", text: "Steps" }), el("ol", { class: "steps" }, a.steps.map((s) => el("li", {}, el("span", { text: s })))));
+      body.push(el("div", { class: "section-title", text: "Better prompt" }), command(a.prompt));
+      parts.push(el("div", { class: "section-title", text: "Use on your laptop" }),
+        toolCard({ id: a.bestInstalled, name: a.bestInstalledName, tags: [a.model ? el("span", { class: "tag", text: "model: " + a.model }) : null], body, action: runButton(a.bestInstalled) }));
       return parts;
     },
     slim(data) {
       if (data.applied) return [el("div", { class: "ok", text: "Done. " + data.applied + " now uses the shorter version; the old one is in " + data.applied + ".bak." })];
       if (!data.target) return [el("div", { class: "ok", text: "No instructions file over 2,000 tokens, so there is nothing worth shortening." })];
-      if (!data.written) return [el("div", { class: "consent" }, el("strong", { text: data.runner.name + " did not return a shorter file. Nothing was written." }))];
+      if (!data.written) return [alertBox({ title: data.runner.name + " did not return a shorter file", text: "Nothing was written." })];
       return [
         el("div", { class: "grid" },
-          el("div", { class: "card" }, el("div", { class: "muted", text: "Now" }), el("h3", { text: "~" + data.before.toLocaleString("en-US") + " tokens per message" })),
-          el("div", { class: "card mine" }, el("div", { class: "muted", text: "Shorter copy (" + data.written + ")" }), el("h3", { text: "~" + data.after.toLocaleString("en-US") + " tokens per message" }))),
+          el("div", { class: "card" }, el("div", { class: "eyebrow", text: "Now" }), el("h3", { text: "~" + data.before.toLocaleString("en-US") + " tokens per message" })),
+          el("div", { class: "card mine" }, el("div", { class: "eyebrow", text: "Shorter copy (" + data.written + ")" }), el("h3", { text: "~" + data.after.toLocaleString("en-US") + " tokens per message" }))),
         el("p", { class: "muted", text: data.target.file + " is unchanged. Read the shorter copy below; use it only if it keeps everything you need." }),
         el("pre", { class: "raw", text: data.slim }),
         el("button", { class: "btn", style: "margin-top:14px", text: "Use the shorter version", onclick: () => load("slim", { apply: true }) }),
@@ -660,7 +825,8 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
   async function load(action, body = {}, applied = false) {
     const response = await call(action, body);
     if (!response) return;
-    result.replaceChildren(...RENDER[action](response.data, applied, response.text));
+    // Optional parts are null; replaceChildren would print them as the word "null".
+    result.replaceChildren(...RENDER[action](response.data, applied, response.text).filter(Boolean));
     if (applied) refreshStats();
     if (window.matchMedia("(max-width: 980px)").matches) result.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -683,7 +849,8 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
     $("form-slim").classList.toggle("hidden", view !== "slim");
     $("consent").classList.add("hidden");
     result.replaceChildren();
-    status.textContent = "";
+    idle();
+    $("updated").textContent = "";
     if (view === "task") $("task").focus();
     else if (view === "handoff") $("handoff-task").focus();
     else if (view === "guide") result.replaceChildren(...guide());
@@ -698,7 +865,7 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
     onAllow = allow;
   }
   $("consent-yes").addEventListener("click", () => { $("consent").classList.add("hidden"); if (onAllow) onAllow(); });
-  $("consent-no").addEventListener("click", () => { $("consent").classList.add("hidden"); status.textContent = "Nothing was sent."; });
+  $("consent-no").addEventListener("click", () => { $("consent").classList.add("hidden"); idle("Nothing was sent."); });
 
   let aiAllowed = false;
   async function ask() {
@@ -708,18 +875,19 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
     if (aiAllowed) return load("ai", { task, consent: true });
     const preview = await call("ai", { task });
     if (!preview) return;
-    result.replaceChildren(...RENDER.task(preview.data.rules));
+    result.replaceChildren(...RENDER.task(preview.data.rules).filter(Boolean));
     askConsent(preview.text, () => { aiAllowed = true; load("ai", { task, consent: true }); });
   }
 
   async function startSlim() {
     const preview = await call("slim");
     if (!preview) return;
-    if (!preview.data.needsConsent) return result.replaceChildren(...RENDER.slim(preview.data));
+    if (!preview.data.needsConsent) return result.replaceChildren(...RENDER.slim(preview.data).filter(Boolean));
     askConsent(preview.text, () => load("slim", { consent: true }));
   }
 
   document.querySelectorAll(".nav-btn").forEach((b) => b.addEventListener("click", () => show(b.dataset.view)));
+  document.querySelectorAll(".stat").forEach((b) => b.addEventListener("click", () => show(b.dataset.go)));
 
   // Sidebar only: open the full view, and a tip about widening the sidebar until it is dismissed.
   if ($("open-full")) $("open-full").addEventListener("click", () => vscodeApi.postMessage({ type: "openFull" }));

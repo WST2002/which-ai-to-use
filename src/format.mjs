@@ -105,10 +105,13 @@ export function formatAiAnswer({ runner, seconds, answer, anywhere, installedIds
     `① Best AI for this task: ${anywhere.name} ${installed ? "✓ on your laptop" : `✗ not on your laptop (${anywhere.homepage.replace(/^https:\/\//, "")})`}`,
     `② On your laptop, use: ${installedName}${answer.model ? ` · model: ${answer.model}` : ""}`,
     `${indent}Why: ${answer.why}`,
+  ];
+  if (answer.questions.length) lines.push("", "Decide first (the prompt asks you these):", ...answer.questions.map((q) => `${indent}• ${q}`));
+  lines.push(
     "",
     "Better prompt:",
     ...answer.prompt.split("\n").map((line) => `${indent}${line}`),
-  ];
+  );
   if (answer.steps.length) lines.push("", "Steps:", ...answer.steps.map((step, i) => `${indent}${i + 1}. ${step}`));
   lines.push("", `${pad("Run")}${command}`);
   const agrees = rules.overall.id === anywhere.id && rules.best.id === answer.bestInstalled;

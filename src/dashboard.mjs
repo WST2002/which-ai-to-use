@@ -12,7 +12,8 @@ const ACTIONS = {
   checkup: (context) => checkupAction(context),
   task: (context, body) => recommendAction({ ...context, task: body.task }),
   newcomer: (context, body) => newcomerAction({ ...context, task: body.task }),
-  handoff: (context, body) => handoffAction({ ...context, task: String(body.task ?? "").trim() }),
+  // A tool left out is still installed: it is named as left out, not offered as "not installed yet".
+  handoff: (context, body, { detected, without }) => handoffAction({ ...context, installed: detected, leftOut: without, task: String(body.task ?? "").trim() }),
   fix: (context, body) => fixAction({ ...context, apply: body.apply === true }),
   tokens: (context) => tokensAction(context),
   doctor: (context) => doctorAction(context),
@@ -28,8 +29,9 @@ export async function runAction(name, body, { cwd, home, detect = detectTools, a
   const action = ACTIONS[name];
   if (!action) throw new Error(`unknown action ${name}`);
   const without = Array.isArray(body.without) ? body.without.filter((id) => toolById(id)) : [];
-  const installed = detect().filter((found) => !without.includes(found.id));
-  return action({ cwd, home, installed, ...(ask ? { ask } : {}) }, body);
+  const detected = detect();
+  const installed = detected.filter((found) => !without.includes(found.id));
+  return action({ cwd, home, installed, ...(ask ? { ask } : {}) }, body, { detected, without });
 }
 
 function readBody(req) {

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { betterPrompt, relevantFiles, verifyCommand } from "../src/prompt.mjs";
+import { betterPrompt, openEnded, relevantFiles, verifyCommand } from "../src/prompt.mjs";
 
 function project(t, files) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "waitu-prompt-"));
@@ -43,6 +43,18 @@ test("the better prompt adds files and how to verify, only when known", () => {
     "fix the login bug. Start with src/auth/login.ts. When done, run npm test and report the result.",
   );
   assert.equal(betterPrompt("fix the login bug", [], null), "fix the login bug");
+});
+
+test("a short task for something new asks for the stack, style and content instead of picking them", () => {
+  assert.equal(
+    betterPrompt("i have to make my portfolio", [], "npm test"),
+    "i have to make my portfolio. Before writing any code, ask me which tech stack, style and content I want, and wait for my answers.",
+  );
+  assert.equal(openEnded("build a landing page for my bakery", []), true);
+  assert.equal(openEnded("make the portfolio hero look better", ["src/Hero.tsx"]), false, "work on an existing file is not open-ended");
+  assert.equal(openEnded("fix the login bug", []), false);
+  const detailed = "build a portfolio site with Next.js and Tailwind, dark theme, sections for about, projects, blog and contact, deployed on Vercel";
+  assert.equal(openEnded(detailed, []), false, "a task that already says the stack is not asked again");
 });
 
 test("a rare word in the task counts for more than a common one", () => {

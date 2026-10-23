@@ -1,7 +1,7 @@
 {
   "name": "which-ai-to-use",
   "displayName": "Which AI to Use",
-  "description": "See what wastes your AI tokens, your AI setup score, which AI and model to use for a task, tips when Claude's limit is close, hand work to another AI when it runs out, and your AI week. Runs locally.",
+  "description": "Hit Claude's usage limit mid-task? Hand the task to Codex or Gemini with the full context, and back when it resets. Also: which AI and model to use for a task, what wastes your tokens, and your AI week. Runs locally.",
   "version": "0.2.0",
   "publisher": "wst2002",
   "icon": "media/icon.png",
@@ -18,8 +18,8 @@
   "engines": {
     "vscode": "^1.90.0"
   },
-  "categories": ["AI", "Other"],
-  "keywords": ["claude", "claude code", "codex", "gemini", "copilot", "tokens", "ai tools"],
+  "categories": ["AI", "Machine Learning", "Other"],
+  "keywords": ["claude", "claude code", "codex", "gemini", "gemini cli", "chatgpt", "copilot", "cursor", "handoff", "usage limit", "rate limit", "context", "tokens", "ai tools", "which ai", "ai agent"],
   "activationEvents": ["onStartupFinished"],
   "main": "./extension.js",
   "contributes": {
