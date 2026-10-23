@@ -176,11 +176,22 @@ test("the usage view gets the 5-hour window line", async (t) => {
 test("the menu has a How to use guide and line icons, and other views still fill the summary", async () => {
   const { dashboardPage } = await import("../src/dashboard-page.mjs");
   const page = dashboardPage({ token: "t", project: "shop", version: "1" });
-  assert.match(page, /data-view="guide"><svg class="i"[^>]*>.*<\/svg><span><strong>How to use<\/strong><small>Six steps to get started<\/small>/);
+  assert.match(page, /data-view="guide" title="Six steps to get started"><svg class="i"[^>]*>.*<\/svg><span><strong>How to use<\/strong><small>Six steps to get started<\/small>/);
   assert.equal((page.match(/<button class="nav-btn"/g) ?? []).length, 11);
   assert.doesNotMatch(page, /nav-more|More tools/);
   assert.match(page, /step\("4\. Claude's limit ran out\?"/);
   assert.match(page, /if \(opening !== "checkup"\) refreshStats\(\);/);
+});
+
+test("while waiting the page shows a spinner with what is happening, and gives up on a reply that never comes", async () => {
+  const { dashboardPage } = await import("../src/dashboard-page.mjs");
+  const page = dashboardPage({ token: "", project: "shop", version: "1", bridge: "vscode", nonce: "n" });
+  assert.doesNotMatch(page, /Running…/);
+  assert.match(page, /el\("span", \{ class: "spinner", "aria-hidden": "true" \}\)/);
+  assert.match(page, /ai: "Asking your AI\. This can take up to 2 minutes\."/);
+  assert.match(page, /No answer from VS Code after 3 minutes/);
+  assert.match(page, /RENDER\[action\]\(response\.data, applied, response\.text\)\.filter\(Boolean\)/, "optional parts never print as the word null");
+  assert.match(page, /<span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24">/, "the header shows the sparkle logo");
 });
 
 test("the footer links the author's LinkedIn and the repository", async () => {
