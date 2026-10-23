@@ -94,11 +94,11 @@ test("other failures and other events do nothing", (t) => {
   assert.equal(calls(), "");
 });
 
-test("outside a git project the limit is recorded but no note is written", (t) => {
+test("outside a git project the note is written in the folder Claude worked in", (t) => {
   const { run, limits, calls } = machine(t, { git: false });
   run({ hook_event_name: "StopFailure", error: "rate_limit", last_assistant_message: "usage limit reached" });
   assert.equal(limits().length, 1);
-  assert.equal(calls(), "");
+  assert.match(calls(), /handoff --to none --copy by=hook/);
 });
 
 test("the plugin and the marketplace describe the same plugin", () => {
