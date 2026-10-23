@@ -22,13 +22,16 @@ test("the prompt sends the task, tool names and file names, never file contents"
   assert.match(prompt, /cursor: agent, inline/);
   assert.match(prompt, /src\/Hero\.tsx/);
   assert.match(prompt, /Reply with only this JSON/);
+  assert.match(prompt, /Do not decide anything the task leaves open/, "the AI asks about the stack instead of picking one");
+  assert.match(prompt, /"questions":/);
   assert.doesNotMatch(prompt, /export default|function Hero/);
 });
 
 test("the answer is read from JSON inside any extra text, and checked against real tools", () => {
-  const text = 'Sure!\n```json\n{"best_anywhere":"cursor","best_installed":"claude-code","model":"sonnet","why":"Visual work.","prompt":"Improve Hero.tsx spacing","steps":["Open Hero.tsx","Run npm test"]}\n```';
+  const text = 'Sure!\n```json\n{"best_anywhere":"cursor","best_installed":"claude-code","model":"sonnet","why":"Visual work.","questions":["Which framework?"," ",3],"prompt":"Improve Hero.tsx spacing","steps":["Open Hero.tsx","Run npm test"]}\n```';
   const answer = parseAiAnswer(text, { installedIds: ["claude-code"] });
-  assert.deepEqual(answer, { bestAnywhere: "cursor", bestInstalled: "claude-code", model: "sonnet", why: "Visual work.", prompt: "Improve Hero.tsx spacing", steps: ["Open Hero.tsx", "Run npm test"] });
+  assert.deepEqual(answer, { bestAnywhere: "cursor", bestInstalled: "claude-code", model: "sonnet", why: "Visual work.", prompt: "Improve Hero.tsx spacing", questions: ["Which framework?"], steps: ["Open Hero.tsx", "Run npm test"] });
+  assert.deepEqual(parseAiAnswer('{"best_anywhere":"cursor","best_installed":"claude-code","why":"x","prompt":"y"}', { installedIds: ["claude-code"] }).questions, [], "an answer without questions still works");
 });
 
 test("answers naming unknown or uninstalled tools, or not JSON at all, are rejected", () => {

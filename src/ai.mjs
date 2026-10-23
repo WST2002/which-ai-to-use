@@ -40,8 +40,11 @@ export function buildAiPrompt({ task, labels, installed, files, verify, rules })
     `Test command in this project: ${verify ?? "none found"}`,
     `The rules picked: best anywhere = ${rules.overall}, best installed = ${rules.best}. Agree or improve on this.`,
     "",
+    "Do not decide anything the task leaves open, such as the framework or language, styling, hosting, design or content.",
+    "List those choices as questions for the developer, and write the prompt so the coding agent asks them first and waits for the answers.",
+    "",
     "Reply with only this JSON, nothing else:",
-    '{"best_anywhere": "<tool id from the list>", "best_installed": "<tool id from the installed list>", "model": "<model to use, or empty>", "why": "<one plain sentence>", "prompt": "<a better prompt for the coding agent, under 120 words, naming the files to start with and how to check the work>", "steps": ["<short step>", "<short step>", "<short step>"]}',
+    '{"best_anywhere": "<tool id from the list>", "best_installed": "<tool id from the installed list>", "model": "<model to use, or empty>", "why": "<one plain sentence>", "questions": ["<a choice the task leaves open, as a short question>"], "prompt": "<a better prompt for the coding agent, under 120 words, naming the files to start with and how to check the work, never picking what the questions ask>", "steps": ["<short step>", "<short step>", "<short step>"]}',
   ].join("\n");
 }
 
@@ -65,7 +68,8 @@ export function parseAiAnswer(text, { installedIds }) {
     model: typeof raw.model === "string" ? raw.model : "",
     why: raw.why.trim(),
     prompt: raw.prompt.trim(),
-    steps: Array.isArray(raw.steps) ? raw.steps.filter((s) => typeof s === "string").slice(0, 6) : [],
+    questions: Array.isArray(raw.questions) ? raw.questions.filter((q) => typeof q === "string" && q.trim()).map((q) => q.trim()).slice(0, 6) : [],
+    steps:Array.isArray(raw.steps) ? raw.steps.filter((s) => typeof s === "string").slice(0, 6) : [],
   };
 }
 
