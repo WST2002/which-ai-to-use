@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
@@ -132,6 +133,18 @@ test("runAction gives the sidebar the same answers as the server, and leaves out
   const task = await runAction("task", { task: "fix the login bug", without: ["claude-code"] }, { cwd: dir, home: dir, detect: two });
   assert.equal(task.data.best.id, "gemini-cli");
   await assert.rejects(runAction("format-disk", {}, { cwd: dir, home: dir, detect: two }), /unknown action format-disk/);
+});
+
+test("a handoff from the dashboard names Claude Code as left out, never as not installed", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "waitu-run-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  spawnSync("git", ["init", "-q"], { cwd: dir });
+  const two = () => [...claudeOnly(), { id: "gemini-cli", name: "Gemini CLI", onPath: true, via: ["command: gemini"] }];
+  const handoff = await runAction("handoff", { task: "add a cart", without: ["claude-code"] }, { cwd: dir, home: dir, detect: two });
+  assert.match(handoff.text, /Left out: Claude Code \(limit over\)/);
+  assert.equal(handoff.data.choices[0].id, "gemini-cli");
+  assert.equal(handoff.data.choices.some((c) => c.id === "claude-code"), false, "Claude Code is not offered to install");
+  assert.match(fs.readFileSync(path.join(dir, "HANDOFF.md"), "utf8"), /from=claude-code/, "the note records that it came from Claude, so it can go back");
 });
 
 test("the page talks to the local server by default and to VS Code only in the sidebar", async () => {
