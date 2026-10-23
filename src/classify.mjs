@@ -6,7 +6,7 @@ const RULES = [
   ["code-review", /\b(review|pull request|pr|diff|check my changes|code review)\b/i],
   ["explain-codebase", /\b(explain|understand|how does|how do|walk me through|onboard|overview|summari[sz]e|summary of|samjhao|samjha|samajh)\b/i],
   ["docs", /\b(readme|docs|documentation|document|comments|changelog|jsdoc|docstring)\b/i],
-  ["ui", /\b(ui|ux|css|layout|responsive|design|navbar|button|page style|tailwind|figma|component|mobile view|dark mode|look better|looks? (nice|good|modern)|styling|style|theme|colou?rs?|fonts?|spacing|animations?|hero|banner|sundar|beautiful)\b/i],
+  ["ui", /\b(ui|ux|css|layout|responsive|design|navbar|button|page style|tailwind|figma|component|mobile view|dark mode|look better|looks? (nice|good|modern)|styling|style|theme|colou?rs?|fonts?|spacing|animations?|hero|banner|sundar|beautiful|nicer|prettier|redesign|good looking|visually)\b/i],
   ["quick-edit", /\b(rename|typo|one line|single line|small change|tweak|change the text|update the copy)\b/i],
   ["multi-file-feature", /\b(add|build|create|implement|feature|integrate|support|banao|bana do|add karo|dashboard|endpoint|api|page)\b/i],
 ];
