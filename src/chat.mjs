@@ -125,11 +125,16 @@ const jsonLines = (text) =>
     }
   });
 
+// Claude Code tools that change a file, and where each names it.
+const CLAUDE_EDITS = new Set(["Edit", "MultiEdit", "Write", "NotebookEdit"]);
+
 function parseClaude(text, root) {
   const entries = jsonLines(text).filter((e) => !root || inside(e.cwd, root));
+  const calls = entries.filter((e) => e.type === "assistant" && Array.isArray(e.message?.content)).flatMap((e) => e.message.content.filter((b) => b?.type === "tool_use"));
   return {
     asked: entries.filter((e) => e.type === "user" && !e.isMeta).map((e) => textOf(e.message?.content)).filter((t) => t.trim() && !NOT_A_REQUEST.test(t)),
     replies: entries.filter((e) => e.type === "assistant").map((e) => textOf(e.message?.content)).filter((t) => t.trim()),
+    edited: calls.filter((b) => CLAUDE_EDITS.has(b.name)).map((b) => b.input?.file_path ?? b.input?.notebook_path),
   };
 }
 
@@ -137,6 +142,23 @@ function parseClaude(text, root) {
 const codexText = (content) => (Array.isArray(content) ? content.filter((b) => typeof b?.text === "string").map((b) => b.text).join("\n") : typeof content === "string" ? content : "");
 // Codex adds its own context (environment, AGENTS.md) as user messages in tags.
 const CODEX_CONTEXT = /^\s*(<[\w_-]+>|# AGENTS\.md)/;
+// Codex changes files with patches that name each one on a line like "*** Update File: src/cart.ts".
+const PATCH_FILE = /^\*\*\* (?:Add|Update|Delete) File: (.+)$/gm;
+
+// Every string in a value, reading JSON text as JSON first.
+function stringsIn(value) {
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed && typeof parsed === "object") return stringsIn(parsed);
+    } catch {
+      // plain text
+    }
+    return [value];
+  }
+  if (value && typeof value === "object") return Object.values(value).flatMap(stringsIn);
+  return [];
+}
 
 function parseCodex(text, root) {
   const items = jsonLines(text).map((e) => (e.payload && e.type ? { ...e.payload, line: e.type } : e));
@@ -144,9 +166,12 @@ function parseCodex(text, root) {
   const folder = meta?.cwd ?? /<cwd>([^<]+)<\/cwd>/.exec(items.map((i) => codexText(i.content)).join("\n"))?.[1];
   if (root && !inside(folder, root)) return null;
   const messages = items.filter((i) => i.type === "message");
+  // Tool calls carry their input as text or as JSON text; a patch inside names each file it changes.
+  const callText = items.filter((i) => /_call$/.test(i.type ?? "")).flatMap((i) => [i.input, i.arguments]).flatMap(stringsIn).join("\n");
   return {
     asked: messages.filter((m) => m.role === "user").map((m) => codexText(m.content)).filter((t) => t.trim() && !CODEX_CONTEXT.test(t)),
     replies: messages.filter((m) => m.role === "assistant").map((m) => codexText(m.content)).filter((t) => t.trim()),
+    edited: [...callText.matchAll(PATCH_FILE)].map((m) => m[1].trim()).map((file) => (folder ? path.resolve(folder, file) : file)),
   };
 }
 
@@ -172,10 +197,37 @@ function parseGemini(text, root, file) {
     if (![root, path.resolve(root), real].some((p) => sha256(p) === hash)) return null;
   }
   const messages = Array.isArray(chat.messages) ? chat.messages : [];
+  // Gemini CLI's file tools (write_file, replace) name the file in their arguments.
+  const calls = messages.flatMap((m) => (Array.isArray(m.toolCalls) ? m.toolCalls : []));
   return {
     asked: messages.filter((m) => m.type === "user").map((m) => geminiText(m.content)).filter((t) => t.trim() && !t.trim().startsWith("/")),
     replies: messages.filter((m) => m.type === "gemini" || m.type === "model").map((m) => geminiText(m.content)).filter((t) => t.trim()),
+    edited: calls.filter((c) => /write|replace|edit/i.test(c?.name ?? "")).map((c) => c.args?.file_path ?? c.args?.absolute_path ?? c.args?.path),
   };
+}
+
+/** The files an AI changed in a chat, inside the project, as project paths with / (each once, sorted). */
+function editedIn(files = [], root) {
+  if (!root) return [];
+  const real = (p) => {
+    try {
+      return fs.realpathSync.native(p);
+    } catch {
+      return p;
+    }
+  };
+  // The log and the project may name the same folder two ways (a symlink, as /var and /private/var on macOS).
+  const within = (file) => {
+    const full = path.resolve(root, file);
+    for (const base of [path.resolve(root), real(path.resolve(root))]) {
+      for (const candidate of [full, real(full)]) {
+        const rel = path.relative(base, candidate);
+        if (rel && !rel.startsWith("..") && !path.isAbsolute(rel)) return rel.split(path.sep).join("/");
+      }
+    }
+    return null;
+  };
+  return [...new Set(files.filter((file) => typeof file === "string" && file.trim()).map(within).filter(Boolean))].sort();
 }
 
 // Where each AI keeps its chats on this laptop, and how to read one.
@@ -204,6 +256,7 @@ function latest(tool, { home, cwd }) {
       recent: chat.asked.slice(1).slice(-RECENT).map(clip),
       lastReply: chat.replies.length ? clip(chat.replies.at(-1)) : "",
       requests: chat.asked.length,
+      edited: editedIn(chat.edited, cwd),
     };
   }
   return null;
