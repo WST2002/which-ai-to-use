@@ -69,7 +69,18 @@ export function verifyCommand(dir) {
   return null;
 }
 
+// Something new described in a few words ("make my portfolio") leaves the stack, the look and the content open.
+const NEW_BUILD = /\b(make|build|create|start|banao|bana do|banana)\b[\s\S]*\b(portfolio|website|web site|site|app|resume|cv|landing page|blog|game|store|shop|bot|extension)\b|\bfrom scratch\b/i;
+const ASK_FIRST = "Before writing any code, ask me which tech stack, style and content I want, and wait for my answers.";
+
+/** A short task for something new, with no file of this project to start from: the agent should ask, not guess. */
+export function openEnded(task, files) {
+  return !files.length && NEW_BUILD.test(task) && task.trim().split(/\s+/).length <= 15;
+}
+
 export function betterPrompt(task, files, verify) {
+  // The project's tests say nothing about a new thing that is not built yet.
+  if (openEnded(task, files)) return `${task.replace(/[.\s]+$/, "")}. ${ASK_FIRST}`;
   const parts = [task];
   if (files.length) parts.push(`Start with ${files.join(", ")}.`);
   if (verify) parts.push(`When done, run ${verify} and report the result.`);

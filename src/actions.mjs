@@ -12,7 +12,7 @@ import { lastChat } from "./chat.mjs";
 import { collectHandoff, handoffTask, renderHandoff } from "./handoff.mjs";
 import { RULES_FILES, scanProject } from "./project.mjs";
 import { buildSlimPrompt, parseSlim, slimFileName } from "./slim.mjs";
-import { betterPrompt, relevantFiles, verifyCommand } from "./prompt.mjs";
+import { betterPrompt, openEnded, relevantFiles, verifyCommand } from "./prompt.mjs";
 import { recommend, runCommandFor } from "./recommend.mjs";
 import { aiRunner, askAi, buildAiPrompt, parseAiAnswer } from "./ai.mjs";
 import { startCost } from "./cost.mjs";
@@ -220,7 +220,7 @@ export function recommendAction({ cwd, home, task, installed, prefer = "balanced
     const addOns = home ? mcpServers({ home, dir: cwd }).filter((server) => server.tool === name).length : 0;
     result.cost = startCost({ dir: cwd, toolId: result.best.id, files, prompt, addOns });
   }
-  return { text: formatRecommendation(result), data: { ...result, labels: result.categories.map((c) => LABELS[c] ?? c) } };
+  return { text: formatRecommendation(result), data: { ...result, asksFirst: openEnded(clean, files), labels: result.categories.map((c) => LABELS[c] ?? c) } };
 }
 
 const CONTINUE = "Read HANDOFF.md and continue the task.";
