@@ -275,7 +275,7 @@ let fullView;
 const COMMANDS = {
   async checkup() {
     const { checkupAction } = await load();
-    const { text } = checkupAction(await context());
+    const { text, data } = checkupAction(await context());
     show("Checkup", text);
     return text;
   },
@@ -291,6 +291,9 @@ const COMMANDS = {
     }
     return text;
   },
+    // Heavy files can be skipped right away, without opening Fix wasted tokens; not awaited, so the text comes back now.
+    const heavy = data.issues.find((issue) => issue.kind === "heavy-files");
+    if (heavy) notice("info", `Which AI: ${heavy.problem} Make your AI tools skip ${data.heavy.length === 1 ? "it" : "them"}?`, "Fix it now").then((picked) => picked && COMMANDS.fix(true));
   async fix(apply) {
     const { fixAction } = await load();
     const preview = fixAction(await context());

@@ -29,8 +29,9 @@ exports.run = async () => {
     assert.match(api.lastWarning(), /^This window is at 90% of your busiest 5-hour window this week \(~100,000 tokens\)/);
   });
 
-  await check("checkup matches the CLI", async () => {
+  await check("checkup matches the CLI and offers to fix heavy files right there", async () => {
     assert.match(await run("whichAi.checkup"), /package-lock\.json is ~10,240 tokens/);
+    assert.ok(api.notices().some((text) => /^Which AI: package-lock\.json is ~10,240 tokens\. .*Make your AI tools skip it\?$/.test(text)));
   });
 
   await check("task advice names the best AI anywhere and the right file", async () => {

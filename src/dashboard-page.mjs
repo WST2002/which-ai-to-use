@@ -60,7 +60,7 @@ const ICON_PATHS = {
   retry: '<path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v3h-3"/>',
 };
 // Pieces of markup the script builds from: our own icons, never anything from the server.
-const ICONS_FOR_SCRIPT = ["copy", "send", "external", "download", "info", "warn", "retry"];
+const ICONS_FOR_SCRIPT = ["copy", "send", "external", "download", "info", "warn", "retry", "fix", "usage"];
 const icon = (name) => `<svg class="i" viewBox="0 0 16 16" aria-hidden="true">${ICON_PATHS[name]}</svg>`;
 const NAV = [
   ["checkup", "Checkup", "What is wasting your tokens"],
@@ -602,6 +602,36 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
       // No AI on this laptop yet: ask what they want to do and suggest one, before anything else.
       if (!data.installed.length) {
         const input = el("input", { type: "text", id: "newcomer-task", placeholder: "What do you want to do? e.g. build a landing page", "aria-label": "What do you want to do?" });
+  // The fix for each checkup issue, right under it: heavy files are skipped in one click, the rest open their tool.
+  function issueActions(issue, data) {
+    if (issue.kind === "heavy-files") {
+      const files = data.heavy.map((h) => h.file);
+      return [
+        el("details", { class: "preview" }, el("summary", { text: "Files your AI tools will skip (" + files.length + ")" }), el("ul", {}, files.map((file) => el("li", {}, el("code", { text: file }))))),
+        el("button", { class: "btn small", style: "margin-top:10px", onclick: () => fixNow(data.score.score) }, svg("fix"), el("span", { text: "Fix it now" })),
+      ];
+    }
+    if (issue.kind === "instructions") return [el("button", { class: "btn ghost small", style: "margin-top:10px", text: "Shorten it with my AI", onclick: () => show("slim") })];
+    if (issue.kind === "add-ons") {
+      const claude = data.mcp.find((server) => server.tool === "Claude Code");
+      return claude ? [command("claude mcp remove " + claude.name)] : [];
+    }
+    return [];
+  }
+
+  // Applies the fix from the checkup, then shows the checkup again with what changed and the new score.
+  async function fixNow(before) {
+    const done = await call("fix", { apply: true });
+    if (!done) return;
+    const fresh = await call("checkup");
+    if (!fresh) return;
+    const changed = done.data.changes.map((c) => c.file);
+    const text = changed.length
+      ? "Fixed. Your AI tools now skip " + done.data.planned.length + " heavy file entr" + (done.data.planned.length === 1 ? "y" : "ies") + " (updated " + changed.join(", ") + "). Setup score " + before + " → " + fresh.data.score.score + "/100."
+      : "Already done: your AI tools skip these files.";
+    result.replaceChildren(el("div", { class: "ok", style: "margin-bottom:12px", text }), ...RENDER.checkup(fresh.data).filter(Boolean));
+  }
+
         const go = el("button", { class: "btn", text: "Suggest an AI", onclick: () => load("newcomer", { task: input.value }) });
         input.addEventListener("keydown", (e) => e.key === "Enter" && go.click());
         return [el("div", { class: "card best" },
@@ -618,8 +648,8 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
               el("span", { class: "num", text: String(i + 1) }),
               el("div", {},
                 el("div", { text: issue.problem }),
-                el("div", { class: "fix", text: "→ " + issue.fix.replace("npx which-ai-to-use fix", "click Fix wasted tokens") }),
-                issue.kind === "heavy-files" ? el("button", { class: "btn small", style: "margin-top:10px", text: "Fix it", onclick: () => show("fix") }) : null)))),
+                el("div", { class: "fix", text: "→ " + issue.fix.replace("Fix it:  npx which-ai-to-use fix", "Make your AI tools skip them. Your code is not touched.") }),
+                ...issueActions(issue, data))))),
         ),
       ];
     },
