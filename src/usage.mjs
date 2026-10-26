@@ -5,6 +5,10 @@ const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 const WINDOW = 5 * HOUR;
 const MAX_PROJECTS = 5;
+// The pace is read from the replies of the last half hour; one reply, or a few minutes, says nothing about it.
+const PACE_SPAN = 30 * 60 * 1000;
+const MIN_PACE_SPAN = 5 * 60 * 1000;
+const MIN_PACE_REPLIES = 2;
 
 function* logFiles(dir) {
   let entries;
@@ -72,6 +76,19 @@ function limitReference(windows, open, hits) {
 }
 
 /**
+ * Tokens per minute in the open window over the last half hour, or null when there is too little to go on
+ * (no open window, fewer than two recent replies, or nothing in the last half hour: the user is taking a break).
+ */
+function paceOf(replies, window, now) {
+  if (!window) return null;
+  const from = Math.max(window.start, now - PACE_SPAN);
+  const recent = replies.filter((r) => r.time >= from && r.time <= now);
+  if (recent.length < MIN_PACE_REPLIES) return null;
+  const minutes = Math.max(now - from, MIN_PACE_SPAN) / 60000;
+  return { perMinute: recent.reduce((sum, r) => sum + r.fresh, 0) / minutes, at: now };
+}
+
+/**
  * Every Claude Code reply since `since` (ms), from its local session logs (~/.claude/projects/**.jsonl): only the
  * usage numbers, time and folder name are read; message text is never kept or shown.
  * "fresh" = input + output + cache writes; "cached" = cache reads, which are much cheaper.
@@ -126,7 +143,7 @@ export function busiestProjects(replies, count = MAX_PROJECTS) {
   return [...byProject].map(([project, fresh]) => ({ project, fresh })).sort((a, b) => b.fresh - a.fresh).slice(0, count);
 }
 
-/** Claude Code usage today and over the last 7 days, the open 5-hour window and what a full window looks like. */
+/** Claude Code usage today and over the last 7 days, the open 5-hour window, its pace and what a full window looks like. */
 export function claudeUsage({ home, now = new Date() }) {
   const startOfToday = new Date(now);
   startOfToday.setHours(0, 0, 0, 0);
@@ -140,6 +157,7 @@ export function claudeUsage({ home, now = new Date() }) {
     week: total(replies),
     projects: busiestProjects(replies),
     window,
+    pace: paceOf(replies, window, now.getTime()),
     limit: limitReference(windows, window, limitHits(home)),
   };
 }

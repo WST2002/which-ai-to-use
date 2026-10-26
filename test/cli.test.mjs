@@ -555,3 +555,10 @@ test("--json prints only JSON for handoff --to and fix, and never starts an AI",
   const applied = JSON.parse(run("fix", "--json", "--yes").stdout);
   assert.ok(applied.changes.length > 0);
 });
+
+test("a task asked in the terminal is listed by recent, with the AI suggested", (t) => {
+  const { run } = machine(t, { bins: ["claude"], files: { "src/app.js": "x" } });
+  assert.match(run("recent").stdout, /^No tasks asked in this project yet\.$/m);
+  assert.equal(run("add a coupon field").status, 0);
+  assert.match(run("recent").stdout, /^Recent tasks in project:\n {2}1\. add a coupon field {2}→ Claude Code$/m);
+});

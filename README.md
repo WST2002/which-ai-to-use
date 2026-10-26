@@ -67,7 +67,7 @@ Nothing is sent anywhere: it only looks at your laptop and your project.
 
 <img src="media/sidebar.png" width="300" align="right" alt="The Which AI sidebar in VS Code, in the editor's own dark theme: menu, summary and checkup">
 
-The same features inside VS Code: a **Which AI** sidebar with the full dashboard (score, checkup, fix, task advice, handoff, score card, your AI week), the score and tokens at risk in the status bar, and **Which AI** commands in the Command Palette. It lives in [`extension/`](extension) and is tested inside a real VS Code. Install it with `npx which-ai-to-use setup`, which also sets up the terminal command.
+The same features inside VS Code: a **Which AI** sidebar with the full dashboard (score, checkup, fix, task advice, handoff, score card, your AI week), the score and tokens at risk in the status bar, and **Which AI** commands in the Command Palette. A short **Get started** tour opens after you install it. It lives in [`extension/`](extension) and is tested inside a real VS Code. Install it with `npx which-ai-to-use setup`, which also sets up the terminal command.
 
 <br clear="right">
 
@@ -102,14 +102,15 @@ You don't have to install anything. Pick the way that suits you:
 | **Recommend** | First the best AI for the task among every supported tool (and whether it is on your laptop), then the best of the ones you have, with a reason for that kind of task and the command to run |
 | **AI mode** | `--ai`: with your permission, asks an AI you already have (Ollama first, then Claude Code, Gemini CLI, Codex) for a smarter answer and a better prompt. It runs with no tools, gets the task and file **names** only, and the rules answer is shown alongside |
 | **Cost to start** | Rough tokens the first message will take: the tool's instructions file, the files the prompt points at, the prompt |
-| **Usage** | `usage`: when your current 5-hour Claude limit window resets (an estimate) and the tokens used in it, a warning when the window nears your busiest one this week (or where your limit ran out before, once the Claude Code plugin has recorded it), also in the VS Code status bar, Claude Code tokens today and in the last 7 days, busiest projects, a tip when today is far above average, and when the window is close, four ways to make it last, each with its command. Read from Claude Code's own logs: numbers only, never your messages |
+| **Usage** | `usage`: when your current 5-hour Claude limit window resets (an estimate) and the tokens used in it, when you reach the limit at the pace of the last half hour (if that comes before the reset, also in the VS Code status bar as `limit in ~40m`), a warning when the window nears your busiest one this week (or where your limit ran out before, once the Claude Code plugin has recorded it), also in the VS Code status bar, Claude Code tokens today and in the last 7 days, busiest projects, a tip when today is far above average, and when the window is close, four ways to make it last, each with its command. Read from Claude Code's own logs: numbers only, never your messages |
 | **Your AI week** | `report`: Claude Code tokens per day for the last 7 days next to the week before, the busiest day and projects, how often the limit ran out, requests in Claude Code, Codex CLI and Gemini CLI, and a line to share with links to post. Numbers only, never your messages; also in the dashboard |
 | **Slim** | `slim`: your AI writes a shorter copy of a long `CLAUDE.md` next to it (it sends the file, so it asks first); `slim --apply` swaps it in and keeps a backup |
+| **Recent tasks** | `recent`: the tasks you asked about in this project with the AI suggested for each, newest first. The dashboard and VS Code offer them again in one click. Kept only on this laptop (`~/.which-ai-to-use/tasks.jsonl`, secrets hidden) |
 | **Better prompt** | Names the files that match the task and asks the agent to run your tests and report the result |
 | **Model choice** | For Claude Code: `--model haiku` for small edits (uses far less of your limit), `--model opus` for risky or large work |
 | **Dashboard** | `dashboard`: every command as a button in your browser, on localhost only |
 | **Score** | `score`: your AI setup out of 100 with a grade, what costs points (each with a fix), the tokens a fix saves, and a line to share, with links that open a post on X or LinkedIn already filled in. The dashboard draws it as an image to post |
-| **Checkup** | `npx which-ai-to-use`: your AI tools and, in plain words, what wastes tokens with one fix each. In a terminal it then offers to fix it right away (y/N) and shows the new score |
+| **Checkup** | `npx which-ai-to-use`: your AI tools and, in plain words, what wastes tokens with one fix each. In a terminal it then offers to fix it right away (y/N) and shows the new score; in the dashboard and VS Code, **Fix it now** does it in one click |
 | **Fix** | `fix`: makes each installed AI skip heavy files (Claude Code deny rules, `.cursorignore`, `.geminiignore`, `.aiderignore`), after asking |
 | **Team** | `team`: writes the project's heavy files to `.which-ai.json` after asking. Commit it, and every teammate's `fix` skips the same files. The file can also set the ranking (`"prefer": "free"`) and tools to leave out (`"without": ["codex"]`); flags still win |
 | **Token details** | `tokens`: instructions files sent with every message (and their biggest sections), heavy files, add-ons (MCP servers) |
@@ -128,7 +129,8 @@ npx which-ai-to-use                     # checkup
 npx which-ai-to-use "<task>"            # recommend
 npx which-ai-to-use "<task>" --ai       # also ask an AI you have (asks permission first)
 npx which-ai-to-use fix                 # make your AI tools skip heavy files (asks first)
-npx which-ai-to-use usage               # when Claude's 5-hour window resets, tokens today and this week
+npx which-ai-to-use usage               # when Claude's 5-hour window resets, when you reach the limit at this pace
+npx which-ai-to-use recent              # tasks you asked about here, to ask one again
 npx which-ai-to-use score               # your AI setup score out of 100, ready to share
 npx which-ai-to-use slim                # shorter CLAUDE.md written by your AI (asks first)
 npx which-ai-to-use dashboard           # the same as buttons in your browser

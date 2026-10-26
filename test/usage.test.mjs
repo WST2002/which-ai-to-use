@@ -42,7 +42,7 @@ test("sums today and the last 7 days from Claude Code's local logs, once per mes
 
 test("no logs means no usage, not an error", (t) => {
   const dir = home(t, {});
-  assert.deepEqual(claudeUsage({ home: dir, now: NOW }), { found: false, today: { fresh: 0, cached: 0, replies: 0 }, week: { fresh: 0, cached: 0, replies: 0 }, projects: [], window: null, limit: null });
+  assert.deepEqual(claudeUsage({ home: dir, now: NOW }), { found: false, today: { fresh: 0, cached: 0, replies: 0 }, week: { fresh: 0, cached: 0, replies: 0 }, projects: [], window: null, pace: null, limit: null });
 });
 
 const u = (input, output) => ({ input_tokens: input, output_tokens: output });
@@ -125,3 +125,45 @@ test("close to the limit, usage says how to make the window last, each with a co
   const quiet = home(t, { "p/a.jsonl": [...burst("now", "2026-10-20T10:00:00Z", 30000)] });
   assert.deepEqual(usageAction({ home: quiet, installed, now: NOW }).data.tips, []);
 });
+
+// Three replies in the last half hour before NOW (11:30, 11:40, 11:50), `tokens` each, in a window that opened at 11:00.
+const lastHalfHour = (tokens) => [10, 20, 30].map((minutes) => line(`pace${minutes}`, new Date(NOW.getTime() - minutes * 60000).toISOString(), "C:\\p", u(tokens, 0)));
+
+test("the pace of the last half hour says when the limit is reached, if that comes before the reset", async (t) => {
+  const { etaLine, limitEta, limitWarning } = await import("../src/format.mjs");
+  const dir = home(t, { "p/a.jsonl": [...burst("old", "2026-10-18T09:00:00Z", 100000), ...lastHalfHour(10000)] });
+  const usage = claudeUsage({ home: dir, now: NOW });
+  assert.deepEqual(usage.pace, { perMinute: 1000, at: NOW.getTime() });
+  assert.deepEqual(limitEta(usage), { at: NOW.getTime() + 70 * 60000, minutes: 70 });
+  assert.match(etaLine(usage), /^At this pace you reach your busiest 5-hour window this week about \d\d:\d\d \(in 1 h 10 min\), before it resets\.$/);
+  assert.equal(limitWarning(usage, []), null, "70 minutes away and at 30%: no warning yet");
+});
+
+test("reaching the limit within half an hour warns even below 80%, with the time", async (t) => {
+  const { limitWarning } = await import("../src/format.mjs");
+  const dir = home(t, { "p/a.jsonl": [...burst("old", "2026-10-18T09:00:00Z", 100000), ...lastHalfHour(20000)] });
+  assert.match(limitWarning(claudeUsage({ home: dir, now: NOW }), []), /^This window is at 60% of your busiest 5-hour window this week \(~100,000 tokens\); it resets about \d\d:\d\d\. At this pace you reach it about \d\d:\d\d \(in 20 min\)\. Send small tasks/);
+});
+
+test("no estimate after a break, from one reply, or when the reset comes first", async (t) => {
+  const { limitEta } = await import("../src/format.mjs");
+  const old = burst("old", "2026-10-18T09:00:00Z", 100000);
+  const onBreak = home(t, { "p/a.jsonl": [...old, ...burst("now", "2026-10-20T10:00:00Z", 60000)] });
+  assert.equal(claudeUsage({ home: onBreak, now: NOW }).pace, null);
+  const once = home(t, { "p/a.jsonl": [...old, line("one", "2026-10-20T11:50:00Z", "C:\\p", u(50000, 0))] });
+  assert.equal(claudeUsage({ home: once, now: NOW }).pace, null);
+  const slow = home(t, { "p/a.jsonl": [...old, ...lastHalfHour(1000)] });
+  const usage = claudeUsage({ home: slow, now: NOW });
+  assert.equal(usage.pace.perMinute, 100);
+  assert.equal(limitEta(usage), null, "970 minutes away: the window resets first");
+});
+
+test("usage shows the estimate as a line of its own when there is no warning", async (t) => {
+  const { usageAction } = await import("../src/actions.mjs");
+  const dir = home(t, { "p/a.jsonl": [...burst("old", "2026-10-18T09:00:00Z", 100000), ...lastHalfHour(10000)] });
+  const { text, data } = usageAction({ home: dir, installed: [], now: NOW });
+  assert.match(text, /\n {2}At this pace you reach your busiest 5-hour window this week about \d\d:\d\d \(in 1 h 10 min\), before it resets\.\n/);
+  assert.equal(data.eta.minutes, 70);
+  assert.match(data.etaText, /^At this pace/);
+});
+

@@ -25,6 +25,7 @@
   "contributes": {
     "commands": [
       { "command": "whichAi.menu", "title": "Which AI: Open menu" },
+      { "command": "whichAi.welcome", "title": "Which AI: Get started" },
       { "command": "whichAi.checkup", "title": "Which AI: Checkup" },
       { "command": "whichAi.task", "title": "Which AI: Which AI for a task?" },
       { "command": "whichAi.fix", "title": "Which AI: Fix wasted tokens" },
@@ -43,6 +44,19 @@
     "views": {
       "whichAi": [{ "type": "webview", "id": "whichAi.dashboard", "name": "Dashboard" }]
     },
+    "walkthroughs": [
+      {
+        "id": "start",
+        "title": "Get started with Which AI to Use",
+        "description": "Stop wasting tokens, pick the right AI for each task, and never lose your place when a limit runs out.",
+        "steps": [
+          { "id": "sidebar", "title": "Open the Which AI sidebar", "description": "Your score, tokens at risk and every action as a button.\n[Open the sidebar](command:whichAi.openSidebar)", "media": { "markdown": "media/walkthrough/sidebar.md" }, "completionEvents": ["onCommand:whichAi.openSidebar", "onView:whichAi.dashboard"] },
+          { "id": "checkup", "title": "Check what wastes your tokens", "description": "Heavy files and add-ons your AI reads, each with one fix, and your AI setup score.\n[Run a checkup](command:whichAi.checkup)", "media": { "markdown": "media/walkthrough/checkup.md" }, "completionEvents": ["onCommand:whichAi.checkup"] },
+          { "id": "task", "title": "Ask which AI to use for a task", "description": "The best AI and model for the task, with a command to run.\n[Which AI for a task?](command:whichAi.task)", "media": { "markdown": "media/walkthrough/task.md" }, "completionEvents": ["onCommand:whichAi.task"] },
+          { "id": "limit", "title": "Limit over? Hand the task off", "description": "See when your limit runs out, and write HANDOFF.md so another AI carries on.\n[Write a handoff](command:whichAi.handoff)", "media": { "markdown": "media/walkthrough/limit.md" }, "completionEvents": ["onCommand:whichAi.handoff"] }
+        ]
+      }
+    ],
     "configuration": {
       "title": "Which AI to Use",
       "properties": {

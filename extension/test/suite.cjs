@@ -20,17 +20,26 @@ exports.run = async () => {
   const project = vscode.workspace.workspaceFolders[0].uri.fsPath;
   const api = await vscode.extensions.getExtension("wst2002.which-ai-to-use").activate();
 
-  await check("status bar shows the score, tokens at risk, and when the close limit resets", async () => {
+  await check("status bar shows the score, tokens at risk, and when the close limit is reached at this pace", async () => {
     await api.refreshStatus();
-    assert.match(api.statusText(), /^\$\(sparkle\) AI \d+\/100 · 10k tokens at risk · \$\(warning\) limit close · resets in (\d+h )?\d+m$/);
+    assert.match(api.statusText(), /^\$\(sparkle\) AI \d+\/100 · 10k tokens at risk · \$\(warning\) limit close · limit in ~(\d+h )?\d+m$/);
   });
 
   await check("a window close to the busiest one warns once, from the made-up usage in the test home", async () => {
     assert.match(api.lastWarning(), /^This window is at 90% of your busiest 5-hour window this week \(~100,000 tokens\)/);
   });
 
-  await check("checkup matches the CLI", async () => {
+  await check("the Get started tour is part of the extension and opens", async () => {
+    const { contributes } = vscode.extensions.getExtension("wst2002.which-ai-to-use").packageJSON;
+    const [tour] = contributes.walkthroughs;
+    assert.deepEqual(tour.steps.map((step) => step.id), ["sidebar", "checkup", "task", "limit"]);
+    for (const step of tour.steps) assert.ok(fs.existsSync(path.join(__dirname, "..", step.media.markdown)), step.media.markdown);
+    await run("whichAi.welcome");
+  });
+
+  await check("checkup matches the CLI and offers to fix heavy files right there", async () => {
     assert.match(await run("whichAi.checkup"), /package-lock\.json is ~10,240 tokens/);
+    assert.ok(api.notices().some((text) => /^Which AI: package-lock\.json is ~10,240 tokens\. .*Make your AI tools skip it\?$/.test(text)));
   });
 
   await check("task advice names the best AI anywhere and the right file", async () => {
@@ -38,6 +47,11 @@ exports.run = async () => {
     assert.match(text, /design \(UI\)/);
     assert.match(text, /① Best AI for this task \(any tool\)/);
     assert.match(text, /src\/components\/Hero\.tsx/);
+  });
+
+  await check("a task asked in VS Code is kept for the recent list, in the test home only", async () => {
+    const log = fs.readFileSync(path.join(require("node:os").homedir(), ".which-ai-to-use", "tasks.jsonl"), "utf8");
+    assert.match(log, /"task":"make the hero section look better","best":"Claude Code"/);
   });
 
   await check("score returns a line to share", async () => {

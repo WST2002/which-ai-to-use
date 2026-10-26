@@ -13,8 +13,8 @@ let engine;
 async function load() {
   if (!engine) {
     const lib = (file) => import(pathToFileURL(path.join(__dirname, "lib", "src", file)).href);
-    const [actions, detect, dashboard, page, handoff] = await Promise.all([lib("actions.mjs"), lib("detect.mjs"), lib("dashboard.mjs"), lib("dashboard-page.mjs"), lib("handoff.mjs")]);
-    engine = { ...actions, detectTools: detect.detectTools, runAction: dashboard.runAction, dashboardPage: page.dashboardPage, handoffMeta: handoff.handoffMeta };
+    const [actions, detect, dashboard, page, handoff, history] = await Promise.all([lib("actions.mjs"), lib("detect.mjs"), lib("dashboard.mjs"), lib("dashboard-page.mjs"), lib("handoff.mjs"), lib("history.mjs")]);
+    engine = { ...actions, detectTools: detect.detectTools, runAction: dashboard.runAction, dashboardPage: page.dashboardPage, handoffMeta: handoff.handoffMeta, recordTask: history.recordTask };
   }
   return engine;
 }
@@ -56,6 +56,7 @@ h1{font-size:1.2em}pre{white-space:pre-wrap;font-family:var(--vscode-editor-font
 let status;
 let statusBase = "";
 let limitResets = null; // when the open 5-hour window ends, shown only while the limit is close
+let limitAt = null; // when the limit is reached at the current pace, if that comes before the reset
 
 // "1h 20m" or "20m" until a moment, for the status bar.
 function until(time) {
@@ -63,11 +64,14 @@ function until(time) {
   return minutes >= 60 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : `${minutes}m`;
 }
 
-// The status bar counts down to Claude coming back: a task handed off waits for the reset, or the limit is close.
+// The status bar counts down to Claude coming back (a task handed off waits for the reset), to the limit at the
+// current pace, or to the reset when the limit is close.
 function renderStatus() {
   if (!status || !statusBase) return;
   const back = Math.min(...[...handBacks.values()].map(({ meta }) => meta.resets).filter((time) => time > Date.now()));
-  const countdown = Number.isFinite(back) ? ` · $(history) Claude back in ${until(back)}` : limitResets > Date.now() ? ` · resets in ${until(limitResets)}` : "";
+  const countdown = Number.isFinite(back) ? ` · $(history) Claude back in ${until(back)}`
+    : limitAt > Date.now() ? ` · limit in ~${until(limitAt)}`
+      : limitResets > Date.now() ? ` · resets in ${until(limitResets)}` : "";
   status.text = statusBase + countdown;
 }
 
@@ -81,10 +85,12 @@ async function refreshStatus() {
     const atRisk = data.issues.reduce((sum, issue) => sum + issue.tokens, 0);
     statusBase = `$(sparkle) AI ${data.score.score}/100${atRisk ? ` · ${Math.round(atRisk / 1000)}k tokens at risk` : ""}${usage.warning ? " · $(warning) limit close" : ""}`;
     limitResets = usage.warning ? (usage.window?.end ?? null) : null;
+    limitAt = usage.eta?.at ?? null;
     renderStatus();
     status.backgroundColor = usage.warning ? new vscode.ThemeColor("statusBarItem.warningBackground") : undefined;
     const reasons = data.issues.length ? data.issues.map((i) => `• ${i.problem}`).join("\n") : "Nothing is wasting your tokens.";
-    status.tooltip = `${usage.warning ? `⚠ ${usage.warning}\n\n` : ""}${reasons}\n\nClick for options.`;
+    const pace = usage.etaText && !usage.warning ? `${usage.etaText}\n\n` : "";
+    status.tooltip = `${usage.warning ? `⚠ ${usage.warning}\n\n` : ""}${pace}${reasons}\n\nClick for options.`;
     status.show();
     warnOnce(usage);
   } catch {
@@ -265,19 +271,38 @@ const sidebarProvider = {
 };
 
 let fullView;
+const WALKTHROUGH = "wst2002.which-ai-to-use#start";
+
+// A new task, or one asked before in this project (newest first), so the same question is one click away.
+async function askTask() {
+  const { recentAction } = await load();
+  const recent = recentAction(await context()).data.tasks;
+  const typed = () => vscode.window.showInputBox({ prompt: "What do you want to do?", placeHolder: "e.g. make the hero section look better" });
+  if (!recent.length) return typed();
+  const pick = await vscode.window.showQuickPick(
+    [{ label: "$(add) New task…", fresh: true }, ...recent.map((t) => ({ label: t.task, description: t.best ? `→ ${t.best}` : "", detail: "Asked before" }))],
+    { placeHolder: "Which AI for a task? Pick one you asked before, or a new one" },
+  );
+  if (!pick) return undefined;
+  return pick.fresh ? typed() : pick.label;
+}
 
 const COMMANDS = {
   async checkup() {
     const { checkupAction } = await load();
-    const { text } = checkupAction(await context());
+    const { text, data } = checkupAction(await context());
     show("Checkup", text);
+    // Heavy files can be skipped right away, without opening Fix wasted tokens; not awaited, so the text comes back now.
+    const heavy = data.issues.find((issue) => issue.kind === "heavy-files");
+    if (heavy) notice("info", `Which AI: ${heavy.problem} Make your AI tools skip ${data.heavy.length === 1 ? "it" : "them"}?`, "Fix it now").then((picked) => picked && COMMANDS.fix(true));
     return text;
   },
   async task(given) {
-    const task = given ?? (await vscode.window.showInputBox({ prompt: "What do you want to do?", placeHolder: "e.g. make the hero section look better" }));
+    const task = given ?? (await askTask());
     if (!task?.trim()) return undefined;
-    const { recommendAction } = await load();
+    const { recommendAction, recordTask } = await load();
     const { text, data } = recommendAction({ ...(await context()), task });
+    recordTask(os.homedir(), { cwd: projectFolder(), task, best: data.best?.name ?? null });
     show("Which AI for this task", text);
     if (data.best && given === undefined) {
       const choice = await vscode.window.showInformationMessage(`Best of yours: ${data.best.name}`, "Copy command");
@@ -325,6 +350,9 @@ const COMMANDS = {
   openSidebar() {
     return vscode.commands.executeCommand("workbench.view.extension.whichAi");
   },
+  welcome() {
+    return vscode.commands.executeCommand("workbench.action.openWalkthrough", WALKTHROUGH, false);
+  },
   async handBack() {
     const { handoffAction } = await load();
     const result = handoffAction({ ...(await context()), task: "", leftOut: [] });
@@ -350,6 +378,7 @@ const COMMANDS = {
   async menu() {
     const items = [
       { label: "$(layout-sidebar-left) Open the Which AI sidebar", command: "whichAi.openSidebar" },
+      { label: "$(rocket) Get started (a short tour)", command: "whichAi.welcome" },
       { label: "$(link-external) Open the full dashboard", command: "whichAi.openFullView" },
       { label: "$(pulse) Checkup", command: "whichAi.checkup" },
       { label: "$(compass) Which AI for a task?", command: "whichAi.task" },
@@ -395,6 +424,11 @@ function activate(extension) {
     vscode.workspace.onDidChangeConfiguration((e) => e.affectsConfiguration("whichAi") && refreshStatus()),
   );
   refreshStatus();
+  // The short tour opens once, on the first start after installing; it stays under Get started afterwards.
+  if (!extension.globalState.get("welcomed") && extension.extensionMode !== vscode.ExtensionMode.Test) {
+    extension.globalState.update("welcomed", true);
+    COMMANDS.welcome();
+  }
   // HANDOFF.md at the top of the repository: written now (limit reached) or left from before (offer to hand back on reset).
   if (vscode.workspace.workspaceFolders?.length) {
     const root = vscode.Uri.file(repoRoot());

@@ -1,17 +1,31 @@
 import { randomBytes } from "node:crypto";
 import http from "node:http";
 import path from "node:path";
-import { aiAction, checkupAction, doctorAction, fixAction, handoffAction, newcomerAction, recommendAction, reportAction, scoreAction, slimAction, tokensAction, usageAction } from "./actions.mjs";
+import { aiAction, checkupAction, doctorAction, fixAction, handoffAction, newcomerAction, recentAction, recommendAction, reportAction, scoreAction, slimAction, tokensAction, usageAction } from "./actions.mjs";
 import { dashboardPage } from "./dashboard-page.mjs";
 import { detectTools } from "./detect.mjs";
+import { recordTask } from "./history.mjs";
 import { toolById } from "./tools.mjs";
 
 const MAX_BODY = 16 * 1024;
 
+// A task that got an answer is kept on this laptop with the AI suggested, so the task view can offer it again.
+function remember(context, task, result, best) {
+  recordTask(context.home, { cwd: context.cwd, task, best });
+  return result;
+}
+
 const ACTIONS = {
   checkup: (context) => checkupAction(context),
-  task: (context, body, { detected, without }) => recommendAction({ ...context, task: body.task, leftOut: without.filter((id) => detected.some((found) => found.id === id)) }),
-  newcomer: (context, body) => newcomerAction({ ...context, task: body.task }),
+  task: (context, body, { detected, without }) => {
+    const result = recommendAction({ ...context, task: body.task, leftOut: without.filter((id) => detected.some((found) => found.id === id)) });
+    return remember(context, body.task, result, result.data.best?.name ?? null);
+  },
+  newcomer: (context, body) => {
+    const result = newcomerAction({ ...context, task: body.task });
+    return remember(context, body.task, result, result.data.options[0]?.name ?? null);
+  },
+  recent: (context) => recentAction(context),
   // A tool left out is still installed: it is named as left out, not offered as "not installed yet".
   handoff: (context, body, { detected, without }) => handoffAction({ ...context, installed: detected, leftOut: without, task: String(body.task ?? "").trim() }),
   fix: (context, body) => fixAction({ ...context, apply: body.apply === true }),
@@ -20,7 +34,10 @@ const ACTIONS = {
   score: (context) => scoreAction(context),
   usage: (context) => usageAction(context),
   report: (context) => reportAction(context),
-  ai: (context, body) => aiAction({ ...context, task: body.task, consent: body.consent === true }),
+  ai: async (context, body) => {
+    const result = await aiAction({ ...context, task: body.task, consent: body.consent === true });
+    return body.consent === true ? remember(context, body.task, result, result.data.answer?.bestInstalledName ?? result.data.rules.best?.name ?? null) : result;
+  },
   slim: (context, body) => slimAction({ ...context, consent: body.consent === true, apply: body.apply === true }),
 };
 

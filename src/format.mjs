@@ -31,16 +31,41 @@ const WARN_SHARE = 0.8;
 // Below this a "busiest window" says little about the limit, so no warning is given.
 const MIN_REFERENCE = 20000;
 
+// At this pace the reference is reached within this many minutes: worth a heads-up even below WARN_SHARE.
+const ETA_WARN_MINUTES = 30;
+
+const referenceName = (limit) => (limit.source === "limit" ? "what you had used when your limit ran out last time" : "your busiest 5-hour window this week");
+
+/**
+ * When this window reaches the limit (or the busiest window) at the pace of the last half hour, if that comes before
+ * it resets: { at, minutes }. Null when the pace or the reference is unknown, or the reset comes first.
+ */
+export function limitEta(usage) {
+  const { window, limit, pace } = usage;
+  if (!window || !pace || !limit || limit.tokens < MIN_REFERENCE) return null;
+  const left = limit.tokens - window.fresh;
+  if (left <= 0) return null;
+  const at = pace.at + (left / pace.perMinute) * 60000;
+  return at < window.end ? { at, minutes: Math.max(1, Math.round((at - pace.at) / 60000)) } : null;
+}
+
+/** "At this pace you reach your busiest 5-hour window this week about 15:40 (in 25 min), before it resets." */
+export function etaLine(usage) {
+  const eta = limitEta(usage);
+  return eta ? `At this pace you reach ${referenceName(usage.limit)} about ${clock(eta.at)} (in ${duration(eta.at - usage.pace.at)}), before it resets.` : null;
+}
+
 /** A heads-up when the current 5-hour window is close to where the limit ran out, or to the busiest window. */
 export function limitWarning(usage, installed) {
   const { window, limit } = usage;
   if (!window || !limit || limit.tokens < MIN_REFERENCE) return null;
   const share = window.fresh / limit.tokens;
-  if (share < WARN_SHARE) return null;
+  const eta = limitEta(usage);
+  if (share < WARN_SHARE && !(eta && eta.minutes <= ETA_WARN_MINUTES)) return null;
   const free = freeToolNames(installed);
   const where = free.length ? `${free[0]} (free)` : "Claude with --model haiku";
-  const reference = limit.source === "limit" ? "what you had used when your limit ran out last time" : "your busiest 5-hour window this week";
-  return `This window is at ${Math.round(share * 100)}% of ${reference} (~${limit.tokens.toLocaleString("en-US")} tokens); it resets about ${clock(window.end)}. Send small tasks to ${where} to make it last.`;
+  const pace = eta ? ` At this pace you reach it about ${clock(eta.at)} (in ${duration(eta.at - usage.pace.at)}).` : "";
+  return `This window is at ${Math.round(share * 100)}% of ${referenceName(limit)} (~${limit.tokens.toLocaleString("en-US")} tokens); it resets about ${clock(window.end)}.${pace} Send small tasks to ${where} to make it last.`;
 }
 
 /** What to do when the limit is close, so the rest of the window lasts longer; each tip with the command to run. */
@@ -83,6 +108,7 @@ export function formatUsage(usage, installed, now = new Date()) {
     "",
     "5-hour limit window (estimate)",
     `  ${windowLine(usage.window, now)}`,
+    ...(etaLine(usage) && !limitWarning(usage, installed) ? [`  ${etaLine(usage)}`] : []),
     ...(limitWarning(usage, installed) ? [`  ⚠ ${limitWarning(usage, installed)}`, "", "To make it last:", ...stretchTips(installed).map((tip) => `  • ${tip.text}: ${tip.command}`)] : []),
     "",
     line("Today:", usage.today),

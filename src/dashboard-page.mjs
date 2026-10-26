@@ -60,7 +60,7 @@ const ICON_PATHS = {
   retry: '<path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v3h-3"/>',
 };
 // Pieces of markup the script builds from: our own icons, never anything from the server.
-const ICONS_FOR_SCRIPT = ["copy", "send", "external", "download", "info", "warn", "retry"];
+const ICONS_FOR_SCRIPT = ["copy", "send", "external", "download", "info", "warn", "retry", "fix", "usage"];
 const icon = (name) => `<svg class="i" viewBox="0 0 16 16" aria-hidden="true">${ICON_PATHS[name]}</svg>`;
 const NAV = [
   ["checkup", "Checkup", "What is wasting your tokens"],
@@ -157,6 +157,11 @@ ${bridge === "vscode" ? "" : `  @media (prefers-color-scheme: dark) {
   .panel-head p { margin: 4px 0 0; color: var(--muted); font-size: 13.5px; }
   .panel-body { padding: 0; }
   .form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .recent { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: -4px 0 14px; font-size: 12px; }
+  .chip-btn { display: inline-flex; gap: 5px; align-items: center; max-width: 100%; font: inherit; font-size: 12px; padding: 3px 10px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--panel-2); color: var(--fg); cursor: pointer; }
+  .chip-btn:hover { border-color: var(--link); }
+  .chip-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 280px; }
   .form input[type=text] { flex: 1 1 260px; min-width: 0; height: 42px; padding: 0 14px; border: 1px solid var(--input-border); border-radius: 8px;
     background: var(--input-bg); color: var(--input-fg); font-size: 14px; }
   .check { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 13.5px; }
@@ -336,6 +341,7 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
           <label class="check"><input type="checkbox" id="use-ai"> Ask my AI too</label>
           <button class="btn big" id="ask">${icon("send")}<span>Ask</span></button>
         </div>
+        <div class="recent hidden" id="recent" aria-label="Tasks asked before"></div>
         <div class="form hidden" id="form-slim">
           <button class="btn" id="slim-start">Ask my AI to shorten it</button>
         </div>
@@ -596,6 +602,37 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
     return canvas;
   }
 
+  // The fix for each checkup issue, right under it: heavy files are skipped in one click, the rest open their tool.
+  function issueActions(issue, data) {
+    if (issue.kind === "heavy-files") {
+      const files = data.heavy.map((h) => h.file);
+      return [
+        el("details", { class: "preview" }, el("summary", { text: "Files your AI tools will skip (" + files.length + ")" }), el("ul", {}, files.map((file) => el("li", {}, el("code", { text: file }))))),
+        el("button", { class: "btn small", style: "margin-top:10px", onclick: () => fixNow(data.score.score) }, svg("fix"), el("span", { text: "Fix it now" })),
+      ];
+    }
+    if (issue.kind === "instructions") return [el("button", { class: "btn ghost small", style: "margin-top:10px", text: "Shorten it with my AI", onclick: () => show("slim") })];
+    if (issue.kind === "add-ons") {
+      const claude = data.mcp.find((server) => server.tool === "Claude Code");
+      return claude ? [command("claude mcp remove " + claude.name)] : [];
+    }
+    return [];
+  }
+
+  // Applies the fix from the checkup, then shows the checkup again with what changed and the new score.
+  async function fixNow(before) {
+    const done = await call("fix", { apply: true });
+    if (!done) return;
+    const fresh = await call("checkup");
+    if (!fresh) return;
+    const changed = done.data.changes.map((c) => c.file);
+    const files = [...new Set(done.data.planned.map((p) => p.file))];
+    const text = changed.length
+      ? "Fixed. Your AI tools now skip " + (files.length === 1 ? files[0] : files.length + " heavy files") + " (updated " + changed.join(", ") + "). Setup score " + before + " → " + fresh.data.score.score + "/100."
+      : "Already done: your AI tools skip these files.";
+    result.replaceChildren(el("div", { class: "ok", style: "margin-bottom:12px", text }), ...RENDER.checkup(fresh.data).filter(Boolean));
+  }
+
   const RENDER = {
     checkup(data) {
       updateStats(data);
@@ -618,8 +655,8 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
               el("span", { class: "num", text: String(i + 1) }),
               el("div", {},
                 el("div", { text: issue.problem }),
-                el("div", { class: "fix", text: "→ " + issue.fix.replace("npx which-ai-to-use fix", "click Fix wasted tokens") }),
-                issue.kind === "heavy-files" ? el("button", { class: "btn small", style: "margin-top:10px", text: "Fix it", onclick: () => show("fix") }) : null)))),
+                el("div", { class: "fix", text: "→ " + issue.fix.replace("Fix it:  npx which-ai-to-use fix", "Make your AI tools skip " + (data.heavy.length === 1 ? "it" : "them") + ". Your code is not touched.") }),
+                ...issueActions(issue, data))))),
         ),
       ];
     },
@@ -743,7 +780,7 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
       const n = (v) => "~" + v.toLocaleString("en-US");
       const stat = (label, bucket) => el("div", { class: "card" }, el("div", { class: "eyebrow", text: label }), el("h3", { class: "big", text: n(bucket.fresh) + " tokens" }), el("p", { text: bucket.replies + " replies · + " + n(bucket.cached) + " re-read from cache" }));
       const parts = [
-        el("div", { class: "card best", style: "margin-bottom:14px" }, el("div", { class: "eyebrow", text: "5-hour limit window (estimate)" }), el("p", { text: data.windowText })),
+        el("div", { class: "card best", style: "margin-bottom:14px" }, el("div", { class: "eyebrow", text: "5-hour limit window (estimate)" }), el("p", { text: data.windowText }), data.etaText && !data.warning ? el("p", { text: data.etaText }) : null),
         data.warning ? alertBox({ title: "Close to your limit", text: data.warning,
           more: [el("p", { text: "To make it last:" }), el("ul", {}, ...data.tips.map((tip) => el("li", {}, el("span", { text: tip.text + ": " }), el("code", { text: tip.command }))))] }) : null,
         el("div", { class: "grid" }, stat("Today", data.today), stat("Last 7 days", data.week)),
@@ -833,6 +870,8 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
     // Optional parts are null; replaceChildren would print them as the word "null".
     result.replaceChildren(...RENDER[action](response.data, applied, response.text).filter(Boolean));
     if (applied) refreshStats();
+    // A task that got an answer is now the newest one asked.
+    if (action === "task" || action === "newcomer" || (action === "ai" && body.consent)) loadRecent();
     if (window.matchMedia("(max-width: 980px)").matches) result.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -845,18 +884,38 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
     }
   }
 
+  // Tasks asked before in this project, as buttons that ask again. Quiet: no spinner, and nothing shown on an error.
+  let currentView = null;
+  async function loadRecent() {
+    let tasks = [];
+    try {
+      tasks = (await request("recent", {})).data.tasks;
+    } catch {
+      tasks = [];
+    }
+    const ask = (task) => () => { $("task").value = task; $("ask").click(); };
+    $("recent").replaceChildren(...(tasks.length ? [el("span", { class: "muted", text: "Asked before:" }),
+      ...tasks.map((t) => el("button", { class: "chip-btn", title: t.best ? t.task + " (suggested: " + t.best + ")" : t.task, onclick: ask(t.task) }, svg("usage"), el("span", { text: t.task })))] : []));
+    $("recent").classList.toggle("hidden", !tasks.length || currentView !== "task");
+  }
+
   function show(view) {
+    currentView = view;
     document.querySelectorAll(".nav-btn").forEach((b) => b.setAttribute("aria-current", String(b.dataset.view === view)));
     $("view-title").textContent = VIEWS[view].title;
     $("view-sub").textContent = VIEWS[view].sub;
     $("form-task").classList.toggle("hidden", view !== "task");
+    $("recent").classList.add("hidden");
     $("form-handoff").classList.toggle("hidden", view !== "handoff");
     $("form-slim").classList.toggle("hidden", view !== "slim");
     $("consent").classList.add("hidden");
     result.replaceChildren();
     idle();
     $("updated").textContent = "";
-    if (view === "task") $("task").focus();
+    if (view === "task") {
+      $("task").focus();
+      loadRecent();
+    }
     else if (view === "handoff") $("handoff-task").focus();
     else if (view === "guide") result.replaceChildren(...guide());
     else if (view !== "slim") load(view);
