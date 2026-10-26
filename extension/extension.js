@@ -13,8 +13,8 @@ let engine;
 async function load() {
   if (!engine) {
     const lib = (file) => import(pathToFileURL(path.join(__dirname, "lib", "src", file)).href);
-    const [actions, detect, dashboard, page, handoff] = await Promise.all([lib("actions.mjs"), lib("detect.mjs"), lib("dashboard.mjs"), lib("dashboard-page.mjs"), lib("handoff.mjs")]);
-    engine = { ...actions, detectTools: detect.detectTools, runAction: dashboard.runAction, dashboardPage: page.dashboardPage, handoffMeta: handoff.handoffMeta };
+    const [actions, detect, dashboard, page, handoff, history] = await Promise.all([lib("actions.mjs"), lib("detect.mjs"), lib("dashboard.mjs"), lib("dashboard-page.mjs"), lib("handoff.mjs"), lib("history.mjs")]);
+    engine = { ...actions, detectTools: detect.detectTools, runAction: dashboard.runAction, dashboardPage: page.dashboardPage, handoffMeta: handoff.handoffMeta, recordTask: history.recordTask };
   }
   return engine;
 }
@@ -272,18 +272,36 @@ const sidebarProvider = {
 
 let fullView;
 
+// A new task, or one asked before in this project (newest first), so the same question is one click away.
+async function askTask() {
+  const { recentAction } = await load();
+  const recent = recentAction(await context()).data.tasks;
+  const typed = () => vscode.window.showInputBox({ prompt: "What do you want to do?", placeHolder: "e.g. make the hero section look better" });
+  if (!recent.length) return typed();
+  const pick = await vscode.window.showQuickPick(
+    [{ label: "$(add) New task…", fresh: true }, ...recent.map((t) => ({ label: t.task, description: t.best ? `→ ${t.best}` : "", detail: "Asked before" }))],
+    { placeHolder: "Which AI for a task? Pick one you asked before, or a new one" },
+  );
+  if (!pick) return undefined;
+  return pick.fresh ? typed() : pick.label;
+}
+
 const COMMANDS = {
   async checkup() {
     const { checkupAction } = await load();
     const { text, data } = checkupAction(await context());
     show("Checkup", text);
+    // Heavy files can be skipped right away, without opening Fix wasted tokens; not awaited, so the text comes back now.
+    const heavy = data.issues.find((issue) => issue.kind === "heavy-files");
+    if (heavy) notice("info", `Which AI: ${heavy.problem} Make your AI tools skip ${data.heavy.length === 1 ? "it" : "them"}?`, "Fix it now").then((picked) => picked && COMMANDS.fix(true));
     return text;
   },
   async task(given) {
-    const task = given ?? (await vscode.window.showInputBox({ prompt: "What do you want to do?", placeHolder: "e.g. make the hero section look better" }));
+    const task = given ?? (await askTask());
     if (!task?.trim()) return undefined;
-    const { recommendAction } = await load();
+    const { recommendAction, recordTask } = await load();
     const { text, data } = recommendAction({ ...(await context()), task });
+    recordTask(os.homedir(), { cwd: projectFolder(), task, best: data.best?.name ?? null });
     show("Which AI for this task", text);
     if (data.best && given === undefined) {
       const choice = await vscode.window.showInformationMessage(`Best of yours: ${data.best.name}`, "Copy command");
@@ -291,9 +309,6 @@ const COMMANDS = {
     }
     return text;
   },
-    // Heavy files can be skipped right away, without opening Fix wasted tokens; not awaited, so the text comes back now.
-    const heavy = data.issues.find((issue) => issue.kind === "heavy-files");
-    if (heavy) notice("info", `Which AI: ${heavy.problem} Make your AI tools skip ${data.heavy.length === 1 ? "it" : "them"}?`, "Fix it now").then((picked) => picked && COMMANDS.fix(true));
   async fix(apply) {
     const { fixAction } = await load();
     const preview = fixAction(await context());

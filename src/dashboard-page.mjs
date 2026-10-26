@@ -157,6 +157,11 @@ ${bridge === "vscode" ? "" : `  @media (prefers-color-scheme: dark) {
   .panel-head p { margin: 4px 0 0; color: var(--muted); font-size: 13.5px; }
   .panel-body { padding: 0; }
   .form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .recent { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: -4px 0 14px; font-size: 12px; }
+  .chip-btn { display: inline-flex; gap: 5px; align-items: center; max-width: 100%; font: inherit; font-size: 12px; padding: 3px 10px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--panel-2); color: var(--fg); cursor: pointer; }
+  .chip-btn:hover { border-color: var(--link); }
+  .chip-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 280px; }
   .form input[type=text] { flex: 1 1 260px; min-width: 0; height: 42px; padding: 0 14px; border: 1px solid var(--input-border); border-radius: 8px;
     background: var(--input-bg); color: var(--input-fg); font-size: 14px; }
   .check { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 13.5px; }
@@ -336,6 +341,7 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
           <label class="check"><input type="checkbox" id="use-ai"> Ask my AI too</label>
           <button class="btn big" id="ask">${icon("send")}<span>Ask</span></button>
         </div>
+        <div class="recent hidden" id="recent" aria-label="Tasks asked before"></div>
         <div class="form hidden" id="form-slim">
           <button class="btn" id="slim-start">Ask my AI to shorten it</button>
         </div>
@@ -596,12 +602,6 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
     return canvas;
   }
 
-  const RENDER = {
-    checkup(data) {
-      updateStats(data);
-      // No AI on this laptop yet: ask what they want to do and suggest one, before anything else.
-      if (!data.installed.length) {
-        const input = el("input", { type: "text", id: "newcomer-task", placeholder: "What do you want to do? e.g. build a landing page", "aria-label": "What do you want to do?" });
   // The fix for each checkup issue, right under it: heavy files are skipped in one click, the rest open their tool.
   function issueActions(issue, data) {
     if (issue.kind === "heavy-files") {
@@ -632,6 +632,12 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
     result.replaceChildren(el("div", { class: "ok", style: "margin-bottom:12px", text }), ...RENDER.checkup(fresh.data).filter(Boolean));
   }
 
+  const RENDER = {
+    checkup(data) {
+      updateStats(data);
+      // No AI on this laptop yet: ask what they want to do and suggest one, before anything else.
+      if (!data.installed.length) {
+        const input = el("input", { type: "text", id: "newcomer-task", placeholder: "What do you want to do? e.g. build a landing page", "aria-label": "What do you want to do?" });
         const go = el("button", { class: "btn", text: "Suggest an AI", onclick: () => load("newcomer", { task: input.value }) });
         input.addEventListener("keydown", (e) => e.key === "Enter" && go.click());
         return [el("div", { class: "card best" },
@@ -863,6 +869,8 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
     // Optional parts are null; replaceChildren would print them as the word "null".
     result.replaceChildren(...RENDER[action](response.data, applied, response.text).filter(Boolean));
     if (applied) refreshStats();
+    // A task that got an answer is now the newest one asked.
+    if (action === "task" || action === "newcomer" || (action === "ai" && body.consent)) loadRecent();
     if (window.matchMedia("(max-width: 980px)").matches) result.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -875,18 +883,38 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
     }
   }
 
+  // Tasks asked before in this project, as buttons that ask again. Quiet: no spinner, and nothing shown on an error.
+  let currentView = null;
+  async function loadRecent() {
+    let tasks = [];
+    try {
+      tasks = (await request("recent", {})).data.tasks;
+    } catch {
+      tasks = [];
+    }
+    const ask = (task) => () => { $("task").value = task; $("ask").click(); };
+    $("recent").replaceChildren(...(tasks.length ? [el("span", { class: "muted", text: "Asked before:" }),
+      ...tasks.map((t) => el("button", { class: "chip-btn", title: t.best ? t.task + " (suggested: " + t.best + ")" : t.task, onclick: ask(t.task) }, svg("usage"), el("span", { text: t.task })))] : []));
+    $("recent").classList.toggle("hidden", !tasks.length || currentView !== "task");
+  }
+
   function show(view) {
+    currentView = view;
     document.querySelectorAll(".nav-btn").forEach((b) => b.setAttribute("aria-current", String(b.dataset.view === view)));
     $("view-title").textContent = VIEWS[view].title;
     $("view-sub").textContent = VIEWS[view].sub;
     $("form-task").classList.toggle("hidden", view !== "task");
+    $("recent").classList.add("hidden");
     $("form-handoff").classList.toggle("hidden", view !== "handoff");
     $("form-slim").classList.toggle("hidden", view !== "slim");
     $("consent").classList.add("hidden");
     result.replaceChildren();
     idle();
     $("updated").textContent = "";
-    if (view === "task") $("task").focus();
+    if (view === "task") {
+      $("task").focus();
+      loadRecent();
+    }
     else if (view === "handoff") $("handoff-task").focus();
     else if (view === "guide") result.replaceChildren(...guide());
     else if (view !== "slim") load(view);
