@@ -20,9 +20,9 @@ exports.run = async () => {
   const project = vscode.workspace.workspaceFolders[0].uri.fsPath;
   const api = await vscode.extensions.getExtension("wst2002.which-ai-to-use").activate();
 
-  await check("status bar shows the score, tokens at risk, and when the close limit resets", async () => {
+  await check("status bar shows the score, tokens at risk, and when the close limit is reached at this pace", async () => {
     await api.refreshStatus();
-    assert.match(api.statusText(), /^\$\(sparkle\) AI \d+\/100 · 10k tokens at risk · \$\(warning\) limit close · resets in (\d+h )?\d+m$/);
+    assert.match(api.statusText(), /^\$\(sparkle\) AI \d+\/100 · 10k tokens at risk · \$\(warning\) limit close · limit in ~(\d+h )?\d+m$/);
   });
 
   await check("a window close to the busiest one warns once, from the made-up usage in the test home", async () => {

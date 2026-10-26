@@ -743,7 +743,7 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
       const n = (v) => "~" + v.toLocaleString("en-US");
       const stat = (label, bucket) => el("div", { class: "card" }, el("div", { class: "eyebrow", text: label }), el("h3", { class: "big", text: n(bucket.fresh) + " tokens" }), el("p", { text: bucket.replies + " replies · + " + n(bucket.cached) + " re-read from cache" }));
       const parts = [
-        el("div", { class: "card best", style: "margin-bottom:14px" }, el("div", { class: "eyebrow", text: "5-hour limit window (estimate)" }), el("p", { text: data.windowText })),
+        el("div", { class: "card best", style: "margin-bottom:14px" }, el("div", { class: "eyebrow", text: "5-hour limit window (estimate)" }), el("p", { text: data.windowText }), data.etaText && !data.warning ? el("p", { text: data.etaText }) : null),
         data.warning ? alertBox({ title: "Close to your limit", text: data.warning,
           more: [el("p", { text: "To make it last:" }), el("ul", {}, ...data.tips.map((tip) => el("li", {}, el("span", { text: tip.text + ": " }), el("code", { text: tip.command }))))] }) : null,
         el("div", { class: "grid" }, stat("Today", data.today), stat("Last 7 days", data.week)),

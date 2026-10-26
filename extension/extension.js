@@ -56,6 +56,7 @@ h1{font-size:1.2em}pre{white-space:pre-wrap;font-family:var(--vscode-editor-font
 let status;
 let statusBase = "";
 let limitResets = null; // when the open 5-hour window ends, shown only while the limit is close
+let limitAt = null; // when the limit is reached at the current pace, if that comes before the reset
 
 // "1h 20m" or "20m" until a moment, for the status bar.
 function until(time) {
@@ -63,11 +64,14 @@ function until(time) {
   return minutes >= 60 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : `${minutes}m`;
 }
 
-// The status bar counts down to Claude coming back: a task handed off waits for the reset, or the limit is close.
+// The status bar counts down to Claude coming back (a task handed off waits for the reset), to the limit at the
+// current pace, or to the reset when the limit is close.
 function renderStatus() {
   if (!status || !statusBase) return;
   const back = Math.min(...[...handBacks.values()].map(({ meta }) => meta.resets).filter((time) => time > Date.now()));
-  const countdown = Number.isFinite(back) ? ` · $(history) Claude back in ${until(back)}` : limitResets > Date.now() ? ` · resets in ${until(limitResets)}` : "";
+  const countdown = Number.isFinite(back) ? ` · $(history) Claude back in ${until(back)}`
+    : limitAt > Date.now() ? ` · limit in ~${until(limitAt)}`
+      : limitResets > Date.now() ? ` · resets in ${until(limitResets)}` : "";
   status.text = statusBase + countdown;
 }
 
@@ -81,10 +85,12 @@ async function refreshStatus() {
     const atRisk = data.issues.reduce((sum, issue) => sum + issue.tokens, 0);
     statusBase = `$(sparkle) AI ${data.score.score}/100${atRisk ? ` · ${Math.round(atRisk / 1000)}k tokens at risk` : ""}${usage.warning ? " · $(warning) limit close" : ""}`;
     limitResets = usage.warning ? (usage.window?.end ?? null) : null;
+    limitAt = usage.eta?.at ?? null;
     renderStatus();
     status.backgroundColor = usage.warning ? new vscode.ThemeColor("statusBarItem.warningBackground") : undefined;
     const reasons = data.issues.length ? data.issues.map((i) => `• ${i.problem}`).join("\n") : "Nothing is wasting your tokens.";
-    status.tooltip = `${usage.warning ? `⚠ ${usage.warning}\n\n` : ""}${reasons}\n\nClick for options.`;
+    const pace = usage.etaText && !usage.warning ? `${usage.etaText}\n\n` : "";
+    status.tooltip = `${usage.warning ? `⚠ ${usage.warning}\n\n` : ""}${pace}${reasons}\n\nClick for options.`;
     status.show();
     warnOnce(usage);
   } catch {
