@@ -8,6 +8,7 @@ import { setupScore } from "./score.mjs";
 import { claudeUsage } from "./usage.mjs";
 import { weeklyReport } from "./report.mjs";
 import { copyTextToClipboard } from "./clipboard.mjs";
+import { recentTasks } from "./history.mjs";
 import { lastChat, redact } from "./chat.mjs";
 import { collectHandoff, handoffTask, projectRoot, renderHandoff, webHandoff } from "./handoff.mjs";
 import { RULES_FILES, scanProject } from "./project.mjs";
@@ -165,6 +166,14 @@ export function reportAction({ home, now = new Date() }) {
   report.share = `My AI coding week: ${parts.join(", ") || "a quiet one"}. Tracked with which-ai-to-use: npx which-ai-to-use report`;
   report.links = shareLinks(report.share);
   return { text: formatReport(report), data: report };
+}
+
+/** Tasks asked before in this project, newest first, so one can be asked again. */
+export function recentAction({ cwd, home }) {
+  const tasks = recentTasks(home, cwd);
+  if (!tasks.length) return { text: "No tasks asked in this project yet.\n", data: { tasks } };
+  const lines = [`Recent tasks in ${path.basename(cwd)}:`, ...tasks.map((t, i) => `  ${i + 1}. ${t.task}${t.best ? `  → ${t.best}` : ""}`), "", 'Ask one again: npx which-ai-to-use "<task>"'];
+  return { text: `${lines.join("\n")}\n`, data: { tasks } };
 }
 
 export function doctorAction({ cwd, installed }) {

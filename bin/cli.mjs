@@ -6,10 +6,11 @@ import os from "node:os";
 import { parseArgs } from "node:util";
 import { startDashboard } from "../src/dashboard.mjs";
 import { detectTools } from "../src/detect.mjs";
-import { aiAction, checkupAction, doctorAction, fixAction, handoffAction, installChoice, newcomerAction, offerFix, recommendAction, reportAction, scoreAction, slimAction, teamAction, tokensAction, usageAction } from "../src/actions.mjs";
+import { aiAction, checkupAction, doctorAction, fixAction, handoffAction, installChoice, newcomerAction, offerFix, recentAction, recommendAction, reportAction, scoreAction, slimAction, teamAction, tokensAction, usageAction } from "../src/actions.mjs";
 import { formatSyncPlan } from "../src/format.mjs";
 import { RULES_FILES } from "../src/project.mjs";
 import { copyTextToClipboard } from "../src/clipboard.mjs";
+import { recordTask } from "../src/history.mjs";
 import { findEditors, hasGlobalCommand, installExtension, installGlobal } from "../src/setup.mjs";
 import { PREFERENCES, readTeam } from "../src/team.mjs";
 import { applySync, planSync } from "../src/sync.mjs";
@@ -34,6 +35,7 @@ More:
   which-ai-to-use doctor              Installed AI tools and instructions files in this project
   which-ai-to-use usage               When Claude's 5-hour window resets, tokens today and this week (numbers only, from local logs)
   which-ai-to-use report              Your AI week: tokens per day vs the week before, limit hits, requests per AI, a line to share
+  which-ai-to-use recent              Tasks you asked about in this project (kept only on this laptop), to ask one again
   which-ai-to-use slim                Ask your AI for a shorter CLAUDE.md (asks first; writes CLAUDE.slim.md, --apply to swap)
   which-ai-to-use sync                Copy AGENTS.md to every installed AI's instructions file
   which-ai-to-use team                Share the files to skip with your team in .which-ai.json (asks first; commit it)
@@ -84,7 +86,9 @@ async function runAi(values, context, task, print) {
     if (!consent) return void process.stdout.write("Nothing was sent. Run with --ai --yes to allow it.\n");
   }
   if (!values.json) process.stdout.write(`Asking ${preview.data.runner.name}…\n`);
-  return print(await aiAction({ ...context, task, consent: true }));
+  const answer = await aiAction({ ...context, task, consent: true });
+  recordTask(context.home, { cwd: context.cwd, task, best: answer.data.answer?.bestInstalledName ?? answer.data.rules.best?.name ?? null });
+  return print(answer);
 }
 
 async function runSlim(values, context, print) {
@@ -171,6 +175,7 @@ async function runHandoff(values, options, print) {
 // No AI on the laptop: what to get for this task, then offer to install one and start the task in it.
 async function runNewcomer(values, context, task, print) {
   const result = newcomerAction({ ...context, task });
+  recordTask(context.home, { cwd: context.cwd, task, best: result.data.options[0]?.name ?? null });
   if (values.json || !process.stdin.isTTY) return print(result);
   process.stdout.write(result.text);
   const installable = result.data.options.filter((o) => o.install);
@@ -323,6 +328,7 @@ async function main() {
   if (command === "tokens") return print(tokensAction(context));
   if (command === "usage") return print(usageAction(context));
   if (command === "report") return print(reportAction(context));
+  if (command === "recent") return print(recentAction(context));
   if (command === "score") return values.card ? runDashboard(values, "score") : print(scoreAction(context));
   if (command === "slim") return runSlim(values, context, print);
   // Handoff is for when Claude's limit is over, so Claude Code is left out unless --without names another tool.
@@ -332,7 +338,9 @@ async function main() {
   if (command === "team") return runTeam(values, print);
   if (values.ai) return runAi(values, context, positionals.join(" "), print);
   if (noAiFound) return runNewcomer(values, context, positionals.join(" "), print);
-  return print(recommendAction({ ...context, task: positionals.join(" "), leftOut }));
+  const advice = recommendAction({ ...context, task: positionals.join(" "), leftOut });
+  recordTask(context.home, { cwd: context.cwd, task: advice.data.task, best: advice.data.best?.name ?? null });
+  return print(advice);
 }
 
 main().catch((error) => {
