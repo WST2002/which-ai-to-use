@@ -271,6 +271,7 @@ const sidebarProvider = {
 };
 
 let fullView;
+const WALKTHROUGH = "wst2002.which-ai-to-use#start";
 
 // A new task, or one asked before in this project (newest first), so the same question is one click away.
 async function askTask() {
@@ -349,6 +350,9 @@ const COMMANDS = {
   openSidebar() {
     return vscode.commands.executeCommand("workbench.view.extension.whichAi");
   },
+  welcome() {
+    return vscode.commands.executeCommand("workbench.action.openWalkthrough", WALKTHROUGH, false);
+  },
   async handBack() {
     const { handoffAction } = await load();
     const result = handoffAction({ ...(await context()), task: "", leftOut: [] });
@@ -374,6 +378,7 @@ const COMMANDS = {
   async menu() {
     const items = [
       { label: "$(layout-sidebar-left) Open the Which AI sidebar", command: "whichAi.openSidebar" },
+      { label: "$(rocket) Get started (a short tour)", command: "whichAi.welcome" },
       { label: "$(link-external) Open the full dashboard", command: "whichAi.openFullView" },
       { label: "$(pulse) Checkup", command: "whichAi.checkup" },
       { label: "$(compass) Which AI for a task?", command: "whichAi.task" },
@@ -419,6 +424,11 @@ function activate(extension) {
     vscode.workspace.onDidChangeConfiguration((e) => e.affectsConfiguration("whichAi") && refreshStatus()),
   );
   refreshStatus();
+  // The short tour opens once, on the first start after installing; it stays under Get started afterwards.
+  if (!extension.globalState.get("welcomed") && extension.extensionMode !== vscode.ExtensionMode.Test) {
+    extension.globalState.update("welcomed", true);
+    COMMANDS.welcome();
+  }
   // HANDOFF.md at the top of the repository: written now (limit reached) or left from before (offer to hand back on reset).
   if (vscode.workspace.workspaceFolders?.length) {
     const root = vscode.Uri.file(repoRoot());
