@@ -626,8 +626,9 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
     const fresh = await call("checkup");
     if (!fresh) return;
     const changed = done.data.changes.map((c) => c.file);
+    const files = [...new Set(done.data.planned.map((p) => p.file))];
     const text = changed.length
-      ? "Fixed. Your AI tools now skip " + done.data.planned.length + " heavy file entr" + (done.data.planned.length === 1 ? "y" : "ies") + " (updated " + changed.join(", ") + "). Setup score " + before + " → " + fresh.data.score.score + "/100."
+      ? "Fixed. Your AI tools now skip " + (files.length === 1 ? files[0] : files.length + " heavy files") + " (updated " + changed.join(", ") + "). Setup score " + before + " → " + fresh.data.score.score + "/100."
       : "Already done: your AI tools skip these files.";
     result.replaceChildren(el("div", { class: "ok", style: "margin-bottom:12px", text }), ...RENDER.checkup(fresh.data).filter(Boolean));
   }
@@ -654,7 +655,7 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
               el("span", { class: "num", text: String(i + 1) }),
               el("div", {},
                 el("div", { text: issue.problem }),
-                el("div", { class: "fix", text: "→ " + issue.fix.replace("Fix it:  npx which-ai-to-use fix", "Make your AI tools skip them. Your code is not touched.") }),
+                el("div", { class: "fix", text: "→ " + issue.fix.replace("Fix it:  npx which-ai-to-use fix", "Make your AI tools skip " + (data.heavy.length === 1 ? "it" : "them") + ". Your code is not touched.") }),
                 ...issueActions(issue, data))))),
         ),
       ];
