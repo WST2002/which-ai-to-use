@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { classifyTask } from "./classify.mjs";
 import { applyIgnoreAdvice } from "./fix.mjs";
-import { LABELS, checkupIssues, formatAiAnswer, formatCheckup, formatDoctor, formatRecommendation, formatReport, formatScore, formatTokens, formatUsage, limitWarning, resetTime, shortNumber, stretchTips, usageTip, windowLine } from "./format.mjs";
+import { LABELS, checkupIssues, formatAiAnswer, formatCheckup, formatDoctor, formatRecommendation, formatReport, formatScore, formatTokens, etaLine, formatUsage, limitEta, limitWarning, resetTime, shortNumber, stretchTips, usageTip, windowLine } from "./format.mjs";
 import { setupScore } from "./score.mjs";
 import { claudeUsage } from "./usage.mjs";
 import { weeklyReport } from "./report.mjs";
@@ -155,7 +155,7 @@ export async function slimAction({ cwd, installed, consent = false, apply = fals
 export function usageAction({ home, installed, now = new Date() }) {
   const usage = claudeUsage({ home, now });
   const warning = limitWarning(usage, installed);
-  return { text: formatUsage(usage, installed, now), data: { ...usage, tip: usageTip(usage, installed), windowText: windowLine(usage.window, now), warning, tips: warning ? stretchTips(installed) : [] } };
+  return { text: formatUsage(usage, installed, now), data: { ...usage, tip: usageTip(usage, installed), windowText: windowLine(usage.window, now), eta: limitEta(usage), etaText: etaLine(usage), warning, tips: warning ? stretchTips(installed) : [] } };
 }
 
 /** The last 7 days of AI use next to the week before, with a line to share. */
