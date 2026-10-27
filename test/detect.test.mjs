@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { detectTools } from "../src/detect.mjs";
+import { detectTools, toolProblems } from "../src/detect.mjs";
 
 function sandbox(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "waitu-"));
@@ -65,4 +65,21 @@ test("installed Ollama models are listed", (t) => {
 test("nothing installed returns an empty list", (t) => {
   const s = sandbox(t);
   assert.deepEqual(detectTools({ pathDirs: [s.bin], home: s.home, platform: "linux" }), []);
+});
+
+test("Gemini CLI signed in with a personal Google account is not offered, and says why", (t) => {
+  const s = sandbox(t);
+  s.addBin("gemini", "linux");
+  s.addBin("agy", "linux");
+  s.mkdir(".gemini");
+  fs.writeFileSync(path.join(s.home, ".gemini", "settings.json"), JSON.stringify({ security: { auth: { selectedType: "oauth-personal" } } }));
+  const env = { pathDirs: [s.bin], home: s.home, platform: "linux", env: {} };
+  assert.deepEqual(ids(detectTools(env)), ["antigravity-cli"]);
+  assert.deepEqual(toolProblems(env), [
+    { id: "gemini-cli", name: "Gemini CLI", problem: "Gemini CLI signs in with a personal Google account, which Google stopped serving on 18 June 2026. Use Antigravity CLI (free tier) instead, or give Gemini CLI a paid Gemini API key." },
+  ]);
+  // With an API key it works again.
+  const withKey = { ...env, env: { GEMINI_API_KEY: "set" } };
+  assert.deepEqual(ids(detectTools(withKey)), ["antigravity-cli", "gemini-cli"]);
+  assert.deepEqual(toolProblems(withKey), []);
 });

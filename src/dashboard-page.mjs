@@ -737,7 +737,7 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
         else action = copyButton(data.web, "Copy note and changes");
         parts.push(el("div", { style: "margin-bottom:8px" }, toolCard({ id: choice.id, name: choice.name, best: choice.recommended, tags: [choice.recommended ? el("span", { class: "tag star", text: "Recommended" }) : null], body, action })));
       }
-      if (!data.next.best) parts.push(el("p", { class: "muted", text: "No other AI tool is installed. Gemini CLI has a free tier:" }), command("npm i -g @google/gemini-cli"));
+      if (!data.next.best) parts.push(el("p", { class: "muted", text: "No other AI tool is installed. Antigravity CLI has a free tier:" }), command(data.freeInstall));
       if (data.changes.length) parts.push(el("div", { class: "section-title", text: "Changed files in the note" }), el("table", {}, el("tr", {}, el("th", { text: "File" }), el("th", { text: "Change" })), data.changes.map((c) => el("tr", {}, el("td", { text: c.file }), el("td", { text: c.added === null ? c.status : c.status + " (+" + c.added + " −" + c.removed + ")" })))));
       parts.push(el("p", { class: "muted", text: "HANDOFF.md is for the next AI only: don't commit it." }));
       return parts;
@@ -856,7 +856,7 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
         step("1. Check your project", "Checkup lists the files and add-ons your AI reads that cost tokens, and your setup score.", "npx which-ai-to-use"),
         step("2. Stop wasting tokens", "Fix wasted tokens shows which heavy files your AI tools will skip. Nothing changes until you click Apply; your code is never touched.", "npx which-ai-to-use fix"),
         step("3. Starting a task?", "Which AI for a task?: describe the task to get the best AI and model, the files to start with, and a command to copy.", 'npx which-ai-to-use "add a coupon field to the cart"'),
-        step("4. Claude's limit ran out?", "Claude limit over? writes HANDOFF.md, so Gemini CLI, Codex or a chat like ChatGPT carries on instead of starting over.", "npx which-ai-to-use handoff --copy"),
+        step("4. Claude's limit ran out?", "Claude limit over? writes HANDOFF.md, so Antigravity CLI, Codex or a chat like ChatGPT carries on instead of starting over.", "npx which-ai-to-use handoff --copy"),
         step("5. Know when it resets", "Usage shows when your current 5-hour Claude window resets and how much you used today.", "npx which-ai-to-use usage"),
         step("6. Share your score", "Score card makes an image of your AI setup score to post.", "npx which-ai-to-use score --card"),
       ),

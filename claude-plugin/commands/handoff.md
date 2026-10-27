@@ -13,4 +13,4 @@ Claude's usage limit is close. Hand this task over now, while you still know wha
    - Decisions: what was chosen and why, so the next AI does not undo it.
    - Watch out: failing tests, files not to touch, anything half-finished.
    Write only what is not already in the note. Never put passwords, keys or tokens in it.
-3. Tell the user in one or two lines that `HANDOFF.md` is ready, and that `npx which-ai-to-use handoff` picks who carries on (Gemini CLI, Codex, a chat on the web).
+3. Tell the user in one or two lines that `HANDOFF.md` is ready, and that `npx which-ai-to-use handoff` picks who carries on (Antigravity CLI, Codex, a chat on the web).

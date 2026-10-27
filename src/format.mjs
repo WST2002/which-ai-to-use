@@ -230,7 +230,7 @@ export function formatRecommendation(result) {
   return `${lines.join("\n")}\n`;
 }
 
-export function formatDoctor(installed, project) {
+export function formatDoctor(installed, project, problems = []) {
   const byId = new Map(installed.map((found) => [found.id, found]));
   const lines = ["AI tools on this machine", ""];
   for (const tool of TOOLS) {
@@ -243,6 +243,7 @@ export function formatDoctor(installed, project) {
     const warning = found.onPath ? "" : " (settings found, command not on PATH)";
     lines.push(`  ✓ ${tool.name}${warning} — ${found.via.join(", ")}${models}`);
   }
+  if (problems.length) lines.push("", ...problems.map((p) => `⚠ ${p.problem}`));
   lines.push("", "Instructions files in this project", "");
   for (const [file, exists] of Object.entries(project.rulesFiles)) lines.push(`  ${exists ? "✓" : "✗"} ${file}`);
   if (project.sensitive.length) {
@@ -333,10 +334,11 @@ export function checkupIssues(report) {
 }
 
 /** The default screen: what is installed and, in plain words, what wastes tokens and how to fix it. */
-export function formatCheckup({ project, installed, report, score }) {
+export function formatCheckup({ project, installed, report, score, problems = [] }) {
   const lines = [`✓ Checked: ${project}`, ""];
   if (score) lines.push(`AI setup score: ${score.score}/100 (${score.grade})`, "");
-  lines.push(installed.length ? `Your AI tools: ${installed.map((found) => found.name).join(", ")}` : "No AI coding tools found. Free options: Gemini CLI (free tier) or Ollama (runs on your laptop).");
+  lines.push(installed.length ? `Your AI tools: ${installed.map((found) => found.name).join(", ")}` : "No AI coding tools found. Free options: Antigravity CLI (free tier) or Ollama (runs on your laptop).");
+  for (const p of problems) lines.push(`⚠ ${p.problem}`);
   lines.push("");
 
   const issues = checkupIssues(report);

@@ -41,7 +41,8 @@ test("files on the team list are skipped whatever their size, and fix covers the
 
 test("team shares the heavy files after a yes, and the team's ranking becomes the default", (t) => {
   const dir = project(t, { "package-lock.json": "x".repeat(200000), "package.json": "{}" });
-  const run = (...args) => spawnSync(process.execPath, [cli, ...args], { cwd: dir, encoding: "utf8", input: "", env: { ...process.env, PATH: path.dirname(process.execPath), HOME: dir, USERPROFILE: dir } });
+  // An empty PATH, so AI tools installed next to node (npm -g) on this machine stay hidden.
+  const run = (...args) => spawnSync(process.execPath, [cli, ...args], { cwd: dir, encoding: "utf8", input: "", env: { ...process.env, PATH: path.join(dir, "no-tools"), HOME: dir, USERPROFILE: dir } });
   const preview = run("team");
   assert.equal(preview.status, 0, preview.stderr);
   assert.match(preview.stdout, /Add to the team list in \.which-ai\.json:\n {2}package-lock\.json\nNothing changed\. Run again with --yes to write it\./);

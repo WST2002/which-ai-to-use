@@ -100,7 +100,7 @@ You don't have to install anything. Pick the way that suits you:
 | | |
 |---|---|
 | **Recommend** | First the best AI for the task among every supported tool (and whether it is on your laptop), then the best of the ones you have, with a reason for that kind of task and the command to run |
-| **AI mode** | `--ai`: with your permission, asks an AI you already have (Ollama first, then Claude Code, Gemini CLI, Codex) for a smarter answer and a better prompt. It runs with no tools, gets the task and file **names** only, and the rules answer is shown alongside |
+| **AI mode** | `--ai`: with your permission, asks an AI you already have (Ollama first, then Claude Code, Antigravity CLI, Gemini CLI, Codex) for a smarter answer and a better prompt. It runs with no tools, gets the task and file **names** only, and the rules answer is shown alongside |
 | **Cost to start** | Rough tokens the first message will take: the tool's instructions file, the files the prompt points at, the prompt |
 | **Usage** | `usage`: when your current 5-hour Claude limit window resets (an estimate) and the tokens used in it, when you reach the limit at the pace of the last half hour (if that comes before the reset, also in the VS Code status bar as `limit in ~40m`), a warning when the window nears your busiest one this week (or where your limit ran out before, once the Claude Code plugin has recorded it), also in the VS Code status bar, Claude Code tokens today and in the last 7 days, busiest projects, a tip when today is far above average, and when the window is close, four ways to make it last, each with its command. Read from Claude Code's own logs: numbers only, never your messages |
 | **Your AI week** | `report`: Claude Code tokens per day for the last 7 days next to the week before, the busiest day and projects, how often the limit ran out, requests in Claude Code, Codex CLI and Gemini CLI, and a line to share with links to post. Numbers only, never your messages; also in the dashboard |
@@ -195,21 +195,23 @@ Wrote HANDOFF.md: 3 changed file(s), 1 commit(s) on feat/coupons.
 
 Left out: Claude Code (limit over). Handing off from another AI? Add --without <tool>.
 
-Next:    Gemini CLI — terminal agent: edits many files and runs your commands; free tier
-Run:     gemini -i "Read HANDOFF.md and continue the task."
+Next:    Antigravity CLI — terminal agent: edits many files and runs your commands; free tier
+Run:     agy -i "Read HANDOFF.md and continue the task."
 ```
 
 `HANDOFF.md` lists the task, the commits on the branch, every uncommitted file with its line counts, and the test command to run first. The next AI reads a short note instead of re-exploring the whole project. Don't commit it. No git in the folder? The note lists the files the AI changed in its chat instead.
 
-In a terminal, handoff then asks who carries on: the recommended AI first (with the reason), the other AIs you have, a chat on the web (the note is copied for you, with the changes themselves, since a web chat cannot open your project), any other AI you name, or nothing for now. Handoff only lists AIs it finds on your laptop; if a better one is not installed, it shows it too, with its official install command, and installs it only if you say yes. Press Enter for the recommended one and it starts right there with the note. Skip the question with `--to gemini-cli`, `--to web` or `--to none`. In the dashboard and the VS Code sidebar the same choices are buttons; in VS Code, **Run in terminal** starts the AI in a VS Code terminal.
+In a terminal, handoff then asks who carries on: the recommended AI first (with the reason), the other AIs you have, a chat on the web (the note is copied for you, with the changes themselves, since a web chat cannot open your project), any other AI you name, or nothing for now. Handoff only lists AIs it finds on your laptop; if a better one is not installed, it shows it too, with its official install command, and installs it only if you say yes. Press Enter for the recommended one and it starts right there with the note. Skip the question with `--to antigravity-cli`, `--to web` or `--to none`. In the dashboard and the VS Code sidebar the same choices are buttons; in VS Code, **Run in terminal** starts the AI in a VS Code terminal.
 
 No need to type the task when you worked in Claude Code, Codex CLI or Gemini CLI: handoff reads the chat for this project from that AI's own log on your laptop (the AI whose limit ran out, or else the newest chat) and adds the first request, the latest requests and where the AI stopped. Passwords, API keys and tokens in the chat are replaced with `[hidden]`, and the note stays on your laptop until you hand it to the next AI.
 
-Claude Code is left out by default, since its limit is what ran out. Coming from another AI? Name that one instead, for example `--without codex`. Only Claude installed? Handoff still writes the note and tells you how to carry on: paste `HANDOFF.md` into ChatGPT or Gemini on the web, or install Gemini CLI (free tier). Add `--copy` to put the note and the changes straight on your clipboard; the dashboard and the VS Code sidebar have a **Copy note and changes** button. Files like `.env` and keys are never copied, and passwords and keys in the changes are replaced with `[hidden]`.
+Claude Code is left out by default, since its limit is what ran out. Coming from another AI? Name that one instead, for example `--without codex`. Only Claude installed? Handoff still writes the note and tells you how to carry on: paste `HANDOFF.md` into ChatGPT or Gemini on the web, or install Antigravity CLI (free tier). Add `--copy` to put the note and the changes straight on your clipboard; the dashboard and the VS Code sidebar have a **Copy note and changes** button. Files like `.env` and keys are never copied, and passwords and keys in the changes are replaced with `[hidden]`.
 
 ## Supported tools
 
-Claude Code · Codex CLI · Gemini CLI · Cursor · GitHub Copilot · Windsurf · Cline · Aider · Ollama
+Claude Code · Codex CLI · Antigravity CLI · Gemini CLI · Cursor · GitHub Copilot · Windsurf · Cline · Aider · Ollama
+
+**Gemini CLI and a personal Google account:** Google stopped serving Gemini CLI to personal Google accounts (and Google AI Pro and Ultra) on 18 June 2026. If your Gemini CLI signs in that way, which-ai-to-use leaves it out, says so, and suggests Antigravity CLI (`agy`, Google's replacement, with a free tier) instead. Gemini CLI with a paid Gemini API key still counts.
 
 Tools are detected from commands on your `PATH`, their settings folders and VS Code/Cursor extensions. Nothing is sent over the network. `tokens` reads MCP config files (such as `~/.claude.json`) only for server names; keys and other values in them are never shown or stored.
 

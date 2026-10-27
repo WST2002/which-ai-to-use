@@ -52,12 +52,40 @@ export function defaultEnvironment() {
     pathDirs: (process.env.PATH ?? "").split(path.delimiter).filter(Boolean),
     home: os.homedir(),
     platform: process.platform,
+    env: process.env,
   };
 }
 
-export function detectTools({ pathDirs, home, platform } = defaultEnvironment()) {
+const readJson = (file) => {
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    return null;
+  }
+};
+
+// Google stopped serving Gemini CLI to personal Google accounts on 18 June 2026; an API key or Vertex AI still works.
+const GEMINI_KEYS = ["GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_GENAI_USE_VERTEXAI"];
+function geminiLoginEnded(home, env = {}) {
+  if (GEMINI_KEYS.some((key) => env[key])) return false;
+  const settings = readJson(path.join(home, ".gemini", "settings.json"));
+  return (settings?.security?.auth?.selectedType ?? settings?.selectedAuthType) === "oauth-personal";
+}
+
+/** Installed tools that cannot work as set up, with what to do instead. They are left out of detectTools. */
+export function toolProblems({ pathDirs, home, platform, env } = defaultEnvironment()) {
+  const gemini = TOOLS.find((tool) => tool.id === "gemini-cli");
+  const installed = gemini.detect.bins.some((bin) => onPath(bin, pathDirs, platform));
+  if (!installed || !geminiLoginEnded(home, env)) return [];
+  return [{ id: gemini.id, name: gemini.name, problem: "Gemini CLI signs in with a personal Google account, which Google stopped serving on 18 June 2026. Use Antigravity CLI (free tier) instead, or give Gemini CLI a paid Gemini API key." }];
+}
+
+export function detectTools(environment = defaultEnvironment()) {
+  const { pathDirs, home, platform } = environment;
+  const broken = new Set(toolProblems(environment).map((p) => p.id));
   const extensions = installedExtensions(home);
   return TOOLS.flatMap((tool) => {
+    if (broken.has(tool.id)) return [];
     const via = [
       ...tool.detect.bins.filter((bin) => onPath(bin, pathDirs, platform)).map((bin) => `command: ${bin}`),
       ...tool.detect.extensions

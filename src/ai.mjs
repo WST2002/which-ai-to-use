@@ -12,6 +12,8 @@ const hasCommand = (found) => found.via.some((v) => v.startsWith("command:"));
 const RUNNERS = [
   { id: "ollama", ready: (f) => hasCommand(f) && f.models?.length, bin: "ollama", args: (f) => ["run", f.models[0]] },
   { id: "claude-code", ready: hasCommand, bin: "claude", args: () => ["-p", "--tools", "", "--strict-mcp-config", "--model", "haiku"] },
+  // agy reads the question only as a JSON line, and plan mode keeps it from changing files.
+  { id: "antigravity-cli", ready: hasCommand, bin: "agy", args: () => ["-p", "", "--input-format", "stream-json", "--output-format", "stream-json", "--mode", "plan"], stream: true },
   { id: "gemini-cli", ready: hasCommand, bin: "gemini", args: () => ["-p", ""] },
   { id: "codex", ready: hasCommand, bin: "codex", args: () => ["exec", "--sandbox", "read-only", "-"] },
 ];
@@ -19,7 +21,7 @@ const RUNNERS = [
 export function aiRunner(installed) {
   for (const runner of RUNNERS) {
     const found = installed.find((f) => f.id === runner.id);
-    if (found && runner.ready(found)) return { id: runner.id, name: toolById(runner.id).name, bin: runner.bin, args: runner.args(found), local: runner.id === "ollama" };
+    if (found && runner.ready(found)) return { id: runner.id, name: toolById(runner.id).name, bin: runner.bin, args: runner.args(found), local: runner.id === "ollama", stream: Boolean(runner.stream) };
   }
   return null;
 }
@@ -73,6 +75,28 @@ export function parseAiAnswer(text, { installedIds }) {
   };
 }
 
+/** The last lines of an AI's error output that a person can read: no stack frames, no log noise. */
+function readableError(output) {
+  const lines = output.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !/^at\s/.test(l) && !/logging before google\.Init/.test(l));
+  return lines.slice(-3).join(" ");
+}
+
+/** stream-json runners (agy): the answer is the response of the last result event, or its error. */
+function streamAnswer(out) {
+  const results = out.split(/\r?\n/).flatMap((line) => {
+    try {
+      const event = JSON.parse(line);
+      return event?.event === "result" ? [event.result] : [];
+    } catch {
+      return [];
+    }
+  });
+  const result = results.at(-1);
+  if (!result) return { error: "it gave no answer" };
+  if (result.status === "SUCCESS" && result.response?.trim()) return { text: result.response };
+  return { error: result.error || (result.status === "SUCCESS" ? "it gave an empty answer" : `it stopped (${result.status})`) };
+}
+
 /** Runs the AI once with the question on stdin. Resolves with its text or an error message, never throws. */
 export function askAi(runner, question, { timeoutMs = TIMEOUT_MS } = {}) {
   return new Promise((resolve) => {
@@ -94,11 +118,15 @@ export function askAi(runner, question, { timeoutMs = TIMEOUT_MS } = {}) {
     child.on("close", (code) => {
       clearTimeout(timer);
       const seconds = Math.round((Date.now() - started) / 1000);
+      if (code === null) return resolve({ ok: false, error: `it took longer than ${Math.round(timeoutMs / 1000)} s`, seconds });
+      if (runner.stream && out.trim()) {
+        const answer = streamAnswer(out);
+        return resolve(answer.text ? { ok: true, text: answer.text, seconds } : { ok: false, error: answer.error, seconds });
+      }
       if (code === 0 && out.trim()) resolve({ ok: true, text: out, seconds });
       else if (code === 0 && !err.trim()) resolve({ ok: false, error: "it gave an empty answer", seconds });
-      else if (code === null) resolve({ ok: false, error: `it took longer than ${Math.round(timeoutMs / 1000)} s`, seconds });
-      else resolve({ ok: false, error: (err || out).trim().split("\n").slice(-3).join(" ") || `it stopped with exit code ${code}`, seconds });
+      else resolve({ ok: false, error: readableError(err || out) || `it stopped with exit code ${code}`, seconds });
     });
-    child.stdin.end(question);
+    child.stdin.end(runner.stream ? `${JSON.stringify({ event: "user", message: { content: question } })}\n` : question);
   });
 }

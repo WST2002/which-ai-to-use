@@ -20,6 +20,7 @@ import { startCost } from "./cost.mjs";
 import { estimateTokens, heavyFiles, listProjectFiles, mcpServers, rulesCost, tokenReport } from "./tokens.mjs";
 import { TEAM_FILE, readTeam, writeTeam } from "./team.mjs";
 import { TOOLS, toolById } from "./tools.mjs";
+import { defaultEnvironment, toolProblems } from "./detect.mjs";
 
 const ids = (installed) => installed.map((found) => found.id);
 
@@ -31,11 +32,15 @@ function readText(file) {
   }
 }
 
+// Installed tools that cannot work as set up (Gemini CLI on a personal Google login), each with what to do.
+const problemsFor = (home) => (home ? toolProblems({ ...defaultEnvironment(), home }) : []);
+
 export function checkupAction({ cwd, home, installed }) {
   const report = tokenReport({ dir: cwd, home, installedIds: ids(installed) });
   const project = path.basename(cwd);
   const score = setupScore({ report, installed, verify: verifyCommand(cwd) });
-  return { text: formatCheckup({ project, installed, report, score }), data: { project, installed, ...report, issues: checkupIssues(report), score } };
+  const problems = problemsFor(home);
+  return { text: formatCheckup({ project, installed, report, score, problems }), data: { project, installed, ...report, issues: checkupIssues(report), score, problems } };
 }
 
 /**
@@ -83,7 +88,7 @@ export async function aiAction({ cwd, home, task, installed, consent = false, as
   const rules = recommendAction({ cwd, home, task, installed });
   const runner = aiRunner(installed);
   if (!runner) {
-    throw new Error("AI mode needs an AI you can run from the terminal (claude, gemini, codex or ollama). Install one, or use the answer without --ai.");
+    throw new Error("AI mode needs an AI you can run from the terminal (claude, agy, gemini, codex or ollama). Install one, or use the answer without --ai.");
   }
   const sends = ["your task", "the names of your AI tools", "the names of matching files (not their contents)"];
   if (!consent) {
@@ -129,7 +134,7 @@ export async function slimAction({ cwd, installed, consent = false, apply = fals
   }
   if (!target) return { text: "No instructions file over 2,000 tokens, so there is nothing worth slimming.\n", data: { target: null } };
   const runner = aiRunner(installed);
-  if (!runner) throw new Error("slim needs an AI you can run from the terminal (claude, gemini, codex or ollama).");
+  if (!runner) throw new Error("slim needs an AI you can run from the terminal (claude, agy, gemini, codex or ollama).");
   if (!consent) {
     return {
       text: `slim will send the full text of ${target.file} (~${target.tokens.toLocaleString("en-US")} tokens) to ${runner.name}${runner.local ? ", which runs on this laptop" : ", a cloud service"}.\n`,
@@ -176,9 +181,10 @@ export function recentAction({ cwd, home }) {
   return { text: `${lines.join("\n")}\n`, data: { tasks } };
 }
 
-export function doctorAction({ cwd, installed }) {
+export function doctorAction({ cwd, home, installed }) {
   const project = scanProject(cwd);
-  return { text: formatDoctor(installed, project), data: { installed, project } };
+  const problems = problemsFor(home);
+  return { text: formatDoctor(installed, project, problems), data: { installed, project, problems } };
 }
 
 const WEBSITE = "https://wst2002.github.io/which-ai-to-use/";
@@ -225,6 +231,7 @@ export function recommendAction({ cwd, home, task, installed, leftOut = [], pref
   const files = relevantFiles(clean, listProjectFiles(cwd));
   const prompt = betterPrompt(clean, files, verifyCommand(cwd));
   const result = recommend({ task: clean, prompt, files, categories: classifyTask(clean), installed, leftOut, sensitive, prefer, private: forcePrivate });
+  result.notes.push(...problemsFor(home).map((p) => `⚠ ${p.problem}`));
   if (result.best) {
     const name = toolById(result.best.id).name;
     const addOns = home ? mcpServers({ home, dir: cwd }).filter((server) => server.tool === name).length : 0;
@@ -237,7 +244,7 @@ const CONTINUE = "Read HANDOFF.md and continue the task.";
 const NO_OTHER_AI = [
   "No other AI tool is installed. To carry on:",
   "  1. Paste HANDOFF.md into ChatGPT (chatgpt.com) or Gemini (gemini.google.com) and ask it to continue.",
-  `  2. Or install Gemini CLI (free tier): npm i -g @google/gemini-cli, then run: gemini -i "${CONTINUE}"`,
+  `  2. Or install Antigravity CLI (free tier): ${toolById("antigravity-cli").install}, then run: agy -i "${CONTINUE}"`,
 ];
 
 /** For a chat on the web, which cannot open the project: the note with the changes in it, keys hidden. */
@@ -276,7 +283,7 @@ export function handoffAction({ cwd, home, task: given = "", installed, leftOut 
     lines.push("", copyTextToClipboard(web) ? "Copied HANDOFF.md with the changes to your clipboard: paste it into any AI chat." : "Could not reach the clipboard (no clipboard tool found): open HANDOFF.md and copy it.");
   } else if (!next.best && !menu) lines.push("", "Add --copy to put HANDOFF.md on your clipboard.");
   if (!menu) lines.push("", "HANDOFF.md is for the next AI only: don't commit it.");
-  return { text: `${lines.join("\n")}\n`, data: { file: "HANDOFF.md", ...info, next, choices, note, web, chat: chat && { tool: chat.tool, name: chat.name, task: chat.task, requests: chat.requests } } };
+  return { text: `${lines.join("\n")}\n`, data: { file: "HANDOFF.md", ...info, next, choices, freeInstall: toolById("antigravity-cli").install, note, web, chat: chat && { tool: chat.tool, name: chat.name, task: chat.task, requests: chat.requests } } };
 }
 
 function planNext({ root, task, chat, installed, leftOut, prefer, forcePrivate }) {

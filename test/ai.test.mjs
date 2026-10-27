@@ -46,6 +46,48 @@ test("the AI to ask is local first, then a command-line AI; editor-only tools ca
   assert.equal(aiRunner([{ id: "codex", onPath: true, via: ["extension: openai.chatgpt"] }]), null);
   const claude = aiRunner([found("claude-code")]);
   assert.deepEqual(claude.args, ["-p", "--tools", "", "--strict-mcp-config", "--model", "haiku"]);
+  // Antigravity CLI takes the question as a JSON line and, in plan mode, cannot change files.
+  const agy = aiRunner([found("antigravity-cli"), found("gemini-cli")]);
+  assert.equal(agy.id, "antigravity-cli");
+  assert.deepEqual(agy.args, ["-p", "", "--input-format", "stream-json", "--output-format", "stream-json", "--mode", "plan"]);
+});
+
+// Stand-in AIs are script files: on Windows the command goes through a shell that would split an inline script.
+function standIn(t, source) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "waitu-ai-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, "ai.cjs");
+  fs.writeFileSync(file, source);
+  return file;
+}
+
+test("Antigravity CLI gets the question as a JSON line and its answer is read from the result event", async (t) => {
+  // Echoes the question back the way agy's stream-json output does.
+  const echo = standIn(t, [
+    "let s = '';",
+    "process.stdin.on('data', (d) => (s += d)).on('end', () => {",
+    "  const q = JSON.parse(s.trim()).message.content;",
+    "  console.log(JSON.stringify({ event: 'init', conversation_id: 'c1' }));",
+    "  console.log(JSON.stringify({ event: 'result', result: { status: 'SUCCESS', response: 'answer to ' + q } }));",
+    "});",
+  ].join("\n"));
+  const runner = { ...aiRunner([found("antigravity-cli")]), bin: "node", args: [echo] };
+  const result = await askAi(runner, 'which "AI"?\nsecond line');
+  assert.equal(result.ok, true, result.error);
+  assert.equal(result.text, 'answer to which "AI"?\nsecond line');
+  const failed = standIn(t, "process.stdin.resume().on('end', () => console.log(JSON.stringify({ event: 'result', result: { status: 'ERROR', response: '', error: 'quota used up' } })));");
+  assert.equal((await askAi({ ...runner, args: [failed] }, "hi")).error, "quota used up");
+});
+
+test("an AI's error shows its message, not a stack trace or log noise", async (t) => {
+  const lines = [
+    "ERROR: logging before google.Init: I1027 installer.go:27] setup",
+    "Error authenticating: IneligibleTierError: This client is no longer supported for Gemini Code Assist for individuals.",
+    "    at throwIneligibleOrProjectIdError (file:///gemini/bundle.js:312319:11)",
+    "    at _doSetupUser (file:///gemini/bundle.js:312308:5)",
+  ];
+  const ai = { name: "Test AI", bin: "node", args: [standIn(t, `console.error(${JSON.stringify(lines.join("\n"))}); process.exit(1);`)] };
+  assert.equal((await askAi(ai, "hi")).error, "Error authenticating: IneligibleTierError: This client is no longer supported for Gemini Code Assist for individuals.");
 });
 
 test("without consent nothing is sent; with it the AI's answer is shown next to the rules", async (t) => {

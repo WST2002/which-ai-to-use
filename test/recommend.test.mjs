@@ -28,9 +28,9 @@ test("explaining a codebase prefers a large context window", () => {
 });
 
 test("prefer free ranks free tools first", () => {
-  const result = recommend({ ...base, prefer: "free", installed: [found("claude-code"), found("gemini-cli")] });
-  assert.equal(result.best.id, "gemini-cli");
-  assert.equal(result.free.id, "gemini-cli");
+  const result = recommend({ ...base, prefer: "free", installed: [found("claude-code"), found("antigravity-cli")] });
+  assert.equal(result.best.id, "antigravity-cli");
+  assert.equal(result.free.id, "antigravity-cli");
 });
 
 test("sensitive files put local tools first and flag cloud tools", () => {
@@ -65,7 +65,7 @@ test("no tools installed suggests what to install", () => {
 
 test("tools left out are named as left out, never as missing, and are not suggested again", () => {
   const none = recommend({ ...base, installed: [], leftOut: ["claude-code", "gemini-cli"] });
-  assert.deepEqual(none.notes, ["All your AI tools are left out (Claude Code, Gemini CLI). Wait for a limit to reset, or try a free one: Ollama (local and private)."]);
+  assert.deepEqual(none.notes, ["All your AI tools are left out (Claude Code, Gemini CLI). Wait for a limit to reset, or try a free one: Antigravity CLI (free tier) or Ollama (local and private)."]);
   const one = recommend({ ...base, installed: [found("gemini-cli")], leftOut: ["claude-code"] });
   assert.doesNotMatch(one.notes.join(" "), /only AI tool found/);
   const risky = recommend({ ...base, categories: ["security-sensitive"], installed: [found("gemini-cli")], leftOut: ["claude-code"] });
@@ -80,7 +80,7 @@ test("only one tool installed says so", () => {
 
 test("a risky task with one tool gives one note about a second tool, not two", () => {
   const result = recommend({ ...base, categories: ["security-sensitive"], installed: [found("claude-code")] });
-  assert.deepEqual(result.notes, ["Claude Code is the only AI tool found, and this task is risky. A second tool (for example Gemini CLI, which has a free tier) can review the change."]);
+  assert.deepEqual(result.notes, ["Claude Code is the only AI tool found, and this task is risky. A second tool (for example Antigravity CLI, which has a free tier) can review the change."]);
 });
 
 test("sensitive files without any local tool say so instead of claiming local ranking", () => {

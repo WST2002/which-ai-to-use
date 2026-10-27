@@ -1,5 +1,5 @@
 {
-  "asOf": "2026-10-19",
+  "asOf": "2026-10-27",
   "note": "Capabilities describe features, not model quality. Update this file when tools change.",
   "tools": [
     {
@@ -77,11 +77,39 @@
         "inline": false,
         "largeContext": true,
         "local": false,
-        "freeTier": true
+        "freeTier": false
       },
       "rulesFile": "GEMINI.md",
       "run": "gemini -i \"{task}\"",
       "review": "gemini -i \"Review the uncommitted changes and the last commit for bugs, security issues and missing tests\""
+    },
+    {
+      "id": "antigravity-cli",
+      "name": "Antigravity CLI",
+      "homepage": "https://antigravity.google/docs/cli/using",
+      "install": {
+        "win32": "curl -fsSL https://antigravity.google/cli/install.cmd -o install.cmd && install.cmd && del install.cmd",
+        "default": "curl -fsSL https://antigravity.google/cli/install.sh | bash"
+      },
+      "detect": {
+        "bins": [
+          "agy"
+        ],
+        "homeDirs": [
+          ".gemini/antigravity-cli"
+        ],
+        "extensions": []
+      },
+      "capabilities": {
+        "agent": true,
+        "inline": false,
+        "largeContext": true,
+        "local": false,
+        "freeTier": true
+      },
+      "rulesFile": "GEMINI.md",
+      "run": "agy -i \"{task}\"",
+      "review": "agy -i \"Review the uncommitted changes and the last commit for bugs, security issues and missing tests\""
     },
     {
       "id": "cursor",
