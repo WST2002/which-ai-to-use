@@ -1,4 +1,4 @@
-import { TOOLS, canStart, toolById } from "./tools.mjs";
+import { TOOLS, canStart, secondTool, toolById } from "./tools.mjs";
 
 const NEEDS = {
   "quick-edit": { inline: 3, agent: 1 },
@@ -112,9 +112,6 @@ function whyFor(tool, categories) {
 }
 
 const MAX_SUGGESTED = 2;
-
-/** A free second tool to suggest next to `id`, never the same tool. */
-const secondTool = (id) => (id === "antigravity-cli" ? "Ollama, which runs on your laptop for free" : "Antigravity CLI, which has a free tier");
 
 function describe(found, categories, privacy, task) {
   const tool = toolById(found.id);

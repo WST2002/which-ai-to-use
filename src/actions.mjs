@@ -71,7 +71,8 @@ export function shareLinks(share) {
   return { x: `https://x.com/intent/post?text=${text}`, linkedin: `https://www.linkedin.com/feed/?shareActive=true&text=${text}` };
 }
 
-export function scoreAction({ cwd, home, installed }) {
+export function scoreAction({ cwd, home, installed: detected }) {
+  const installed = detected.filter(canStart);
   const report = tokenReport({ dir: cwd, home, installedIds: ids(installed) });
   const result = { ...setupScore({ report, installed, verify: verifyCommand(cwd) }) };
   result.links = shareLinks(result.share);

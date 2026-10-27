@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { checkupAction, fixAction } from "../src/actions.mjs";
+import { checkupAction, fixAction, scoreAction } from "../src/actions.mjs";
 import { detectTools } from "../src/detect.mjs";
 import { formatCheckup } from "../src/format.mjs";
 import { recommend } from "../src/recommend.mjs";
@@ -36,7 +36,11 @@ for (const tool of TOOLS) {
     const checkup = formatCheckup({ project: "demo", installed, report: tokenReport({ dir: project, home, installedIds: installed.map((f) => f.id) }) });
     assert.ok(checkup.split("\n").includes(`Your AI tools: ${tool.name}`), checkup);
     // The dashboard and VS Code show the checkup's data, not its text.
-    assert.deepEqual(checkupAction({ cwd: project, home, installed }).data.installed.map((found) => found.id), [tool.id]);
+    const checked = checkupAction({ cwd: project, home, installed }).data;
+    assert.deepEqual(checked.installed.map((found) => found.id), [tool.id]);
+    const scored = scoreAction({ cwd: project, home, installed }).data;
+    assert.equal(scored.score, checked.score.score, "score and checkup agree");
+    for (const item of scored.items) assert.ok(!item.tip.includes(`example ${tool.name}`) && !item.tip.includes(`(${tool.name} has`), `the tip never suggests ${tool.name} itself: ${item.tip}`);
     assert.ok(!result.notes.some((note) => note.includes(`for example ${tool.name}`)), "never suggests the tool already there as a second tool");
     const fixFor = new Set(fixAction({ cwd: project, home, installed }).data.planned.map((p) => p.tool));
     assert.ok([...fixFor].every((name) => name === tool.name), `fix writes only for ${tool.name}, not ${[...fixFor]}`);
