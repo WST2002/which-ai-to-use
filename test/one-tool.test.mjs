@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fixAction } from "../src/actions.mjs";
+import { checkupAction, fixAction } from "../src/actions.mjs";
 import { detectTools } from "../src/detect.mjs";
 import { formatCheckup } from "../src/format.mjs";
 import { recommend } from "../src/recommend.mjs";
@@ -35,6 +35,8 @@ for (const tool of TOOLS) {
     assert.deepEqual([result.best, ...result.also].map((entry) => entry.id), [tool.id]);
     const checkup = formatCheckup({ project: "demo", installed, report: tokenReport({ dir: project, home, installedIds: installed.map((f) => f.id) }) });
     assert.ok(checkup.split("\n").includes(`Your AI tools: ${tool.name}`), checkup);
+    // The dashboard and VS Code show the checkup's data, not its text.
+    assert.deepEqual(checkupAction({ cwd: project, home, installed }).data.installed.map((found) => found.id), [tool.id]);
     assert.ok(!result.notes.some((note) => note.includes(`for example ${tool.name}`)), "never suggests the tool already there as a second tool");
     const fixFor = new Set(fixAction({ cwd: project, home, installed }).data.planned.map((p) => p.tool));
     assert.ok([...fixFor].every((name) => name === tool.name), `fix writes only for ${tool.name}, not ${[...fixFor]}`);

@@ -36,7 +36,9 @@ function readText(file) {
 // Installed tools that cannot work as set up (Gemini CLI on a personal Google login), each with what to do.
 const problemsFor = (home) => (home ? toolProblems({ ...defaultEnvironment(), home }) : []);
 
-export function checkupAction({ cwd, home, installed }) {
+export function checkupAction({ cwd, home, installed: detected }) {
+  // The list people see (terminal, dashboard, VS Code) has only tools that can start, not a settings folder alone.
+  const installed = detected.filter(canStart);
   const report = tokenReport({ dir: cwd, home, installedIds: ids(installed) });
   const project = path.basename(cwd);
   const score = setupScore({ report, installed, verify: verifyCommand(cwd) });
