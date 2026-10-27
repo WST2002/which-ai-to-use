@@ -1,8 +1,8 @@
 {
   "name": "which-ai-to-use",
   "displayName": "Which AI to Use",
-  "description": "Hit Claude's usage limit mid-task? Hand the task to Codex or Gemini with the full context, and back when it resets. Also: which AI and model to use for a task, what wastes your tokens, and your AI week. Runs locally.",
-  "version": "0.2.1",
+  "description": "Hit Claude's usage limit mid-task? Hand the task to Codex or Antigravity CLI with the full context, and back when it resets. Also: which AI and model to use for a task, what wastes your tokens, and your AI week. Runs locally.",
+  "version": "0.3.0",
   "publisher": "wst2002",
   "icon": "media/icon.png",
   "galleryBanner": { "color": "#1d4ed8", "theme": "dark" },

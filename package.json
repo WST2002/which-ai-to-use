@@ -1,7 +1,7 @@
 {
   "name": "which-ai-to-use",
-  "version": "0.9.1",
-  "description": "Which of your AI coding tools (Claude Code, Codex, Gemini CLI, Copilot, Cursor, Aider, Ollama) should do this task? Plus token checks, tips when Claude's limit is close, handoff between AIs (reads the Claude Code, Codex or Gemini chat), your AI week, team settings and synced rules files.",
+  "version": "0.10.0",
+  "description": "Which of your AI coding tools (Claude Code, Codex, Antigravity CLI, Gemini CLI, Copilot, Cursor, Aider, Ollama) should do this task? Plus token checks, tips when Claude's limit is close, handoff between AIs (reads the Claude Code, Codex or Gemini chat), a heads-up before the limit runs out, your AI week, team settings and synced rules files.",
   "type": "module",
   "bin": {
     "which-ai-to-use": "bin/cli.mjs"
@@ -25,6 +25,7 @@
     "claude-code",
     "codex",
     "gemini-cli",
+    "antigravity-cli",
     "copilot",
     "cursor",
     "aider",
