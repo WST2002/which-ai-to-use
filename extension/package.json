@@ -19,7 +19,7 @@
     "vscode": "^1.90.0"
   },
   "categories": ["AI", "Machine Learning", "Other"],
-  "keywords": ["claude", "claude code", "codex", "gemini", "gemini cli", "chatgpt", "copilot", "cursor", "handoff", "usage limit", "rate limit", "context", "tokens", "ai tools", "which ai", "ai agent"],
+  "keywords": ["claude", "claude code", "codex", "gemini", "gemini cli", "antigravity", "antigravity cli", "chatgpt", "copilot", "cursor", "handoff", "usage limit", "rate limit", "context", "tokens", "ai tools", "which ai", "ai agent"],
   "activationEvents": ["onStartupFinished"],
   "main": "./extension.js",
   "contributes": {
