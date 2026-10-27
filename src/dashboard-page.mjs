@@ -715,7 +715,7 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
       // What the next AI will read, before anyone runs it: open the file, or look at it here.
       const open = vscodeApi ? el("button", { class: "btn ghost", onclick: () => vscodeApi.postMessage({ type: "openHandoff" }) }, svg("external"), el("span", { text: "Open HANDOFF.md" })) : copyButton(data.note, "Copy HANDOFF.md");
       // A folder without git: the changed files come from the chat.
-      const wrote = (d) => d.git !== false ? "Wrote HANDOFF.md: " + d.changes.length + " changed file(s), " + d.commits.length + " commit(s) on " + d.branch + "."
+      const wrote = (d) => d.git !== false ? "Wrote HANDOFF.md: " + d.changes.length + " changed file(s), " + d.commits.length + (d.base ? "" : " recent") + " commit(s) on " + d.branch + "."
         : d.chat ? "Wrote HANDOFF.md: " + d.changes.length + " file(s) changed in the " + d.chat.name + " chat (this folder has no git)."
           : "Wrote HANDOFF.md. This folder has no git and no AI chat was found for it, so type what you were working on above.";
       const parts = [

@@ -281,7 +281,7 @@ export function handoffAction({ cwd, home, task: given = "", installed, leftOut:
   const { next, choices } = planNext({ root: info.root, task, chat, installed, leftOut, broken: problemsFor(home).map((p) => p.id), prefer, forcePrivate });
   const lines = [];
   if (chat) lines.push(`Read the ${chat.name} chat: "${chat.task.length > 70 ? `${chat.task.slice(0, 69)}…` : chat.task}" (${chat.requests} request${chat.requests === 1 ? "" : "s"}).`);
-  if (info.git) lines.push(`Wrote HANDOFF.md: ${info.changes.length} changed file(s), ${info.commits.length} commit(s) on ${info.branch}.`, "");
+  if (info.git) lines.push(`Wrote HANDOFF.md: ${info.changes.length} changed file(s), ${info.commits.length} ${info.base ? "" : "recent "}commit(s) on ${info.branch}.`, "");
   else if (chat) lines.push(`Wrote HANDOFF.md: ${info.changes.length} file(s) changed in the ${chat.name} chat (this folder has no git).`, "");
   else lines.push(`Wrote HANDOFF.md. This folder has no git and no AI chat was found for it${task ? "" : `, so say what you were doing: npx which-ai-to-use handoff "<task>"`}.`, "");
   if (leftOut.length) lines.push(`Left out: ${leftOut.map((id) => toolById(id).name).join(", ")} (limit over). Handing off from another AI? Add --without <tool>.`, "");
