@@ -593,3 +593,15 @@ test("Antigravity CLI's settings inside ~/.gemini do not make the checkup list G
   fs.mkdirSync(path.join(project, "..", "home", ".gemini", "antigravity-cli"), { recursive: true });
   assert.match(run().stdout, /Your AI tools: Antigravity CLI\n/);
 });
+
+test("with only Antigravity CLI, handoff names no left-out Claude and doctor does not tick Gemini CLI", (t) => {
+  const { project, run } = gitProject(t, ["agy"]);
+  fs.mkdirSync(path.join(project, "..", "home", ".gemini", "antigravity-cli"), { recursive: true });
+  const handoff = run("handoff", "add coupons");
+  assert.equal(handoff.status, 0, handoff.stderr);
+  assert.doesNotMatch(handoff.stdout, /Left out:/);
+  assert.match(handoff.stdout, /Next:\s+Antigravity CLI/);
+  const doctor = run("doctor").stdout;
+  assert.match(doctor, /^ {2}✗ Gemini CLI \(no gemini command; settings: ~\/\.gemini\)$/m);
+  assert.match(doctor, /^ {2}✓ Antigravity CLI — command: agy/m);
+});

@@ -254,7 +254,10 @@ export const webNote = (root, note) => webHandoff(root, note, redact);
 
 /** `leftOut`: tools left out because their limit is over, named in the answer. `copy`: also put the note on the clipboard. */
 /** `by`: "hook" when the Claude Code plugin writes the note after the limit was reached (VS Code reacts to that). */
-export function handoffAction({ cwd, home, task: given = "", installed, leftOut = [], copy = false, menu = false, by = null, prefer = "balanced", private: forcePrivate = false, date = new Date().toISOString().slice(0, 10) }) {
+export function handoffAction({ cwd, home, task: given = "", installed, leftOut: asked = [], copy = false, menu = false, by = null, prefer = "balanced", private: forcePrivate = false, date = new Date().toISOString().slice(0, 10) }) {
+  // Only a tool on this laptop can be left out: with no Claude Code here, nothing says its limit is over.
+  // The Claude Code plugin's hook runs inside Claude Code, so then it is here even without a claude command.
+  const leftOut = asked.filter((id) => by === "hook" || installed.some((found) => found.id === id));
   const root = projectRoot(cwd);
   // The chat (in the AI whose limit ran out, or the newest one) says what was asked and where it stopped,
   // so nobody has to type the task again. Without git, the files it changed stand in for the diff.
