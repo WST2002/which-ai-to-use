@@ -20,6 +20,7 @@ import { startCost } from "./cost.mjs";
 import { estimateTokens, heavyFiles, listProjectFiles, mcpServers, rulesCost, tokenReport } from "./tokens.mjs";
 import { TEAM_FILE, readTeam, writeTeam } from "./team.mjs";
 import { TOOLS, toolById } from "./tools.mjs";
+import { defaultEnvironment, toolProblems } from "./detect.mjs";
 
 const ids = (installed) => installed.map((found) => found.id);
 
@@ -31,11 +32,15 @@ function readText(file) {
   }
 }
 
+// Installed tools that cannot work as set up (Gemini CLI on a personal Google login), each with what to do.
+const problemsFor = (home) => (home ? toolProblems({ ...defaultEnvironment(), home }) : []);
+
 export function checkupAction({ cwd, home, installed }) {
   const report = tokenReport({ dir: cwd, home, installedIds: ids(installed) });
   const project = path.basename(cwd);
   const score = setupScore({ report, installed, verify: verifyCommand(cwd) });
-  return { text: formatCheckup({ project, installed, report, score }), data: { project, installed, ...report, issues: checkupIssues(report), score } };
+  const problems = problemsFor(home);
+  return { text: formatCheckup({ project, installed, report, score, problems }), data: { project, installed, ...report, issues: checkupIssues(report), score, problems } };
 }
 
 /**
@@ -176,9 +181,10 @@ export function recentAction({ cwd, home }) {
   return { text: `${lines.join("\n")}\n`, data: { tasks } };
 }
 
-export function doctorAction({ cwd, installed }) {
+export function doctorAction({ cwd, home, installed }) {
   const project = scanProject(cwd);
-  return { text: formatDoctor(installed, project), data: { installed, project } };
+  const problems = problemsFor(home);
+  return { text: formatDoctor(installed, project, problems), data: { installed, project, problems } };
 }
 
 const WEBSITE = "https://wst2002.github.io/which-ai-to-use/";
@@ -225,6 +231,7 @@ export function recommendAction({ cwd, home, task, installed, leftOut = [], pref
   const files = relevantFiles(clean, listProjectFiles(cwd));
   const prompt = betterPrompt(clean, files, verifyCommand(cwd));
   const result = recommend({ task: clean, prompt, files, categories: classifyTask(clean), installed, leftOut, sensitive, prefer, private: forcePrivate });
+  result.notes.push(...problemsFor(home).map((p) => `⚠ ${p.problem}`));
   if (result.best) {
     const name = toolById(result.best.id).name;
     const addOns = home ? mcpServers({ home, dir: cwd }).filter((server) => server.tool === name).length : 0;

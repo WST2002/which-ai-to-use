@@ -73,6 +73,21 @@ test("a task typed without quotes that starts with a command word is a task, not
   assert.match(run("fix").stdout, /will skip these files/);
 });
 
+test("Gemini CLI on a personal Google login is named with what to do, in the checkup, doctor and a task", (t) => {
+  const m = machine(t, { bins: ["claude", "gemini"], files: { "src/app.js": "x" } });
+  const home = path.join(m.project, "..", "home");
+  fs.mkdirSync(path.join(home, ".gemini"), { recursive: true });
+  fs.writeFileSync(path.join(home, ".gemini", "settings.json"), JSON.stringify({ security: { auth: { selectedType: "oauth-personal" } } }));
+  const why = /⚠ Gemini CLI signs in with a personal Google account, which Google stopped serving on 18 June 2026\. Use Antigravity CLI \(free tier\) instead/;
+  const checkup = m.run();
+  assert.match(checkup.stdout, /Your AI tools: Claude Code\n/);
+  assert.match(checkup.stdout, why);
+  assert.match(m.run("doctor").stdout, why);
+  const task = m.run("fix the login bug");
+  assert.match(task.stdout, why);
+  assert.doesNotMatch(task.stdout, /Run:\s+gemini/);
+});
+
 test("a clean project checkup says nothing is wasted", (t) => {
   const result = machine(t, { bins: ["claude"], files: { "src/app.js": "x" } }).run();
   assert.match(result.stdout, /Nothing is wasting your tokens here/);
