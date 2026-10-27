@@ -362,7 +362,7 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
     </section>
   </main>
 </div>
-<footer>Made by <a href="https://www.linkedin.com/in/wst2002/" target="_blank" rel="noopener">Wageesha Tripathi</a> · <a href="https://github.com/WST2002/which-ai-to-use" target="_blank" rel="noopener">GitHub</a></footer>
+<footer>Made by <a href="https://www.linkedin.com/in/wst2002/" target="_blank" rel="noopener">Wageesha Tripathi</a> · <a href="https://github.com/WST2002/which-ai-to-use" target="_blank" rel="noopener">GitHub</a> · <a href="https://www.youtube.com/@wst2002rk" target="_blank" rel="noopener">YouTube</a></footer>
 
 <script${nonce ? ` nonce="${nonce}"` : ""}>
   const TOKEN = ${JSON.stringify(token)};

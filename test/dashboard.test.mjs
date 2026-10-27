@@ -198,5 +198,6 @@ test("the footer links the author's LinkedIn and the repository", async () => {
   const { dashboardPage } = await import("../src/dashboard-page.mjs");
   const page = dashboardPage({ token: "t", project: "shop", version: "1" });
   assert.match(page, /Made by <a href="https:\/\/www\.linkedin\.com\/in\/wst2002\/" target="_blank" rel="noopener">Wageesha Tripathi<\/a>/);
+  assert.match(page, /<a href="https:\/\/www\.youtube\.com\/@wst2002rk" target="_blank" rel="noopener">YouTube<\/a><\/footer>/);
   assert.match(page, /<a href="https:\/\/github\.com\/WST2002\/which-ai-to-use" target="_blank" rel="noopener">GitHub<\/a>/);
 });
