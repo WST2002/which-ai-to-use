@@ -737,7 +737,7 @@ ${NAV.map(([view, label, hint]) => `    <button class="nav-btn" data-view="${vie
         else action = copyButton(data.web, "Copy note and changes");
         parts.push(el("div", { style: "margin-bottom:8px" }, toolCard({ id: choice.id, name: choice.name, best: choice.recommended, tags: [choice.recommended ? el("span", { class: "tag star", text: "Recommended" }) : null], body, action })));
       }
-      if (!data.next.best) parts.push(el("p", { class: "muted", text: "No other AI tool is installed. Antigravity CLI has a free tier:" }), command(data.freeInstall));
+      if (!data.next.best && data.freeInstall) parts.push(el("p", { class: "muted", text: "No other AI tool is installed. Antigravity CLI has a free tier:" }), command(data.freeInstall));
       if (data.changes.length) parts.push(el("div", { class: "section-title", text: "Changed files in the note" }), el("table", {}, el("tr", {}, el("th", { text: "File" }), el("th", { text: "Change" })), data.changes.map((c) => el("tr", {}, el("td", { text: c.file }), el("td", { text: c.added === null ? c.status : c.status + " (+" + c.added + " −" + c.removed + ")" })))));
       parts.push(el("p", { class: "muted", text: "HANDOFF.md is for the next AI only: don't commit it." }));
       return parts;

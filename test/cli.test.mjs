@@ -231,7 +231,8 @@ test("handoff leaves out Claude Code by default, since its limit is what ran out
 test("handoff from another AI keeps Claude Code as the next one", (t) => {
   const result = gitProject(t, ["claude", "gemini"]).run("handoff", "add coupons", "--without", "gemini-cli");
   assert.match(result.stdout, /Next:\s+Claude Code/);
-  assert.doesNotMatch(result.stdout, /Left out:/);
+  assert.match(result.stdout, /Left out: Gemini CLI \(limit over\)/);
+  assert.doesNotMatch(result.stdout, /Left out: Claude Code/);
 });
 
 test("handoff with only Claude Code installed explains how to carry on anyway", (t) => {
@@ -616,4 +617,15 @@ test("handoff never offers to install Gemini CLI when it is there but its person
   const choices = JSON.parse(result.stdout).choices;
   assert.ok(!choices.some((c) => c.id === "gemini-cli"), JSON.stringify(choices.map((c) => c.id)));
   assert.ok(choices.some((c) => c.id === "antigravity-cli" && c.installed === false));
+});
+
+test("handing off from Antigravity CLI never says to install it, and names it as left out", (t) => {
+  const { run } = gitProject(t, ["agy"]);
+  const result = run("handoff", "add coupons", "--without", "antigravity-cli");
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Left out: Antigravity CLI \(limit over\)/);
+  assert.doesNotMatch(result.stdout, /install Antigravity CLI/i);
+  assert.match(result.stdout, /wait until Antigravity CLI's limit resets/);
+  const data = JSON.parse(run("handoff", "add coupons", "--without", "antigravity-cli", "--json").stdout);
+  assert.equal(data.freeInstall, null);
 });

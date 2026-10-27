@@ -246,10 +246,13 @@ export function recommendAction({ cwd, home, task, installed, leftOut = [], pref
 }
 
 const CONTINUE = "Read HANDOFF.md and continue the task.";
-const NO_OTHER_AI = [
+// Antigravity CLI is the free one to get, unless it is here already and its own limit is what ran out.
+const noOtherAi = (leftOut) => [
   "No other AI tool is installed. To carry on:",
   "  1. Paste HANDOFF.md into ChatGPT (chatgpt.com) or Gemini (gemini.google.com) and ask it to continue.",
-  `  2. Or install Antigravity CLI (free tier): ${toolById("antigravity-cli").install}, then run: agy -i "${CONTINUE}"`,
+  leftOut.includes("antigravity-cli")
+    ? `  2. Or wait until Antigravity CLI's limit resets, then run: agy -i "${CONTINUE}"`
+    : `  2. Or install Antigravity CLI (free tier): ${toolById("antigravity-cli").install}, then run: agy -i "${CONTINUE}"`,
 ];
 
 /** For a chat on the web, which cannot open the project: the note with the changes in it, keys hidden. */
@@ -285,13 +288,13 @@ export function handoffAction({ cwd, home, task: given = "", installed, leftOut:
   if (resets) lines.push(`Claude's limit resets about ${resetTime(resets)}. Then hand the task back: npx which-ai-to-use handoff --back`, "");
   if (!menu) {
     if (next.best) lines.push(`Next:    ${next.best.name} — ${next.best.reason}`, `Run:     ${next.best.command}`);
-    else lines.push(...NO_OTHER_AI);
+    else lines.push(...noOtherAi(leftOut));
   }
   if (copy) {
     lines.push("", copyTextToClipboard(web) ? "Copied HANDOFF.md with the changes to your clipboard: paste it into any AI chat." : "Could not reach the clipboard (no clipboard tool found): open HANDOFF.md and copy it.");
   } else if (!next.best && !menu) lines.push("", "Add --copy to put HANDOFF.md on your clipboard.");
   if (!menu) lines.push("", "HANDOFF.md is for the next AI only: don't commit it.");
-  return { text: `${lines.join("\n")}\n`, data: { file: "HANDOFF.md", ...info, next, choices, freeInstall: toolById("antigravity-cli").install, note, web, chat: chat && { tool: chat.tool, name: chat.name, task: chat.task, requests: chat.requests } } };
+  return { text: `${lines.join("\n")}\n`, data: { file: "HANDOFF.md", ...info, next, choices, freeInstall: leftOut.includes("antigravity-cli") ? null : toolById("antigravity-cli").install, note, web, chat: chat && { tool: chat.tool, name: chat.name, task: chat.task, requests: chat.requests } } };
 }
 
 function planNext({ root, task, chat, installed, leftOut, broken = [], prefer, forcePrivate }) {
