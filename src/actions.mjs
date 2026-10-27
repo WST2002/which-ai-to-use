@@ -231,8 +231,9 @@ export function recommendAction({ cwd, home, task, installed, leftOut = [], pref
   const { sensitive } = scanProject(cwd);
   const files = relevantFiles(clean, listProjectFiles(cwd));
   const prompt = betterPrompt(clean, files, verifyCommand(cwd));
-  const result = recommend({ task: clean, prompt, files, categories: classifyTask(clean), installed, leftOut, sensitive, prefer, private: forcePrivate });
-  result.notes.push(...problemsFor(home).map((p) => `⚠ ${p.problem}`));
+  const problems = problemsFor(home);
+  const result = recommend({ task: clean, prompt, files, categories: classifyTask(clean), installed, leftOut, broken: problems.map((p) => p.id), sensitive, prefer, private: forcePrivate });
+  result.notes.push(...problems.map((p) => `⚠ ${p.problem}`));
   if (result.best) {
     const name = toolById(result.best.id).name;
     const addOns = home ? mcpServers({ home, dir: cwd }).filter((server) => server.tool === name).length : 0;

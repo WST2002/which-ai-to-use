@@ -142,8 +142,9 @@ function describe(found, categories, privacy, task) {
 /**
  * `alsoCount`: how many other installed tools to describe after the best one.
  * `leftOut`: installed tools the user left out (their limit is over), so the notes do not call them missing.
+ * `broken`: tools that cannot work as set up here (see toolProblems), so they are never named as one to use or get.
  */
-export function recommend({ task, prompt = task, files = [], categories, installed: detected, sensitive = [], prefer = "balanced", private: forcePrivate = false, alsoCount = 3, leftOut = [] }) {
+export function recommend({ task, prompt = task, files = [], categories, installed: detected, sensitive = [], prefer = "balanced", private: forcePrivate = false, alsoCount = 3, leftOut = [], broken = [] }) {
   const installed = detected.filter(canStart);
   const privacy = forcePrivate || sensitive.length > 0;
   const notes = [];
@@ -178,7 +179,7 @@ export function recommend({ task, prompt = task, files = [], categories, install
   const installedIds = new Set(installed.map((found) => found.id));
   // The best fit among every supported tool, by features. On a tie an installed tool wins, so we never
   // push an install that would not help.
-  const everyTool = TOOLS.map((tool, order) => ({ tool, order, score: score(tool, categories, prefer, privacy), installed: installedIds.has(tool.id) }))
+  const everyTool = TOOLS.filter((tool) => !broken.includes(tool.id)).map((tool, order) => ({ tool, order, score: score(tool, categories, prefer, privacy), installed: installedIds.has(tool.id) }))
     .sort((a, b) => b.score - a.score || Number(b.installed) - Number(a.installed) || a.order - b.order);
   const [winner] = everyTool;
   const overall = {
@@ -189,7 +190,7 @@ export function recommend({ task, prompt = task, files = [], categories, install
     installed: winner.installed,
     alsoGreat: everyTool.filter((entry) => entry !== winner && entry.score === winner.score).map((entry) => entry.tool.name),
   };
-  const suggested = TOOLS.filter((tool) => !installedIds.has(tool.id))
+  const suggested = TOOLS.filter((tool) => !installedIds.has(tool.id) && !broken.includes(tool.id))
     .map((tool) => ({ tool, score: score(tool, categories, prefer, privacy) }))
     .filter((entry) => entry.score > top.score)
     .sort((a, b) => b.score - a.score)
