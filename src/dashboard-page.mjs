@@ -179,7 +179,7 @@ ${bridge === "vscode" ? "" : `  @media (prefers-color-scheme: dark) {
   table.points td:first-child { width: 56px; white-space: nowrap; color: var(--warn); font-variant-numeric: tabular-nums; }
   .btn:disabled { opacity: .5; cursor: progress; }
 
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; }
   .list { display: flex; flex-direction: column; gap: 8px; max-width: 760px; }
   .card { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; background: var(--panel); min-width: 0; }
   .card.best { border-color: var(--accent); grid-column: 1 / -1; }
