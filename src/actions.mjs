@@ -19,10 +19,11 @@ import { aiRunner, askAi, buildAiPrompt, parseAiAnswer } from "./ai.mjs";
 import { startCost } from "./cost.mjs";
 import { estimateTokens, heavyFiles, listProjectFiles, mcpServers, rulesCost, tokenReport } from "./tokens.mjs";
 import { TEAM_FILE, readTeam, writeTeam } from "./team.mjs";
-import { TOOLS, toolById } from "./tools.mjs";
+import { TOOLS, canStart, toolById } from "./tools.mjs";
 import { defaultEnvironment, toolProblems } from "./detect.mjs";
 
-const ids = (installed) => installed.map((found) => found.id);
+// Only tools that can start get their ignore files written and counted (a settings folder alone is not a tool).
+const ids = (installed) => installed.filter(canStart).map((found) => found.id);
 
 function readText(file) {
   try {
