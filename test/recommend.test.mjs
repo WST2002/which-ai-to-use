@@ -202,3 +202,12 @@ test("a tool that cannot work as set up is not named as the best or just-as-good
   assert.ok(![result.overall.name, ...result.overall.alsoGreat].includes("Gemini CLI"), JSON.stringify(result.overall));
   assert.ok(!result.suggested.some((s) => s.id === "gemini-cli"));
 });
+
+test("Claude Code with only its ~/.claude folder (no command, no editor extension) is not offered as installed", () => {
+  const folderOnly = { id: "claude-code", onPath: false, via: ["settings: ~/.claude"] };
+  const result = recommend({ ...base, installed: [folderOnly, found("antigravity-cli")] });
+  assert.equal(result.best.id, "antigravity-cli");
+  assert.ok(!JSON.stringify(result).includes("Open Claude Code in VS Code"));
+  const withExtension = { id: "claude-code", onPath: false, via: ["extension: anthropic.claude-code", "settings: ~/.claude"] };
+  assert.ok(recommend({ ...base, installed: [withExtension] }).best.command.startsWith("Open Claude Code in VS Code"));
+});
