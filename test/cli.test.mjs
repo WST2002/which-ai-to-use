@@ -587,3 +587,9 @@ test("a task asked in the terminal is listed by recent, with the AI suggested", 
   assert.equal(run("add a coupon field").status, 0);
   assert.match(run("recent").stdout, /^Recent tasks in project:\n {2}1\. add a coupon field {2}→ Claude Code$/m);
 });
+
+test("Antigravity CLI's settings inside ~/.gemini do not make the checkup list Gemini CLI", (t) => {
+  const { project, run } = machine(t, { bins: ["agy"] });
+  fs.mkdirSync(path.join(project, "..", "home", ".gemini", "antigravity-cli"), { recursive: true });
+  assert.match(run().stdout, /Your AI tools: Antigravity CLI\n/);
+});

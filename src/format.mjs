@@ -1,4 +1,4 @@
-import { TOOLS, TOOLS_AS_OF } from "./tools.mjs";
+import { TOOLS, TOOLS_AS_OF, canStart } from "./tools.mjs";
 
 const pad = (label) => `${label}:`.padEnd(9);
 
@@ -334,7 +334,8 @@ export function checkupIssues(report) {
 }
 
 /** The default screen: what is installed and, in plain words, what wastes tokens and how to fix it. */
-export function formatCheckup({ project, installed, report, score, problems = [] }) {
+export function formatCheckup({ project, installed: detected, report, score, problems = [] }) {
+  const installed = detected.filter(canStart);
   const lines = [`✓ Checked: ${project}`, ""];
   if (score) lines.push(`AI setup score: ${score.score}/100 (${score.grade})`, "");
   lines.push(installed.length ? `Your AI tools: ${installed.map((found) => found.name).join(", ")}` : "No AI coding tools found. Free options: Antigravity CLI (free tier) or Ollama (runs on your laptop).");
