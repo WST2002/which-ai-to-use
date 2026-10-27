@@ -44,7 +44,7 @@ Prefer the keyboard? Open the Command Palette (Ctrl+Shift+P / Cmd+Shift+P) and t
 | **Open the full dashboard** | Opens the dashboard in an editor tab |
 | **Open menu** | All of the above in one list; also a click on the status bar |
 
-Works with Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, Windsurf, Cline, Aider and Ollama. Nothing is sent anywhere unless you allow Ask my AI too.
+Works with Claude Code, Codex, Antigravity CLI, Gemini CLI, Cursor, GitHub Copilot, Windsurf, Cline, Aider and Ollama. Nothing is sent anywhere unless you allow Ask my AI too.
 
 Same engine as the command-line tool: `npx which-ai-to-use`. Not a developer? Try the website: https://wst2002.github.io/which-ai-to-use/
 
