@@ -88,7 +88,9 @@ export function tokensAction({ cwd, home, installed }) {
  * AI mode. Without consent it only says which AI would be asked and what would be sent.
  * With consent it asks that AI (no tools) and falls back to the rules answer if the reply is unusable.
  */
-export async function aiAction({ cwd, home, task, installed, consent = false, ask = askAi }) {
+export async function aiAction({ cwd, home, task, installed: detected, consent = false, ask = askAi }) {
+  // The AI may only pick tools that can start here, not one known only by its settings folder.
+  const installed = detected.filter(canStart);
   const rules = recommendAction({ cwd, home, task, installed });
   const runner = aiRunner(installed);
   if (!runner) {
