@@ -336,7 +336,7 @@ export function checkupIssues(report) {
 export function formatCheckup({ project, installed, report, score }) {
   const lines = [`✓ Checked: ${project}`, ""];
   if (score) lines.push(`AI setup score: ${score.score}/100 (${score.grade})`, "");
-  lines.push(installed.length ? `Your AI tools: ${installed.map((found) => found.name).join(", ")}` : "No AI coding tools found. Free options: Gemini CLI (free tier) or Ollama (runs on your laptop).");
+  lines.push(installed.length ? `Your AI tools: ${installed.map((found) => found.name).join(", ")}` : "No AI coding tools found. Free options: Antigravity CLI (free tier) or Ollama (runs on your laptop).");
   lines.push("");
 
   const issues = checkupIssues(report);

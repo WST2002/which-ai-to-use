@@ -79,11 +79,11 @@ test("a clean project checkup says nothing is wasted", (t) => {
 });
 
 test("recommends from the tools on this machine", (t) => {
-  const result = machine(t, { bins: ["claude", "gemini"] }).run("add", "two-factor", "login");
+  const result = machine(t, { bins: ["claude", "agy"] }).run("add", "two-factor", "login");
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Best of these: Claude Code/);
   assert.match(result.stdout, /claude "add two-factor login"/);
-  assert.match(result.stdout, /Gemini CLI \(installed, free tier\)/);
+  assert.match(result.stdout, /Antigravity CLI \(installed, free tier\)/);
 });
 
 test("--json prints machine-readable output", (t) => {
@@ -227,7 +227,7 @@ test("handoff with only Claude Code installed explains how to carry on anyway", 
   assert.doesNotMatch(result.stdout, /No AI coding tools found/);
   assert.match(result.stdout, /No other AI tool is installed\. To carry on:/);
   assert.match(result.stdout, /Paste HANDOFF\.md into ChatGPT \(chatgpt\.com\) or Gemini \(gemini\.google\.com\)/);
-  assert.match(result.stdout, /npm i -g @google\/gemini-cli, then run: gemini -i "Read HANDOFF\.md and continue the task\."/);
+  assert.match(result.stdout, /install Antigravity CLI \(free tier\): .*antigravity\.google\/cli\/install.*, then run: agy -i "Read HANDOFF\.md and continue the task\."/);
   assert.match(result.stdout, /Add --copy to put HANDOFF\.md on your clipboard\./);
 });
 
@@ -332,7 +332,7 @@ test("the answer estimates the tokens it takes to start", (t) => {
 });
 
 test("usage shows Claude Code tokens from local logs, numbers only", (t) => {
-  const { project, run } = machine(t, { bins: ["claude", "gemini"] });
+  const { project, run } = machine(t, { bins: ["claude", "agy"] });
   const home = path.join(project, "..", "home");
   const now = new Date();
   const lines = [0, 1, 2].map((i) =>
@@ -345,7 +345,7 @@ test("usage shows Claude Code tokens from local logs, numbers only", (t) => {
   assert.match(result.stdout, /Today:\s+~4,500 tokens in 3 replies \(\+ ~27,000 re-read from cache\)/);
   assert.match(result.stdout, /5-hour limit window \(estimate\)\n\s+~4,500 tokens in 3 replies since \d\d:\d\d · resets about \d\d:\d\d \(in (\d h )?\d+ min\)/);
   assert.match(result.stdout, /Busiest projects \(7 days\): shop ~4,500/);
-  assert.match(result.stdout, /Tip: Today is 7\.0× your daily average\. Send small tasks to Gemini CLI \(free\)/);
+  assert.match(result.stdout, /Tip: Today is 7\.0× your daily average\. Send small tasks to Antigravity CLI \(free\)/);
   assert.doesNotMatch(result.stdout, /SECRET-TEXT/);
 });
 
@@ -447,7 +447,7 @@ test("handoff --to none only writes the note; an unknown choice lists the valid 
   assert.ok(fs.existsSync(path.join(project, "HANDOFF.md")));
   const bad = run("handoff", "add coupons", "--to", "chatgpt");
   assert.equal(bad.status, 1);
-  assert.match(bad.stderr, /--to must be one of: gemini-cli, codex, web, other, none, claude-code, aider/);
+  assert.match(bad.stderr, /--to must be one of: gemini-cli, antigravity-cli, web, other, none, claude-code, codex, aider/);
 });
 
 test("handoff to an AI that is not installed shows how to install it, and installs it only with a yes", (t) => {
@@ -499,7 +499,7 @@ test("--back with --to none writes the note for Claude but starts nothing", (t) 
 test("a task with every installed AI left out says they are left out, not missing", (t) => {
   const result = gitProject(t, ["claude", "gemini"]).run("add a coupon field", "--without", "claude-code", "--without", "gemini-cli");
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /All your AI tools are left out \(Claude Code, Gemini CLI\)\. Wait for a limit to reset, or try a free one: Ollama/);
+  assert.match(result.stdout, /All your AI tools are left out \(Claude Code, Gemini CLI\)\. Wait for a limit to reset, or try a free one: Antigravity CLI \(free tier\) or Ollama/);
   assert.doesNotMatch(result.stdout, /No AI coding tools found/);
 });
 
@@ -514,7 +514,7 @@ test("with no AI installed, a task gets the AI to install, a free one and the we
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /^No AI coding tool was found on this laptop\. For "build a landing page"/);
   assert.match(result.stdout, /1\. Best for this task: Claude Code, .+\n\s+Install: npm install -g @anthropic-ai\/claude-code\n\s+Then:\s+claude "build a landing page/);
-  assert.match(result.stdout, /Free option: Gemini CLI \(free\)/);
+  assert.match(result.stdout, /Free option: Antigravity CLI \(free\)/);
   assert.match(result.stdout, /https:\/\/wst2002\.github\.io\/which-ai-to-use\//);
 });
 

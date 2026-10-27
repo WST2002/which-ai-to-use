@@ -39,7 +39,7 @@ export function setupScore({ report, installed, verify }) {
     items.push({ id: "add-ons", points: -Math.min(15, addOns * 3), label: `${addOns} add-on${addOns === 1 ? "" : "s"} sent with every message`, short: `${addOns} add-on${addOns === 1 ? "" : "s"} on every message`, tip: "Turn off the add-ons (MCP servers) you don't use in this project." });
   }
   if (installed.length === 1) {
-    items.push({ id: "one-tool", points: -5, label: `Only one AI tool (${installed[0].name})`, short: "Only one AI tool", tip: "Add a second one (Gemini CLI has a free tier) so a usage limit never stops you: npx which-ai-to-use handoff" });
+    items.push({ id: "one-tool", points: -5, label: `Only one AI tool (${installed[0].name})`, short: "Only one AI tool", tip: "Add a second one (Antigravity CLI has a free tier) so a usage limit never stops you: npx which-ai-to-use handoff" });
   }
   if (!verify) {
     items.push({ id: "no-tests", points: -5, label: "No test command found", short: "No test command", tip: "Add a test script so your AI can check its own work." });

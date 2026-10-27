@@ -87,7 +87,7 @@ test("warns when this window nears the busiest window of the week", async (t) =>
   const usage = claudeUsage({ home: dir, now: NOW });
   assert.deepEqual(usage.limit, { tokens: 100000, source: "busiest" });
   assert.match(limitWarning(usage, []), /^This window is at 85% of your busiest 5-hour window this week \(~100,000 tokens\); it resets about \d\d:\d\d\. Send small tasks to Claude with --model haiku/);
-  assert.match(limitWarning(usage, [{ id: "gemini-cli" }]), /Send small tasks to Gemini CLI \(free\)/);
+  assert.match(limitWarning(usage, [{ id: "antigravity-cli" }]), /Send small tasks to Antigravity CLI \(free\)/);
 });
 
 test("a recorded limit hit is the better reference, and low use gives no warning", async (t) => {
@@ -116,11 +116,11 @@ test("a log that cannot be read is skipped, not an error", (t) => {
 test("close to the limit, usage says how to make the window last, each with a command", async (t) => {
   const { usageAction } = await import("../src/actions.mjs");
   const dir = home(t, { "p/a.jsonl": [...burst("old", "2026-10-18T09:00:00Z", 100000), ...burst("now", "2026-10-20T10:00:00Z", 85000)] });
-  const installed = [{ id: "claude-code", onPath: true, via: ["command: claude"] }, { id: "gemini-cli", onPath: true, via: ["command: gemini"] }];
+  const installed = [{ id: "claude-code", onPath: true, via: ["command: claude"] }, { id: "antigravity-cli", onPath: true, via: ["command: agy"] }];
   const { text, data } = usageAction({ home: dir, installed, now: NOW });
   assert.match(text, /To make it last:\n {2}• Shrink the conversation, so every message costs less: \/compact \(in Claude Code\)/);
   assert.match(text, /• Use the small model for small edits: claude --model haiku "your task"/);
-  assert.match(text, /• Send the next task to another AI, like Gemini CLI \(free\): npx which-ai-to-use "your task" --without claude-code/);
+  assert.match(text, /• Send the next task to another AI, like Antigravity CLI \(free\): npx which-ai-to-use "your task" --without claude-code/);
   assert.equal(data.tips.length, 4);
   const quiet = home(t, { "p/a.jsonl": [...burst("now", "2026-10-20T10:00:00Z", 30000)] });
   assert.deepEqual(usageAction({ home: quiet, installed, now: NOW }).data.tips, []);

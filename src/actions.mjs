@@ -83,7 +83,7 @@ export async function aiAction({ cwd, home, task, installed, consent = false, as
   const rules = recommendAction({ cwd, home, task, installed });
   const runner = aiRunner(installed);
   if (!runner) {
-    throw new Error("AI mode needs an AI you can run from the terminal (claude, gemini, codex or ollama). Install one, or use the answer without --ai.");
+    throw new Error("AI mode needs an AI you can run from the terminal (claude, agy, gemini, codex or ollama). Install one, or use the answer without --ai.");
   }
   const sends = ["your task", "the names of your AI tools", "the names of matching files (not their contents)"];
   if (!consent) {
@@ -129,7 +129,7 @@ export async function slimAction({ cwd, installed, consent = false, apply = fals
   }
   if (!target) return { text: "No instructions file over 2,000 tokens, so there is nothing worth slimming.\n", data: { target: null } };
   const runner = aiRunner(installed);
-  if (!runner) throw new Error("slim needs an AI you can run from the terminal (claude, gemini, codex or ollama).");
+  if (!runner) throw new Error("slim needs an AI you can run from the terminal (claude, agy, gemini, codex or ollama).");
   if (!consent) {
     return {
       text: `slim will send the full text of ${target.file} (~${target.tokens.toLocaleString("en-US")} tokens) to ${runner.name}${runner.local ? ", which runs on this laptop" : ", a cloud service"}.\n`,
@@ -237,7 +237,7 @@ const CONTINUE = "Read HANDOFF.md and continue the task.";
 const NO_OTHER_AI = [
   "No other AI tool is installed. To carry on:",
   "  1. Paste HANDOFF.md into ChatGPT (chatgpt.com) or Gemini (gemini.google.com) and ask it to continue.",
-  `  2. Or install Gemini CLI (free tier): npm i -g @google/gemini-cli, then run: gemini -i "${CONTINUE}"`,
+  `  2. Or install Antigravity CLI (free tier): ${toolById("antigravity-cli").install}, then run: agy -i "${CONTINUE}"`,
 ];
 
 /** For a chat on the web, which cannot open the project: the note with the changes in it, keys hidden. */
@@ -276,7 +276,7 @@ export function handoffAction({ cwd, home, task: given = "", installed, leftOut 
     lines.push("", copyTextToClipboard(web) ? "Copied HANDOFF.md with the changes to your clipboard: paste it into any AI chat." : "Could not reach the clipboard (no clipboard tool found): open HANDOFF.md and copy it.");
   } else if (!next.best && !menu) lines.push("", "Add --copy to put HANDOFF.md on your clipboard.");
   if (!menu) lines.push("", "HANDOFF.md is for the next AI only: don't commit it.");
-  return { text: `${lines.join("\n")}\n`, data: { file: "HANDOFF.md", ...info, next, choices, note, web, chat: chat && { tool: chat.tool, name: chat.name, task: chat.task, requests: chat.requests } } };
+  return { text: `${lines.join("\n")}\n`, data: { file: "HANDOFF.md", ...info, next, choices, freeInstall: toolById("antigravity-cli").install, note, web, chat: chat && { tool: chat.tool, name: chat.name, task: chat.task, requests: chat.requests } } };
 }
 
 function planNext({ root, task, chat, installed, leftOut, prefer, forcePrivate }) {
