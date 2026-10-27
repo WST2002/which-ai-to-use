@@ -61,3 +61,8 @@ test("a rare word in the task counts for more than a common one", () => {
   const files = ["src/components/ui/Section.tsx", "src/hooks/useActiveSection.ts", "src/components/sections/Hero.tsx", "src/components/sections/About.tsx", "src/components/sections/Skills.tsx"];
   assert.equal(relevantFiles("make the hero section look better", files)[0], "src/components/sections/Hero.tsx");
 });
+
+test("images and other binary files are never files to start with", () => {
+  const files = ["media/dashboard.png", "docs/report.pdf", "src/dashboard.mjs", "src/dashboard-page.mjs"];
+  assert.deepEqual(relevantFiles("fix the login bug in the dashboard", files), ["src/dashboard.mjs", "src/dashboard-page.mjs"]);
+});

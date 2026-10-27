@@ -62,7 +62,7 @@ export function rulesCost(dir) {
 const HEAVY_BYTES = 100 * 1024;
 const NOTABLE_BYTES = 10 * 1024;
 // Images, documents, fonts, media and archives are not read as text, so bytes / 4 says nothing about their cost.
-const BINARY = /\.(png|jpe?g|gif|webp|avif|ico|bmp|tiff?|pdf|docx?|xlsx?|pptx?|woff2?|ttf|otf|eot|mp[34]|webm|mov|wav|ogg|zip|gz|tgz|rar|7z|jar|exe|dll|so|dylib|bin|lockb|wasm|sqlite|db)$/i;
+export const BINARY = /\.(png|jpe?g|gif|webp|avif|ico|bmp|tiff?|pdf|docx?|xlsx?|pptx?|woff2?|ttf|otf|eot|mp[34]|webm|mov|wav|ogg|zip|gz|tgz|rar|7z|jar|exe|dll|so|dylib|bin|lockb|wasm|sqlite|db)$/i;
 const LOCKFILES = new Set(["package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock", "Pipfile.lock", "Cargo.lock", "composer.lock", "Gemfile.lock", "go.sum"]);
 const GENERATED = /\.(min\.(js|css)|map|log|snap)$/i;
 
