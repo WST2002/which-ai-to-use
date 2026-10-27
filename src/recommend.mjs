@@ -1,4 +1,4 @@
-import { TOOLS, toolById } from "./tools.mjs";
+import { TOOLS, canStart, toolById } from "./tools.mjs";
 
 const NEEDS = {
   "quick-edit": { inline: 3, agent: 1 },
@@ -140,7 +140,8 @@ function describe(found, categories, privacy, task) {
  * `alsoCount`: how many other installed tools to describe after the best one.
  * `leftOut`: installed tools the user left out (their limit is over), so the notes do not call them missing.
  */
-export function recommend({ task, prompt = task, files = [], categories, installed, sensitive = [], prefer = "balanced", private: forcePrivate = false, alsoCount = 3, leftOut = [] }) {
+export function recommend({ task, prompt = task, files = [], categories, installed: detected, sensitive = [], prefer = "balanced", private: forcePrivate = false, alsoCount = 3, leftOut = [] }) {
+  const installed = detected.filter(canStart);
   const privacy = forcePrivate || sensitive.length > 0;
   const notes = [];
   if (privacy && sensitive.length) {

@@ -187,3 +187,12 @@ test("the quoted task reaches the program as one argument in the system shell, a
   assert.deepEqual(JSON.parse(result.stdout), ["add 'coupons' & (touch PWNED) 'touch PWNED' PATH"]);
   assert.ok(!fs.existsSync(path.join(dir, "PWNED")));
 });
+
+test("a terminal-only tool found only by its settings folder is not suggested, since it cannot be started", () => {
+  // Antigravity CLI keeps its settings in ~/.gemini/antigravity-cli, so ~/.gemini alone does not mean Gemini CLI works.
+  const geminiFolderOnly = { id: "gemini-cli", onPath: false, via: ["settings: ~/.gemini"] };
+  const result = recommend({ ...base, installed: [geminiFolderOnly, found("antigravity-cli")] });
+  assert.equal(result.best.id, "antigravity-cli");
+  assert.ok(!result.also.some((entry) => entry.id === "gemini-cli"));
+  assert.ok(!JSON.stringify(result).includes("Open Gemini CLI in VS Code"));
+});
