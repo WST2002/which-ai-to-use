@@ -63,6 +63,16 @@ test("no arguments gives a plain-language checkup of this project", (t) => {
   assert.doesNotMatch(result.stdout, /MCP|rules file/i);
 });
 
+test("a task typed without quotes that starts with a command word is a task, not the command", (t) => {
+  const { run } = machine(t, { bins: ["claude"], files: { "package-lock.json": "x".repeat(40 * 1024), "src/app.js": "x" } });
+  const fixTask = run("fix", "the", "login", "bug");
+  assert.equal(fixTask.status, 0, fixTask.stderr);
+  assert.match(fixTask.stdout, /Task: fix the login bug/);
+  assert.doesNotMatch(fixTask.stdout, /will skip these files|Nothing to fix/);
+  assert.match(run("report", "the", "checkout", "crash").stdout, /Task: report the checkout crash/);
+  assert.match(run("fix").stdout, /will skip these files/);
+});
+
 test("a clean project checkup says nothing is wasted", (t) => {
   const result = machine(t, { bins: ["claude"], files: { "src/app.js": "x" } }).run();
   assert.match(result.stdout, /Nothing is wasting your tokens here/);

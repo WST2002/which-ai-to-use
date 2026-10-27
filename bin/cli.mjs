@@ -307,11 +307,13 @@ async function main() {
   const installed = detected.filter((found) => !skipped.includes(found.id) && !team?.without.includes(found.id));
   // Tools on this laptop that were left out: the answer names them as left out, not as missing.
   const leftOut = detected.filter((found) => !installed.includes(found)).map((found) => found.id);
-  const [command] = positionals;
+  // `fix the login bug` typed without quotes is a task, not the fix command; only handoff takes words after it.
+  const typedTask = positionals.length > 1 && positionals[0] !== "handoff";
+  const command = typedTask ? "" : positionals[0];
   const context = { cwd: process.cwd(), home: os.homedir(), installed, prefer: values.prefer, private: values.private };
   const print = ({ text, data }) => process.stdout.write(values.json ? `${JSON.stringify(data, null, 2)}\n` : text);
   const noAiFound = installed.length === 0 && skipped.length === 0;
-  if (!command) {
+  if (!command && !typedTask) {
     print(checkupAction(context));
     if (values.json || !process.stdin.isTTY) return undefined;
     // Nothing installed yet: ask what they want to do and suggest an AI for it, instead of stopping here.
