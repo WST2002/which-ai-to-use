@@ -231,7 +231,8 @@ test("handoff leaves out Claude Code by default, since its limit is what ran out
 test("handoff from another AI keeps Claude Code as the next one", (t) => {
   const result = gitProject(t, ["claude", "gemini"]).run("handoff", "add coupons", "--without", "gemini-cli");
   assert.match(result.stdout, /Next:\s+Claude Code/);
-  assert.doesNotMatch(result.stdout, /Left out:/);
+  assert.match(result.stdout, /Left out: Gemini CLI \(limit over\)/);
+  assert.doesNotMatch(result.stdout, /Left out: Claude Code/);
 });
 
 test("handoff with only Claude Code installed explains how to carry on anyway", (t) => {
@@ -592,4 +593,39 @@ test("Antigravity CLI's settings inside ~/.gemini do not make the checkup list G
   const { project, run } = machine(t, { bins: ["agy"] });
   fs.mkdirSync(path.join(project, "..", "home", ".gemini", "antigravity-cli"), { recursive: true });
   assert.match(run().stdout, /Your AI tools: Antigravity CLI\n/);
+});
+
+test("with only Antigravity CLI, handoff names no left-out Claude and doctor does not tick Gemini CLI", (t) => {
+  const { project, run } = gitProject(t, ["agy"]);
+  fs.mkdirSync(path.join(project, "..", "home", ".gemini", "antigravity-cli"), { recursive: true });
+  const handoff = run("handoff", "add coupons");
+  assert.equal(handoff.status, 0, handoff.stderr);
+  assert.doesNotMatch(handoff.stdout, /Left out:/);
+  assert.match(handoff.stdout, /Next:\s+Antigravity CLI/);
+  const doctor = run("doctor").stdout;
+  assert.match(doctor, /^ {2}✗ Gemini CLI \(no gemini command; settings: ~\/\.gemini\)$/m);
+  assert.match(doctor, /^ {2}✓ Antigravity CLI — command: agy/m);
+});
+
+test("handoff never offers to install Gemini CLI when it is there but its personal Google login has ended", (t) => {
+  const { project, run } = gitProject(t, ["claude", "gemini"]);
+  const home = path.join(project, "..", "home");
+  fs.mkdirSync(path.join(home, ".gemini"), { recursive: true });
+  fs.writeFileSync(path.join(home, ".gemini", "settings.json"), JSON.stringify({ security: { auth: { selectedType: "oauth-personal" } } }));
+  const result = run("handoff", "add coupons", "--json");
+  assert.equal(result.status, 0, result.stderr);
+  const choices = JSON.parse(result.stdout).choices;
+  assert.ok(!choices.some((c) => c.id === "gemini-cli"), JSON.stringify(choices.map((c) => c.id)));
+  assert.ok(choices.some((c) => c.id === "antigravity-cli" && c.installed === false));
+});
+
+test("handing off from Antigravity CLI never says to install it, and names it as left out", (t) => {
+  const { run } = gitProject(t, ["agy"]);
+  const result = run("handoff", "add coupons", "--without", "antigravity-cli");
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Left out: Antigravity CLI \(limit over\)/);
+  assert.doesNotMatch(result.stdout, /install Antigravity CLI/i);
+  assert.match(result.stdout, /wait until Antigravity CLI's limit resets/);
+  const data = JSON.parse(run("handoff", "add coupons", "--without", "antigravity-cli", "--json").stdout);
+  assert.equal(data.freeInstall, null);
 });

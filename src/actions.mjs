@@ -19,10 +19,11 @@ import { aiRunner, askAi, buildAiPrompt, parseAiAnswer } from "./ai.mjs";
 import { startCost } from "./cost.mjs";
 import { estimateTokens, heavyFiles, listProjectFiles, mcpServers, rulesCost, tokenReport } from "./tokens.mjs";
 import { TEAM_FILE, readTeam, writeTeam } from "./team.mjs";
-import { TOOLS, toolById } from "./tools.mjs";
+import { TOOLS, canStart, toolById } from "./tools.mjs";
 import { defaultEnvironment, toolProblems } from "./detect.mjs";
 
-const ids = (installed) => installed.map((found) => found.id);
+// Only tools that can start get their ignore files written and counted (a settings folder alone is not a tool).
+const ids = (installed) => installed.filter(canStart).map((found) => found.id);
 
 function readText(file) {
   try {
@@ -35,7 +36,9 @@ function readText(file) {
 // Installed tools that cannot work as set up (Gemini CLI on a personal Google login), each with what to do.
 const problemsFor = (home) => (home ? toolProblems({ ...defaultEnvironment(), home }) : []);
 
-export function checkupAction({ cwd, home, installed }) {
+export function checkupAction({ cwd, home, installed: detected }) {
+  // The list people see (terminal, dashboard, VS Code) has only tools that can start, not a settings folder alone.
+  const installed = detected.filter(canStart);
   const report = tokenReport({ dir: cwd, home, installedIds: ids(installed) });
   const project = path.basename(cwd);
   const score = setupScore({ report, installed, verify: verifyCommand(cwd) });
@@ -68,7 +71,8 @@ export function shareLinks(share) {
   return { x: `https://x.com/intent/post?text=${text}`, linkedin: `https://www.linkedin.com/feed/?shareActive=true&text=${text}` };
 }
 
-export function scoreAction({ cwd, home, installed }) {
+export function scoreAction({ cwd, home, installed: detected }) {
+  const installed = detected.filter(canStart);
   const report = tokenReport({ dir: cwd, home, installedIds: ids(installed) });
   const result = { ...setupScore({ report, installed, verify: verifyCommand(cwd) }) };
   result.links = shareLinks(result.share);
@@ -230,8 +234,9 @@ export function recommendAction({ cwd, home, task, installed, leftOut = [], pref
   const { sensitive } = scanProject(cwd);
   const files = relevantFiles(clean, listProjectFiles(cwd));
   const prompt = betterPrompt(clean, files, verifyCommand(cwd));
-  const result = recommend({ task: clean, prompt, files, categories: classifyTask(clean), installed, leftOut, sensitive, prefer, private: forcePrivate });
-  result.notes.push(...problemsFor(home).map((p) => `⚠ ${p.problem}`));
+  const problems = problemsFor(home);
+  const result = recommend({ task: clean, prompt, files, categories: classifyTask(clean), installed, leftOut, broken: problems.map((p) => p.id), sensitive, prefer, private: forcePrivate });
+  result.notes.push(...problems.map((p) => `⚠ ${p.problem}`));
   if (result.best) {
     const name = toolById(result.best.id).name;
     const addOns = home ? mcpServers({ home, dir: cwd }).filter((server) => server.tool === name).length : 0;
@@ -241,10 +246,13 @@ export function recommendAction({ cwd, home, task, installed, leftOut = [], pref
 }
 
 const CONTINUE = "Read HANDOFF.md and continue the task.";
-const NO_OTHER_AI = [
+// Antigravity CLI is the free one to get, unless it is here already and its own limit is what ran out.
+const noOtherAi = (leftOut) => [
   "No other AI tool is installed. To carry on:",
   "  1. Paste HANDOFF.md into ChatGPT (chatgpt.com) or Gemini (gemini.google.com) and ask it to continue.",
-  `  2. Or install Antigravity CLI (free tier): ${toolById("antigravity-cli").install}, then run: agy -i "${CONTINUE}"`,
+  leftOut.includes("antigravity-cli")
+    ? `  2. Or wait until Antigravity CLI's limit resets, then run: agy -i "${CONTINUE}"`
+    : `  2. Or install Antigravity CLI (free tier): ${toolById("antigravity-cli").install}, then run: agy -i "${CONTINUE}"`,
 ];
 
 /** For a chat on the web, which cannot open the project: the note with the changes in it, keys hidden. */
@@ -252,7 +260,10 @@ export const webNote = (root, note) => webHandoff(root, note, redact);
 
 /** `leftOut`: tools left out because their limit is over, named in the answer. `copy`: also put the note on the clipboard. */
 /** `by`: "hook" when the Claude Code plugin writes the note after the limit was reached (VS Code reacts to that). */
-export function handoffAction({ cwd, home, task: given = "", installed, leftOut = [], copy = false, menu = false, by = null, prefer = "balanced", private: forcePrivate = false, date = new Date().toISOString().slice(0, 10) }) {
+export function handoffAction({ cwd, home, task: given = "", installed, leftOut: asked = [], copy = false, menu = false, by = null, prefer = "balanced", private: forcePrivate = false, date = new Date().toISOString().slice(0, 10) }) {
+  // Only a tool on this laptop can be left out: with no Claude Code here, nothing says its limit is over.
+  // The Claude Code plugin's hook runs inside Claude Code, so then it is here even without a claude command.
+  const leftOut = asked.filter((id) => by === "hook" || installed.some((found) => found.id === id));
   const root = projectRoot(cwd);
   // The chat (in the AI whose limit ran out, or the newest one) says what was asked and where it stopped,
   // so nobody has to type the task again. Without git, the files it changed stand in for the diff.
@@ -267,7 +278,7 @@ export function handoffAction({ cwd, home, task: given = "", installed, leftOut 
   const note = renderHandoff({ task, info, verify: verifyCommand(info.root), date, chat, from: fromClaude ? "claude-code" : null, resets, by });
   fs.writeFileSync(file, note);
   const web = webNote(info.root, note);
-  const { next, choices } = planNext({ root: info.root, task, chat, installed, leftOut, prefer, forcePrivate });
+  const { next, choices } = planNext({ root: info.root, task, chat, installed, leftOut, broken: problemsFor(home).map((p) => p.id), prefer, forcePrivate });
   const lines = [];
   if (chat) lines.push(`Read the ${chat.name} chat: "${chat.task.length > 70 ? `${chat.task.slice(0, 69)}…` : chat.task}" (${chat.requests} request${chat.requests === 1 ? "" : "s"}).`);
   if (info.git) lines.push(`Wrote HANDOFF.md: ${info.changes.length} changed file(s), ${info.commits.length} commit(s) on ${info.branch}.`, "");
@@ -277,28 +288,28 @@ export function handoffAction({ cwd, home, task: given = "", installed, leftOut 
   if (resets) lines.push(`Claude's limit resets about ${resetTime(resets)}. Then hand the task back: npx which-ai-to-use handoff --back`, "");
   if (!menu) {
     if (next.best) lines.push(`Next:    ${next.best.name} — ${next.best.reason}`, `Run:     ${next.best.command}`);
-    else lines.push(...NO_OTHER_AI);
+    else lines.push(...noOtherAi(leftOut));
   }
   if (copy) {
     lines.push("", copyTextToClipboard(web) ? "Copied HANDOFF.md with the changes to your clipboard: paste it into any AI chat." : "Could not reach the clipboard (no clipboard tool found): open HANDOFF.md and copy it.");
   } else if (!next.best && !menu) lines.push("", "Add --copy to put HANDOFF.md on your clipboard.");
   if (!menu) lines.push("", "HANDOFF.md is for the next AI only: don't commit it.");
-  return { text: `${lines.join("\n")}\n`, data: { file: "HANDOFF.md", ...info, next, choices, freeInstall: toolById("antigravity-cli").install, note, web, chat: chat && { tool: chat.tool, name: chat.name, task: chat.task, requests: chat.requests } } };
+  return { text: `${lines.join("\n")}\n`, data: { file: "HANDOFF.md", ...info, next, choices, freeInstall: leftOut.includes("antigravity-cli") ? null : toolById("antigravity-cli").install, note, web, chat: chat && { tool: chat.tool, name: chat.name, task: chat.task, requests: chat.requests } } };
 }
 
-function planNext({ root, task, chat, installed, leftOut, prefer, forcePrivate }) {
+function planNext({ root, task, chat, installed, leftOut, broken = [], prefer, forcePrivate }) {
   const { sensitive } = scanProject(root);
   const categories = classifyTask(task || chat?.task || "");
   const available = installed.filter((found) => !leftOut.includes(found.id));
   // Every installed AI that can be started in a terminal is a choice, not only the top few.
   const next = recommend({ task: CONTINUE, categories, installed: available, sensitive, prefer, private: forcePrivate, alsoCount: Infinity });
-  return { next, choices: handoffChoices(next, installSuggestion({ installed, leftOut, categories, sensitive, prefer, forcePrivate })) };
+  return { next, choices: handoffChoices(next, installSuggestion({ installed, leftOut, broken, categories, sensitive, prefer, forcePrivate })) };
 }
 
 /** Who can carry on, without writing a note: VS Code uses it when the Claude Code plugin has already written one. */
 export function nextChoices({ cwd, home, installed, leftOut = ["claude-code"], task = "" }) {
   const chat = home ? lastChat({ home, cwd, from: leftOut }) : null;
-  return planNext({ root: cwd, task, chat, installed, leftOut, prefer: "balanced", forcePrivate: false }).choices;
+  return planNext({ root: cwd, task, chat, installed, leftOut, broken: problemsFor(home).map((p) => p.id), prefer: "balanced", forcePrivate: false }).choices;
 }
 
 /**
@@ -340,9 +351,10 @@ export function installChoice(id, installed = []) {
 }
 
 /** The best AI with an install command that is not installed (or left out), ranked for continuing the task. */
-function installSuggestion({ installed, leftOut, categories, sensitive, prefer, forcePrivate }) {
+function installSuggestion({ installed, leftOut, broken, categories, sensitive, prefer, forcePrivate }) {
   const have = new Set(installed.map((found) => found.id));
-  const candidates = TOOLS.filter((tool) => tool.install && !have.has(tool.id) && !leftOut.includes(tool.id))
+  // A tool that is here but cannot work as set up (Gemini CLI on a personal Google login) is no install to suggest.
+  const candidates = TOOLS.filter((tool) => tool.install && !have.has(tool.id) && !leftOut.includes(tool.id) && !broken.includes(tool.id))
     .map((tool) => ({ id: tool.id, onPath: true, via: [`command: ${tool.detect.bins[0]}`] }));
   if (!candidates.length) return null;
   const best = recommend({ task: CONTINUE, categories, installed: candidates, sensitive, prefer, private: forcePrivate }).best;

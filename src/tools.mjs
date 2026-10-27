@@ -10,6 +10,9 @@ export const TOOLS = data.tools.map((tool) => ({ ...tool, install: installFor(to
 export const TOOLS_AS_OF = data.asOf;
 export const toolById = (id) => TOOLS.find((tool) => tool.id === id);
 
+/** A free second tool to suggest next to `id`, never the same tool. */
+export const secondTool = (id) => (id === "antigravity-cli" ? "Ollama, which runs on your laptop for free" : "Antigravity CLI, which has a free tier");
+
 /**
  * A terminal tool with no editor extension starts only from its command: a settings folder alone is not enough
  * (Antigravity CLI keeps its settings in ~/.gemini, so that folder does not mean Gemini CLI is there).

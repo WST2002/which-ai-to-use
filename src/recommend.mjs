@@ -1,4 +1,4 @@
-import { TOOLS, canStart, toolById } from "./tools.mjs";
+import { TOOLS, canStart, secondTool, toolById } from "./tools.mjs";
 
 const NEEDS = {
   "quick-edit": { inline: 3, agent: 1 },
@@ -139,8 +139,9 @@ function describe(found, categories, privacy, task) {
 /**
  * `alsoCount`: how many other installed tools to describe after the best one.
  * `leftOut`: installed tools the user left out (their limit is over), so the notes do not call them missing.
+ * `broken`: tools that cannot work as set up here (see toolProblems), so they are never named as one to use or get.
  */
-export function recommend({ task, prompt = task, files = [], categories, installed: detected, sensitive = [], prefer = "balanced", private: forcePrivate = false, alsoCount = 3, leftOut = [] }) {
+export function recommend({ task, prompt = task, files = [], categories, installed: detected, sensitive = [], prefer = "balanced", private: forcePrivate = false, alsoCount = 3, leftOut = [], broken = [] }) {
   const installed = detected.filter(canStart);
   const privacy = forcePrivate || sensitive.length > 0;
   const notes = [];
@@ -175,7 +176,7 @@ export function recommend({ task, prompt = task, files = [], categories, install
   const installedIds = new Set(installed.map((found) => found.id));
   // The best fit among every supported tool, by features. On a tie an installed tool wins, so we never
   // push an install that would not help.
-  const everyTool = TOOLS.map((tool, order) => ({ tool, order, score: score(tool, categories, prefer, privacy), installed: installedIds.has(tool.id) }))
+  const everyTool = TOOLS.filter((tool) => !broken.includes(tool.id)).map((tool, order) => ({ tool, order, score: score(tool, categories, prefer, privacy), installed: installedIds.has(tool.id) }))
     .sort((a, b) => b.score - a.score || Number(b.installed) - Number(a.installed) || a.order - b.order);
   const [winner] = everyTool;
   const overall = {
@@ -186,7 +187,7 @@ export function recommend({ task, prompt = task, files = [], categories, install
     installed: winner.installed,
     alsoGreat: everyTool.filter((entry) => entry !== winner && entry.score === winner.score).map((entry) => entry.tool.name),
   };
-  const suggested = TOOLS.filter((tool) => !installedIds.has(tool.id))
+  const suggested = TOOLS.filter((tool) => !installedIds.has(tool.id) && !broken.includes(tool.id))
     .map((tool) => ({ tool, score: score(tool, categories, prefer, privacy) }))
     .filter((entry) => entry.score > top.score)
     .sort((a, b) => b.score - a.score)
@@ -203,13 +204,13 @@ export function recommend({ task, prompt = task, files = [], categories, install
     } else if (installed.length === 1 && leftOut.length) {
       notes.push(`${top.tool.name} is the only AI tool you can use now, and this task is risky. Once a limit resets, ask another AI to review the change.`);
     } else if (installed.length === 1) {
-      notes.push(`${top.tool.name} is the only AI tool found, and this task is risky. A second tool (for example Antigravity CLI, which has a free tier) can review the change.`);
+      notes.push(`${top.tool.name} is the only AI tool found, and this task is risky. A second tool (for example ${secondTool(top.tool.id)}) can review the change.`);
     } else {
       notes.push("This task is risky. Install a second AI tool to get an independent review.");
     }
   }
   if (installed.length === 1 && !leftOut.length && !reviewer && !categories.some((c) => SECOND_OPINION.has(c))) {
-    notes.push(`${top.tool.name} is the only AI tool found. A second tool (for example Antigravity CLI, which has a free tier) lets you get second opinions.`);
+    notes.push(`${top.tool.name} is the only AI tool found. A second tool (for example ${secondTool(top.tool.id)}) lets you get second opinions.`);
   }
   if (top.tool.id === "ollama" && !top.found.models?.length) notes.push("No Ollama models installed yet. Try: ollama pull qwen2.5-coder");
 

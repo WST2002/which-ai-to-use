@@ -239,6 +239,10 @@ export function formatDoctor(installed, project, problems = []) {
       lines.push(`  ✗ ${tool.name}`);
       continue;
     }
+    if (!canStart(found)) {
+      lines.push(`  ✗ ${tool.name} (no ${tool.detect.bins[0]} command; ${found.via.join(", ")})`);
+      continue;
+    }
     const models = found.models?.length ? ` — models: ${found.models.join(", ")}` : "";
     const warning = found.onPath ? "" : " (settings found, command not on PATH)";
     lines.push(`  ✓ ${tool.name}${warning} — ${found.via.join(", ")}${models}`);

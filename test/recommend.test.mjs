@@ -196,3 +196,9 @@ test("a terminal-only tool found only by its settings folder is not suggested, s
   assert.ok(!result.also.some((entry) => entry.id === "gemini-cli"));
   assert.ok(!JSON.stringify(result).includes("Open Gemini CLI in VS Code"));
 });
+
+test("a tool that cannot work as set up is not named as the best or just-as-good tool to get", () => {
+  const result = recommend({ ...base, categories: ["explain-codebase"], installed: [found("claude-code")], broken: ["gemini-cli"] });
+  assert.ok(![result.overall.name, ...result.overall.alsoGreat].includes("Gemini CLI"), JSON.stringify(result.overall));
+  assert.ok(!result.suggested.some((s) => s.id === "gemini-cli"));
+});
