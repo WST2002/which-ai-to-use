@@ -605,3 +605,15 @@ test("with only Antigravity CLI, handoff names no left-out Claude and doctor doe
   assert.match(doctor, /^ {2}✗ Gemini CLI \(no gemini command; settings: ~\/\.gemini\)$/m);
   assert.match(doctor, /^ {2}✓ Antigravity CLI — command: agy/m);
 });
+
+test("handoff never offers to install Gemini CLI when it is there but its personal Google login has ended", (t) => {
+  const { project, run } = gitProject(t, ["claude", "gemini"]);
+  const home = path.join(project, "..", "home");
+  fs.mkdirSync(path.join(home, ".gemini"), { recursive: true });
+  fs.writeFileSync(path.join(home, ".gemini", "settings.json"), JSON.stringify({ security: { auth: { selectedType: "oauth-personal" } } }));
+  const result = run("handoff", "add coupons", "--json");
+  assert.equal(result.status, 0, result.stderr);
+  const choices = JSON.parse(result.stdout).choices;
+  assert.ok(!choices.some((c) => c.id === "gemini-cli"), JSON.stringify(choices.map((c) => c.id)));
+  assert.ok(choices.some((c) => c.id === "antigravity-cli" && c.installed === false));
+});

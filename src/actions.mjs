@@ -272,7 +272,7 @@ export function handoffAction({ cwd, home, task: given = "", installed, leftOut:
   const note = renderHandoff({ task, info, verify: verifyCommand(info.root), date, chat, from: fromClaude ? "claude-code" : null, resets, by });
   fs.writeFileSync(file, note);
   const web = webNote(info.root, note);
-  const { next, choices } = planNext({ root: info.root, task, chat, installed, leftOut, prefer, forcePrivate });
+  const { next, choices } = planNext({ root: info.root, task, chat, installed, leftOut, broken: problemsFor(home).map((p) => p.id), prefer, forcePrivate });
   const lines = [];
   if (chat) lines.push(`Read the ${chat.name} chat: "${chat.task.length > 70 ? `${chat.task.slice(0, 69)}…` : chat.task}" (${chat.requests} request${chat.requests === 1 ? "" : "s"}).`);
   if (info.git) lines.push(`Wrote HANDOFF.md: ${info.changes.length} changed file(s), ${info.commits.length} commit(s) on ${info.branch}.`, "");
@@ -291,19 +291,19 @@ export function handoffAction({ cwd, home, task: given = "", installed, leftOut:
   return { text: `${lines.join("\n")}\n`, data: { file: "HANDOFF.md", ...info, next, choices, freeInstall: toolById("antigravity-cli").install, note, web, chat: chat && { tool: chat.tool, name: chat.name, task: chat.task, requests: chat.requests } } };
 }
 
-function planNext({ root, task, chat, installed, leftOut, prefer, forcePrivate }) {
+function planNext({ root, task, chat, installed, leftOut, broken = [], prefer, forcePrivate }) {
   const { sensitive } = scanProject(root);
   const categories = classifyTask(task || chat?.task || "");
   const available = installed.filter((found) => !leftOut.includes(found.id));
   // Every installed AI that can be started in a terminal is a choice, not only the top few.
   const next = recommend({ task: CONTINUE, categories, installed: available, sensitive, prefer, private: forcePrivate, alsoCount: Infinity });
-  return { next, choices: handoffChoices(next, installSuggestion({ installed, leftOut, categories, sensitive, prefer, forcePrivate })) };
+  return { next, choices: handoffChoices(next, installSuggestion({ installed, leftOut, broken, categories, sensitive, prefer, forcePrivate })) };
 }
 
 /** Who can carry on, without writing a note: VS Code uses it when the Claude Code plugin has already written one. */
 export function nextChoices({ cwd, home, installed, leftOut = ["claude-code"], task = "" }) {
   const chat = home ? lastChat({ home, cwd, from: leftOut }) : null;
-  return planNext({ root: cwd, task, chat, installed, leftOut, prefer: "balanced", forcePrivate: false }).choices;
+  return planNext({ root: cwd, task, chat, installed, leftOut, broken: problemsFor(home).map((p) => p.id), prefer: "balanced", forcePrivate: false }).choices;
 }
 
 /**
@@ -345,9 +345,10 @@ export function installChoice(id, installed = []) {
 }
 
 /** The best AI with an install command that is not installed (or left out), ranked for continuing the task. */
-function installSuggestion({ installed, leftOut, categories, sensitive, prefer, forcePrivate }) {
+function installSuggestion({ installed, leftOut, broken, categories, sensitive, prefer, forcePrivate }) {
   const have = new Set(installed.map((found) => found.id));
-  const candidates = TOOLS.filter((tool) => tool.install && !have.has(tool.id) && !leftOut.includes(tool.id))
+  // A tool that is here but cannot work as set up (Gemini CLI on a personal Google login) is no install to suggest.
+  const candidates = TOOLS.filter((tool) => tool.install && !have.has(tool.id) && !leftOut.includes(tool.id) && !broken.includes(tool.id))
     .map((tool) => ({ id: tool.id, onPath: true, via: [`command: ${tool.detect.bins[0]}`] }));
   if (!candidates.length) return null;
   const best = recommend({ task: CONTINUE, categories, installed: candidates, sensitive, prefer, private: forcePrivate }).best;
