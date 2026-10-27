@@ -279,10 +279,20 @@ async function askTask() {
   const recent = recentAction(await context()).data.tasks;
   const typed = () => vscode.window.showInputBox({ prompt: "What do you want to do?", placeHolder: "e.g. make the hero section look better" });
   if (!recent.length) return typed();
-  const pick = await vscode.window.showQuickPick(
-    [{ label: "$(add) New task…", fresh: true }, ...recent.map((t) => ({ label: t.task, description: t.best ? `→ ${t.best}` : "", detail: "Asked before" }))],
-    { placeHolder: "Which AI for a task? Pick one you asked before, or a new one" },
-  );
+  const asked = [{ label: "$(add) New task…", fresh: true }, ...recent.map((t) => ({ label: t.task, description: t.best ? `→ ${t.best}` : "", detail: "Asked before" }))];
+  // A new task can be typed right here: it shows on top, so Enter asks it instead of doing nothing.
+  const quick = vscode.window.createQuickPick();
+  quick.placeholder = "Which AI for a task? Type a new one, or pick one you asked before";
+  quick.items = asked;
+  quick.onDidChangeValue((value) => {
+    quick.items = value.trim() ? [{ label: value.trim(), description: "new task", alwaysShow: true, typed: true }, ...asked.slice(1)] : asked;
+  });
+  const pick = await new Promise((resolve) => {
+    quick.onDidAccept(() => resolve(quick.selectedItems[0]));
+    quick.onDidHide(() => resolve(undefined));
+    quick.show();
+  });
+  quick.dispose();
   if (!pick) return undefined;
   return pick.fresh ? typed() : pick.label;
 }
