@@ -10,7 +10,7 @@
 
 Use your AI coding tools better. See what wastes your tokens, pick the right AI (and model) for each task, make Claude's limit last, hand a task to another AI when it runs out, and see your AI week.
 
-![which-ai-to-use: the checkup finds ~102,000 wasted tokens, fix raises the AI setup score from 74 to 100, usage warns that Claude's window is at 90% with four ways to make it last, handoff reads the Claude Code chat and passes the task to Gemini CLI, and report shows the AI week as bars](media/which-ai-to-use-demo.gif)
+![which-ai-to-use: the checkup finds ~102,000 wasted tokens, fix raises the AI setup score from 74 to 100, usage warns that Claude's window is at 90% with four ways to make it last, handoff reads the Claude Code chat and passes the task to Antigravity CLI, and report shows the AI week as bars](media/which-ai-to-use-demo.gif)
 
 *Real output on a demo project: checkup, fix, score, the limit warning with tips, a handoff that reads the chat, and your AI week.*
 
