@@ -154,3 +154,11 @@ test("the handoff answer carries the note for the web, and the web choice says t
   assert.match(result.data.web, /\+export const total = \(\) => 3;/);
   assert.equal(result.data.choices.find((c) => c.id === "web").why, "HANDOFF.md and the changes are copied to your clipboard; paste them into the chat");
 });
+
+test("on main, the latest commits are called recent commits, not commits for this task", (t) => {
+  const dir = repo(t);
+  const { text, data } = handoffAction({ cwd: dir, home: dir, task: "add coupons", installed: [] });
+  assert.match(data.note, /## Recent commits on main \(not all may be for this task\)\n\n- Add cart/);
+  assert.doesNotMatch(data.note, /Commits for this task/);
+  assert.match(text, /Wrote HANDOFF\.md: 0 changed file\(s\), 1 recent commit\(s\) on main\./);
+});

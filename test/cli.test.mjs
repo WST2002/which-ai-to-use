@@ -4,6 +4,7 @@ import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { handoffMeta } from "../src/handoff.mjs";
 
 const cli = path.resolve(import.meta.dirname, "../bin/cli.mjs");
@@ -628,4 +629,14 @@ test("handing off from Antigravity CLI never says to install it, and names it as
   assert.match(result.stdout, /wait until Antigravity CLI's limit resets/);
   const data = JSON.parse(run("handoff", "add coupons", "--without", "antigravity-cli", "--json").stdout);
   assert.equal(data.freeInstall, null);
+});
+
+test("with only a leftover ~/.claude folder, the checkup asks what you want to do, like with no AI at all", (t) => {
+  const { project } = machine(t);
+  const home = path.join(project, "..", "home");
+  fs.mkdirSync(path.join(home, ".claude"), { recursive: true });
+  const shim = `process.stdin.isTTY = true; await import(${JSON.stringify(pathToFileURL(cli).href)});`;
+  const result = spawnSync(process.execPath, ["--input-type=module", "-e", shim], { cwd: project, encoding: "utf8", input: "\n", env: { ...process.env, PATH: path.join(project, "..", "bin"), HOME: home, USERPROFILE: home } });
+  assert.match(result.stdout, /No AI coding tools found/);
+  assert.match(result.stdout, /What do you want to do with AI\?/);
 });

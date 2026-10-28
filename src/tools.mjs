@@ -14,11 +14,11 @@ export const toolById = (id) => TOOLS.find((tool) => tool.id === id);
 export const secondTool = (id) => (id === "antigravity-cli" ? "Ollama, which runs on your laptop for free" : "Antigravity CLI, which has a free tier");
 
 /**
- * A terminal tool with no editor extension starts only from its command: a settings folder alone is not enough
- * (Antigravity CLI keeps its settings in ~/.gemini, so that folder does not mean Gemini CLI is there).
+ * A terminal tool starts from its command or its editor extension: a settings folder alone is not enough
+ * (Antigravity CLI keeps its settings in ~/.gemini, and ~/.claude stays after Claude Code is removed).
  */
 export function canStart(found) {
   const tool = toolById(found.id);
-  const terminalOnly = tool.detect.bins.length > 0 && !tool.run.startsWith("Open ") && tool.detect.extensions.length === 0;
-  return !terminalOnly || found.via.some((v) => v.startsWith("command:"));
+  const terminalTool = tool.detect.bins.length > 0 && !tool.run.startsWith("Open ");
+  return !terminalTool || found.via.some((v) => v.startsWith("command:") || v.startsWith("extension:"));
 }

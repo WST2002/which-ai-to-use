@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { BINARY } from "./tokens.mjs";
 
 const MAX_FILES = 3;
 const MIN_WORD = 4;
@@ -28,7 +29,8 @@ export function relevantFiles(task, files) {
   const wanted = words(task);
   if (!wanted.length) return [];
   const candidates = files
-    .filter((file) => !NOT_SOURCE.test(file))
+    // Lockfiles, build output and binaries (images, PDFs) are nothing to start a task with.
+    .filter((file) => !NOT_SOURCE.test(file) && !BINARY.test(file))
     .map((file) => ({ file, parts: pathWords(file), name: pathWords(path.posix.basename(file)) }));
   // A word found in few paths ("hero") says more about the right file than one found in many ("section").
   const weight = Object.fromEntries(

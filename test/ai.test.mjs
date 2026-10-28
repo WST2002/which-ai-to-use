@@ -122,3 +122,17 @@ test("an AI that answers nothing or fails says so in plain words", async () => {
   assert.deepEqual((await askAi(node(0), "hi")).error, "it gave an empty answer");
   assert.deepEqual((await askAi(node(3), "hi")).error, "it stopped with exit code 3");
 });
+
+test("AI mode never offers a tool found only by its settings folder, in the question or the answer", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "waitu-aifolder-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const installed = [
+    { id: "claude-code", name: "Claude Code", onPath: false, via: ["settings: ~/.claude"] },
+    { id: "antigravity-cli", name: "Antigravity CLI", onPath: true, via: ["command: agy"] },
+  ];
+  let question = "";
+  const pickClaude = '{"best_anywhere":"cursor","best_installed":"claude-code","model":"","why":"x","prompt":"Do it","steps":["a"]}';
+  const result = await aiAction({ cwd: dir, home: dir, task: "add a badge to the readme", installed, consent: true, ask: async (runner, q) => ((question = q), { ok: true, text: pickClaude, seconds: 1 }) });
+  assert.match(question, /Installed on this laptop: antigravity-cli \(Antigravity CLI\)\n/);
+  assert.doesNotMatch(result.text, /Open Claude Code in VS Code/);
+});

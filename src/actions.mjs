@@ -88,7 +88,9 @@ export function tokensAction({ cwd, home, installed }) {
  * AI mode. Without consent it only says which AI would be asked and what would be sent.
  * With consent it asks that AI (no tools) and falls back to the rules answer if the reply is unusable.
  */
-export async function aiAction({ cwd, home, task, installed, consent = false, ask = askAi }) {
+export async function aiAction({ cwd, home, task, installed: detected, consent = false, ask = askAi }) {
+  // The AI may only pick tools that can start here, not one known only by its settings folder.
+  const installed = detected.filter(canStart);
   const rules = recommendAction({ cwd, home, task, installed });
   const runner = aiRunner(installed);
   if (!runner) {
@@ -281,7 +283,7 @@ export function handoffAction({ cwd, home, task: given = "", installed, leftOut:
   const { next, choices } = planNext({ root: info.root, task, chat, installed, leftOut, broken: problemsFor(home).map((p) => p.id), prefer, forcePrivate });
   const lines = [];
   if (chat) lines.push(`Read the ${chat.name} chat: "${chat.task.length > 70 ? `${chat.task.slice(0, 69)}…` : chat.task}" (${chat.requests} request${chat.requests === 1 ? "" : "s"}).`);
-  if (info.git) lines.push(`Wrote HANDOFF.md: ${info.changes.length} changed file(s), ${info.commits.length} commit(s) on ${info.branch}.`, "");
+  if (info.git) lines.push(`Wrote HANDOFF.md: ${info.changes.length} changed file(s), ${info.commits.length} ${info.base ? "" : "recent "}commit(s) on ${info.branch}.`, "");
   else if (chat) lines.push(`Wrote HANDOFF.md: ${info.changes.length} file(s) changed in the ${chat.name} chat (this folder has no git).`, "");
   else lines.push(`Wrote HANDOFF.md. This folder has no git and no AI chat was found for it${task ? "" : `, so say what you were doing: npx which-ai-to-use handoff "<task>"`}.`, "");
   if (leftOut.length) lines.push(`Left out: ${leftOut.map((id) => toolById(id).name).join(", ")} (limit over). Handing off from another AI? Add --without <tool>.`, "");

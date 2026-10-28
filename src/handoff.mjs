@@ -86,7 +86,8 @@ export function renderHandoff({ task, info, verify, date, chat = null, from = nu
   }
   if (repo) {
     lines.push(
-      "## Commits for this task",
+      // On a feature branch these are the branch's own commits; on main they are only the latest ones.
+      info.base ? "## Commits for this task" : `## Recent commits on ${info.branch} (not all may be for this task)`,
       "",
       ...(info.commits.length ? info.commits.map((subject) => `- ${subject}`) : ["None yet."]),
       "",

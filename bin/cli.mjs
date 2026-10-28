@@ -14,7 +14,7 @@ import { recordTask } from "../src/history.mjs";
 import { findEditors, hasGlobalCommand, installExtension, installGlobal } from "../src/setup.mjs";
 import { PREFERENCES, readTeam } from "../src/team.mjs";
 import { applySync, planSync } from "../src/sync.mjs";
-import { TOOLS, toolById } from "../src/tools.mjs";
+import { TOOLS, canStart, toolById } from "../src/tools.mjs";
 
 const version = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -312,7 +312,7 @@ async function main() {
   const command = typedTask ? "" : positionals[0];
   const context = { cwd: process.cwd(), home: os.homedir(), installed, prefer: values.prefer, private: values.private };
   const print = ({ text, data }) => process.stdout.write(values.json ? `${JSON.stringify(data, null, 2)}\n` : text);
-  const noAiFound = installed.length === 0 && skipped.length === 0;
+  const noAiFound = !installed.some(canStart) && skipped.length === 0;
   if (!command && !typedTask) {
     print(checkupAction(context));
     if (values.json || !process.stdin.isTTY) return undefined;
