@@ -14,6 +14,8 @@ Use your AI coding tools better. See what wastes your tokens, pick the right AI 
 
 *Real output on a demo project: checkup, fix, score, the limit warning with tips, a handoff that reads the chat, and your AI week.*
 
+▶ [Watch the 36-second handoff demo on YouTube](https://youtube.com/shorts/LCt2H7bFwLg)
+
 ## Start here
 
 Open a terminal in your project and run:
@@ -205,7 +207,7 @@ Next:    Antigravity CLI — terminal agent: edits many files and runs your comm
 Run:     agy -i "Read HANDOFF.md and continue the task."
 ```
 
-`HANDOFF.md` lists the task, the commits on the branch, every uncommitted file with its line counts, and the test command to run first. The next AI reads a short note instead of re-exploring the whole project. Don't commit it. No git in the folder? The note lists the files the AI changed in its chat instead.
+`HANDOFF.md` lists the task, the commits on the branch (on `main` without a branch: the latest commits, marked as recent), every uncommitted file with its line counts, and the test command to run first. The next AI reads a short note instead of re-exploring the whole project. Don't commit it. No git in the folder? The note lists the files the AI changed in its chat instead.
 
 In a terminal, handoff then asks who carries on: the recommended AI first (with the reason), the other AIs you have, a chat on the web (the note is copied for you, with the changes themselves, since a web chat cannot open your project), any other AI you name, or nothing for now. Handoff only lists AIs it finds on your laptop; if a better one is not installed, it shows it too, with its official install command, and installs it only if you say yes. Press Enter for the recommended one and it starts right there with the note. Skip the question with `--to antigravity-cli`, `--to web` or `--to none`. In the dashboard and the VS Code sidebar the same choices are buttons; in VS Code, **Run in terminal** starts the AI in a VS Code terminal.
 
@@ -219,7 +221,7 @@ Claude Code · Codex CLI · Antigravity CLI · Gemini CLI · Cursor · GitHub Co
 
 **Gemini CLI and a personal Google account:** Google stopped serving Gemini CLI to personal Google accounts (and Google AI Pro and Ultra) on 18 June 2026. If your Gemini CLI signs in that way, which-ai-to-use leaves it out, says so, and suggests Antigravity CLI (`agy`, Google's replacement, with a free tier) instead. Gemini CLI with a paid Gemini API key still counts.
 
-Tools are detected from commands on your `PATH`, their settings folders and VS Code/Cursor extensions. Nothing is sent over the network. `tokens` reads MCP config files (such as `~/.claude.json`) only for server names; keys and other values in them are never shown or stored.
+A tool counts as installed when its command is on your `PATH` or its VS Code/Cursor extension is installed (editor apps like Cursor and Windsurf also by their settings folder). A settings folder alone, like `~/.claude` left after an uninstall or `~/.gemini` (which Antigravity CLI uses too), shows up only in `doctor`. Nothing is sent over the network. `tokens` reads MCP config files (such as `~/.claude.json`) only for server names; keys and other values in them are never shown or stored.
 
 Capabilities in [`data/tools.json`](data/tools.json) describe features (terminal agent, inline edits, large context, local, free tier), not opinions about model quality, and carry an "as of" date.
 

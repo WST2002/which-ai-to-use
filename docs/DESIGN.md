@@ -36,7 +36,7 @@ Task: add two-factor login  →  multi-file feature
 
 Best:   Claude Code   — terminal agent: edits many files and runs your tests
 Also:   Codex CLI     — terminal agent: good second option or second opinion
-Free:   Gemini CLI    — free tier, terminal agent
+Free:   Antigravity CLI — free tier, terminal agent
 Private: not needed (no sensitive files detected)
 
 Run:    claude "add two-factor login"
@@ -101,16 +101,17 @@ detect tools ──► classify task ──► score tools ──► print recom
 
 | Tool | How it is detected |
 |---|---|
-| Claude Code | `claude` on PATH, or `~/.claude` |
-| Codex CLI | `codex` on PATH, or `~/.codex` |
-| Gemini CLI | `gemini` on PATH, or `~/.gemini` |
+| Claude Code | `claude` on PATH, or the VS Code extension `anthropic.claude-code` |
+| Codex CLI | `codex` on PATH, or the VS Code extension `openai.chatgpt` |
+| Antigravity CLI | `agy` on PATH |
+| Gemini CLI | `gemini` on PATH; left out with a warning when it signs in with a personal Google account (no longer served since 18 June 2026) |
 | Aider | `aider` on PATH |
 | Cursor | `cursor` or `cursor-agent` on PATH |
 | GitHub Copilot | VS Code extension `github.copilot` (`code --list-extensions`) or `gh copilot` |
 | Cline | VS Code extension `saoudrizwan.claude-dev` |
 | Ollama | `ollama` on PATH; installed models from `ollama list` |
 
-Detection only reads names and versions. It never reads credentials and never sends anything over the network.
+A settings folder alone (`~/.claude`, `~/.codex`, `~/.gemini`) does not count as installed: it may be left over after an uninstall, and `~/.gemini` is also where Antigravity CLI keeps its settings. `doctor` still lists it as found without a command. Detection only reads names and versions. It never reads credentials and never sends anything over the network.
 
 ### 4.2 Classifying the task
 

@@ -1,6 +1,6 @@
 ---
 name: which-ai-to-use
-description: Use when the user wants a quick check of how their AI coding tools are set up, asks which AI tool or coding agent to use for a task, wants to save tokens or usage, has hit a usage limit, has several AI tools (Claude Code, Codex, Gemini CLI, Copilot, Cursor, Aider, Ollama) and wants to pick one, wants a second opinion from a different AI, needs a free or private/local option, or wants CLAUDE.md, AGENTS.md, GEMINI.md and other AI rules files kept in sync.
+description: Use when the user wants a quick check of how their AI coding tools are set up, asks which AI tool or coding agent to use for a task, wants to save tokens or usage, has hit a usage limit, has several AI tools (Claude Code, Codex, Antigravity CLI, Gemini CLI, Copilot, Cursor, Aider, Ollama) and wants to pick one, wants a second opinion from a different AI, needs a free or private/local option, or wants CLAUDE.md, AGENTS.md, GEMINI.md and other AI rules files kept in sync.
 ---
 
 # Which AI to Use
