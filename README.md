@@ -4,6 +4,8 @@
 
 **Get it:** `npx which-ai-to-use` ([npm](https://www.npmjs.com/package/which-ai-to-use)) · VS Code: [Marketplace](https://marketplace.visualstudio.com/items?itemName=wst2002.which-ai-to-use) · Cursor and Windsurf: [Open VSX](https://open-vsx.org/extension/wst2002/which-ai-to-use) · Claude Code plugin: [limit-handoff](#claude-code-plugin-hand-off-the-moment-the-limit-hits)
 
+📖 You can also read the story behind it on dev.to: [Stuck when your AI hits its usage limit mid-task? I made a tool to switch AIs without losing context](https://dev.to/wst2002rk/how-i-switch-between-ai-coding-tools-mid-task-without-losing-context-codex-claude-code-gemini-37kf)
+
 **Not a developer?** Use the website: [wst2002.github.io/which-ai-to-use](https://wst2002.github.io/which-ai-to-use/) — type any task (an essay, a logo, slides, a song, research, studying from your notes) and get the best AI app, the free option and a ready prompt. English and हिंदी, free, no signup.
 
 Use your AI coding tools better. See what wastes your tokens, pick the right AI (and model) for each task, make Claude's limit last, hand a task to another AI when it runs out, and see your AI week.

@@ -46,7 +46,7 @@ Prefer the keyboard? Open the Command Palette (Ctrl+Shift+P / Cmd+Shift+P) and t
 
 Works with Claude Code, Codex, Antigravity CLI, Gemini CLI, Cursor, GitHub Copilot, Windsurf, Cline, Aider and Ollama. Nothing is sent anywhere unless you allow Ask my AI too.
 
-Same engine as the command-line tool: `npx which-ai-to-use` ([npm](https://www.npmjs.com/package/which-ai-to-use)). Also on [Open VSX](https://open-vsx.org/extension/wst2002/which-ai-to-use) for Cursor and Windsurf, and the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=wst2002.which-ai-to-use). Not a developer? Try the website: https://wst2002.github.io/which-ai-to-use/
+Same engine as the command-line tool: `npx which-ai-to-use` ([npm](https://www.npmjs.com/package/which-ai-to-use)). Also on [Open VSX](https://open-vsx.org/extension/wst2002/which-ai-to-use) for Cursor and Windsurf, and the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=wst2002.which-ai-to-use). Read the story behind it: [my dev.to article](https://dev.to/wst2002rk/how-i-switch-between-ai-coding-tools-mid-task-without-losing-context-codex-claude-code-gemini-37kf). Not a developer? Try the website: https://wst2002.github.io/which-ai-to-use/
 
 ---
 
