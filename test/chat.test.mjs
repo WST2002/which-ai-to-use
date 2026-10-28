@@ -239,3 +239,43 @@ test("the chat comes from the AI whose limit ran out, or else from the newest ch
   assert.equal(lastChat({ home: dir, cwd: project }).task, "Gemini: style the coupon field");
   assert.equal(lastChat({ home: home(t), cwd: project }), null);
 });
+
+test("corrections older than the latest requests are kept, the rest are not", (t) => {
+  const dir = home(t);
+  session(dir, "shop", project, [
+    ["user", "Add a coupon field to the cart"],
+    ["user", "Make the button blue"],
+    ["user", "No, not that file. Edit src/cart/Coupon.tsx"],
+    ["user", "Use pnpm instead of npm"],
+    ["user", "Now add the tests"],
+    ["user", "Don't touch the API folder"],
+    ["user", "Run them"],
+    ["user", "Push it"],
+  ]);
+  const chat = lastClaudeChat({ home: dir, cwd: project });
+  assert.deepEqual(chat.corrections, ["No, not that file. Edit src/cart/Coupon.tsx", "Use pnpm instead of npm"]);
+  assert.deepEqual(chat.recent, ["Don't touch the API folder", "Run them", "Push it"]);
+});
+
+test("only the newest three earlier corrections are kept, with secrets hidden", (t) => {
+  const dir = home(t);
+  session(dir, "shop", project, [
+    ["user", "Fix the login page"],
+    ["user", "No, the other form"],
+    ["user", "Never log the password"],
+    ["user", "Actually keep the old route"],
+    ["user", "Don’t commit token=abc123secret"],
+    ["user", "next"],
+    ["user", "next again"],
+    ["user", "done?"],
+  ]);
+  assert.deepEqual(lastClaudeChat({ home: dir, cwd: project }).corrections, ["Never log the password", "Actually keep the old route", "Don’t commit token=[hidden]"]);
+});
+
+test("a short chat has no earlier corrections", (t) => {
+  const dir = home(t);
+  session(dir, "shop", project, [["user", "Fix the cart"], ["user", "No, the other cart"], ["user", "Notes are fine"]]);
+  const chat = lastClaudeChat({ home: dir, cwd: project });
+  assert.deepEqual(chat.corrections, []);
+  assert.deepEqual(chat.recent, ["No, the other cart", "Notes are fine"]);
+});

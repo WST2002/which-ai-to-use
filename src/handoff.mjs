@@ -80,6 +80,7 @@ export function renderHandoff({ task, info, verify, date, chat = null, from = nu
   lines.push("");
   if (chat) {
     lines.push(`## From the ${chat.name} chat`, "", `First request: "${chat.task}"`);
+    if (chat.corrections?.length) lines.push("", "Earlier corrections (still apply unless a later request changed them):", ...chat.corrections.map((r) => `- "${r}"`));
     if (chat.recent.length) lines.push("", "Latest requests:", ...chat.recent.map((r) => `- "${r}"`));
     if (chat.lastReply) lines.push("", `Where ${chat.tool === "claude-code" ? "Claude" : chat.name} stopped: "${chat.lastReply}"`);
     lines.push("", `(Read from ${chat.name}'s chat log on this laptop; passwords and keys are hidden.)`, "");
