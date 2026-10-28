@@ -239,4 +239,4 @@ MIT © Wageesha Tripathi
 
 ---
 
-Made by **Wageesha Tripathi** · [LinkedIn](https://www.linkedin.com/in/wst2002/) · [Email](mailto:tripathiwageesha2002@gmail.com) · [GitHub](https://github.com/WST2002) · [YouTube](https://www.youtube.com/@wst2002rk)
+Made by **Wageesha Tripathi** · [YouTube](https://www.youtube.com/@wst2002rk) · [GitHub](https://github.com/WST2002) · [LinkedIn](https://www.linkedin.com/in/wst2002/) · [dev.to](https://dev.to/wst2002rk) · [Hashnode](https://wst2002rk.hashnode.dev) · [npm](https://www.npmjs.com/~wstrk2002) · [Portfolio](https://wst2002.github.io) · [Pinterest](https://www.pinterest.com/wst2002rk/) · [Email](mailto:tripathiwageesha2002@gmail.com)
