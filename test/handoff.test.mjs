@@ -162,3 +162,11 @@ test("on main, the latest commits are called recent commits, not commits for thi
   assert.doesNotMatch(data.note, /Commits for this task/);
   assert.match(text, /Wrote HANDOFF\.md: 0 changed file\(s\), 1 recent commit\(s\) on main\./);
 });
+
+test("earlier corrections go in the note above the latest requests, and only when there are some", () => {
+  const info = { branch: "main", commits: [], changes: [] };
+  const chat = { tool: "claude-code", name: "Claude Code", task: "add a coupon field", corrections: ["No, not that file. Edit src/cart/Coupon.tsx"], recent: ["Run the tests"], lastReply: "", requests: 6 };
+  const note = renderHandoff({ task: "", info, verify: null, date: "2026-10-28", chat });
+  assert.match(note, /Earlier corrections \(still apply unless a later request changed them\):\n- "No, not that file\. Edit src\/cart\/Coupon\.tsx"\n\nLatest requests:\n- "Run the tests"/);
+  assert.doesNotMatch(renderHandoff({ task: "", info, verify: null, date: "2026-10-28", chat: { ...chat, corrections: [] } }), /Earlier corrections/);
+});

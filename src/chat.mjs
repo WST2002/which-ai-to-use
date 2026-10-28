@@ -4,6 +4,9 @@ import path from "node:path";
 
 const MAX_TEXT = 600;
 const RECENT = 3;
+const CORRECTIONS = 3;
+// A request that corrects the AI or sets a rule ("no, the other file", "don't touch the API", "use pnpm instead").
+const CORRECTION = /^\s*(?:no|nope|not\s+(?:that|this|there|those|these)|wrong|that['’]?s\s+(?:not|wrong)|don['’]?t|do\s+not|never|always|actually|undo|revert)\b|\binstead\b/i;
 const MAX_FILES = 20;
 // Lines Claude Code writes as user turns that are not things the user asked for.
 const NOT_A_REQUEST = /^\s*(<(command-|local-command|system-reminder|bash-)|Caveat: |\[Request interrupted)/;
@@ -238,8 +241,8 @@ const SOURCES = {
 };
 
 /**
- * The latest chat for this project in one AI, from that AI's own log on this laptop: the first request, the latest
- * requests and the AI's last reply, shortened and with secrets hidden. Null when there is none.
+ * The latest chat for this project in one AI, from that AI's own log on this laptop: the first request, earlier
+ * corrections, the latest requests and the AI's last reply, shortened and with secrets hidden. Null when there is none.
  */
 function latest(tool, { home, cwd }) {
   const source = SOURCES[tool];
@@ -254,6 +257,8 @@ function latest(tool, { home, cwd }) {
       mtime,
       task: clip(chat.asked[0]),
       recent: chat.asked.slice(1).slice(-RECENT).map(clip),
+      // Corrections older than the latest requests would be lost otherwise; the newest few are kept.
+      corrections: chat.asked.slice(1, -RECENT).filter((t) => CORRECTION.test(t)).slice(-CORRECTIONS).map(clip),
       lastReply: chat.replies.length ? clip(chat.replies.at(-1)) : "",
       requests: chat.asked.length,
       edited: editedIn(chat.edited, cwd),
